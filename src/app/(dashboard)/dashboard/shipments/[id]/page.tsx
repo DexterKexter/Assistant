@@ -45,15 +45,11 @@ export default function ShipmentDetailPage() {
     { label: 'Загрузка', date: shipment.departure_date, icon: Package, done: !!shipment.departure_date },
     { label: 'В пути', date: shipment.departure_date, icon: Truck, done: !!shipment.arrival_date },
     { label: 'Транзит КЗ', date: shipment.arrival_date, icon: MapPin, done: !!shipment.arrival_date },
-    { label: 'Таможня', date: shipment.customs_date, icon: FileText, done: !!shipment.customs_date },
-    { label: 'В пути в РФ', date: shipment.release_date, icon: Truck, done: !!shipment.release_date },
     { label: 'Доставлен в РФ', date: shipment.delivery_date, icon: CheckCircle2, done: !!shipment.delivery_date || shipment.is_completed },
   ] : [
     { label: 'Загрузка', date: shipment.departure_date, icon: Package, done: !!shipment.departure_date },
     { label: 'В пути', date: shipment.departure_date, icon: Truck, done: !!shipment.arrival_date },
     { label: 'На границе КЗ', date: shipment.arrival_date, icon: MapPin, done: !!shipment.arrival_date },
-    { label: 'Таможня', date: shipment.customs_date, icon: FileText, done: !!shipment.customs_date },
-    { label: 'Выдача', date: shipment.release_date, icon: CheckCircle2, done: !!shipment.release_date },
     { label: 'Доставлен', date: shipment.delivery_date, icon: CheckCircle2, done: !!shipment.delivery_date || shipment.is_completed },
   ]
 
@@ -95,19 +91,15 @@ export default function ShipmentDetailPage() {
         )}
       </div>
 
-      {/* Progress bar */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-slate-700">Прогресс доставки</span>
-          <span className="text-sm font-bold text-slate-900">{progress}%</span>
-        </div>
-        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-1000 ease-out"
-            style={{ width: `${progress}%`, background: `linear-gradient(90deg, ${status.color}, ${status.color}cc)` }}
-          />
-        </div>
-      </div>
+      {/* Map — full width at top */}
+      <ShipmentMap
+        origin={shipment.origin}
+        border={shipment.destination_station}
+        destination={shipment.destination_city}
+        departureDate={shipment.departure_date}
+        arrivalDate={shipment.arrival_date}
+        deliveryDate={shipment.delivery_date}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left: Timeline */}
@@ -200,12 +192,6 @@ export default function ShipmentDetailPage() {
         </div>
       </div>
 
-      {/* Map — full width */}
-      <ShipmentMap
-        origin={shipment.origin}
-        border={shipment.destination_station}
-        destination={shipment.destination_city}
-      />
     </div>
   )
 }

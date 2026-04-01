@@ -177,3 +177,22 @@
   height: 6px;
   border-radius: 99px;
 }
+
+/* ---- Map Tooltip ---- */
+.map-tooltip {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+.map-tooltip::before {
+  border-top-color: #0f172a !important;
+}
+
+/* Block map interaction but allow tooltips */
+.shipment-map-container .leaflet-grab { cursor: default !important; }
+.shipment-map-container .leaflet-dragging .leaflet-grab { cursor: default !important; }

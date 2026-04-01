@@ -93,48 +93,90 @@ interface Props {
   origin: string | null
   border: string | null
   destination: string | null
+  departureDate?: string | null
+  arrivalDate?: string | null
+  deliveryDate?: string | null
 }
 
-export function ShipmentMap({ origin, border, destination }: Props) {
+export function ShipmentMap({ origin, border, destination, departureDate, arrivalDate, deliveryDate }: Props) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<L.Map | null>(null)
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return
 
-    const points: { coord: [number, number]; label: string; color: string }[] = []
+    const points: { coord: [number, number]; label: string; color: string; tooltip: string; hasDate: boolean }[] = []
     const originCoord = getCoord(origin)
     const borderCoord = getCoord(border)
     const destCoord = getCoord(destination)
 
-    if (originCoord) points.push({ coord: originCoord, label: origin || '', color: '#6366f1' })
-    if (borderCoord) points.push({ coord: borderCoord, label: border || '', color: '#f59e0b' })
-    if (destCoord) points.push({ coord: destCoord, label: destination || '', color: '#22c55e' })
+    const daysBetween = (from: string | null | undefined, to: string | null | undefined) => {
+      if (!from) return null
+      const end = to ? new Date(to) : new Date()
+      return Math.round((end.getTime() - new Date(from).getTime()) / 86400000)
+    }
+
+    // Пункт отправки: если нет даты доставки — сколько дней с отправки до сегодня
+    const originDays = departureDate && !deliveryDate ? daysBetween(departureDate, null) : departureDate && deliveryDate ? daysBetween(departureDate, deliveryDate) : null
+    const originDaysText = originDays !== null ? `<br/><span style="color:#93c5fd">${originDays}д ${deliveryDate ? 'всего' : 'в пути'}</span>` : ''
+
+    if (originCoord) points.push({
+      coord: originCoord, label: origin || '', color: '#6366f1',
+      tooltip: `<b>Загрузка</b><br/>${origin}${departureDate ? '<br/>' + departureDate : ''}${originDaysText}`,
+      hasDate: !!departureDate,
+    })
+
+    // Граница: с отправки до границы
+    const borderDays = arrivalDate && departureDate ? daysBetween(departureDate, arrivalDate) : null
+    const borderDaysText = borderDays !== null ? `<br/><span style="color:#fcd34d">${borderDays}д от загрузки</span>` : ''
+
+    if (borderCoord) points.push({
+      coord: borderCoord, label: border || '', color: arrivalDate ? '#f59e0b' : '#d1d5db',
+      tooltip: `<b>Граница</b><br/>${border}${arrivalDate ? '<br/>' + arrivalDate + borderDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>'}`,
+      hasDate: !!arrivalDate,
+    })
+
+    // Доставка: если дата есть — с границы до доставки, если нет — с границы до сегодня
+    const destDays = arrivalDate && deliveryDate ? daysBetween(arrivalDate, deliveryDate) : arrivalDate && !deliveryDate ? daysBetween(arrivalDate, null) : null
+    const destDaysText = destDays !== null ? `<br/><span style="color:${deliveryDate ? '#86efac' : '#fca5a5'}">${destDays}д ${deliveryDate ? 'от границы' : 'ожидание'}</span>` : ''
+
+    if (destCoord) points.push({
+      coord: destCoord, label: destination || '', color: deliveryDate ? '#22c55e' : '#d1d5db',
+      tooltip: `<b>Доставка</b><br/>${destination}${deliveryDate ? '<br/>' + deliveryDate + destDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>' + destDaysText}`,
+      hasDate: !!deliveryDate,
+    })
 
     if (points.length === 0) {
-      points.push({ coord: [43.2220, 76.8512], label: 'Алматы', color: '#94a3b8' })
+      points.push({ coord: [43.2220, 76.8512], label: 'Алматы', color: '#94a3b8', tooltip: 'Нет данных', hasDate: false })
     }
 
     const map = L.map(mapRef.current, {
-      zoomControl: false,
+      zoomControl: true,
       attributionControl: false,
+      dragging: true,
+      touchZoom: true,
+      doubleClickZoom: true,
+      scrollWheelZoom: true,
+      boxZoom: false,
+      keyboard: false,
     }).setView(points[0].coord, 4)
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
     }).addTo(map)
 
-    L.control.zoom({ position: 'topright' }).addTo(map)
-
     // Add markers
     points.forEach((p, i) => {
+      const borderStyle = p.hasDate ? `border:3px solid white` : `border:3px dashed ${p.color}`
+      const bgColor = p.hasDate ? p.color : p.color
+      const pulseRing = !p.hasDate ? `<div style="position:absolute;inset:-6px;border-radius:50%;border:2px solid ${p.color};opacity:0.3;animation:pulse-dot 2s infinite"></div>` : ''
       const icon = L.divIcon({
         className: '',
-        html: `<div style="width:28px;height:28px;border-radius:50%;background:${p.color};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;">${i + 1}</div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        html: `<div style="position:relative;width:24px;height:24px;border-radius:50%;background:${bgColor};${borderStyle};box-shadow:0 2px 8px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;cursor:pointer">${i + 1}${pulseRing}</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
       })
-      L.marker(p.coord, { icon }).addTo(map).bindTooltip(p.label, {
+      L.marker(p.coord, { icon, interactive: true }).addTo(map).bindTooltip(p.tooltip, {
         permanent: false,
         direction: 'top',
         offset: [0, -16],
@@ -142,20 +184,20 @@ export function ShipmentMap({ origin, border, destination }: Props) {
       })
     })
 
-    // Draw route line
+    // Draw route line and fit all points
+    const latlngs = points.map(p => p.coord)
     if (points.length > 1) {
-      const latlngs = points.map(p => p.coord)
       L.polyline(latlngs, {
         color: '#6366f1',
         weight: 2.5,
         opacity: 0.6,
         dashArray: '8, 8',
       }).addTo(map)
-
-      // Fit bounds
-      const bounds = L.latLngBounds(latlngs)
-      map.fitBounds(bounds, { padding: [40, 40] })
     }
+
+    // Always fit bounds to show all points
+    const bounds = L.latLngBounds(latlngs)
+    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 6 })
 
     mapInstance.current = map
 
@@ -167,25 +209,7 @@ export function ShipmentMap({ origin, border, destination }: Props) {
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-      <div ref={mapRef} style={{ height: 320, width: '100%' }} />
-      <div className="flex items-center gap-6 px-5 py-3 border-t border-slate-100">
-        <div className="flex items-center gap-2 text-[12px]">
-          <span className="w-3 h-3 rounded-full bg-indigo-500" />
-          <span className="text-slate-500">Отправка: <span className="text-slate-800 font-medium">{origin || '—'}</span></span>
-        </div>
-        {border && (
-          <div className="flex items-center gap-2 text-[12px]">
-            <span className="w-3 h-3 rounded-full bg-amber-500" />
-            <span className="text-slate-500">Граница: <span className="text-slate-800 font-medium">{border}</span></span>
-          </div>
-        )}
-        {destination && (
-          <div className="flex items-center gap-2 text-[12px]">
-            <span className="w-3 h-3 rounded-full bg-emerald-500" />
-            <span className="text-slate-500">Доставка: <span className="text-slate-800 font-medium">{destination}</span></span>
-          </div>
-        )}
-      </div>
+      <div ref={mapRef} style={{ height: 320, width: '100%', cursor: 'default' }} />
     </div>
   )
 }

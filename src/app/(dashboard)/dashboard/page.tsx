@@ -3,38 +3,29 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Ship, Users, TrendingUp, Package, ArrowRight, MapPin, ArrowUpRight, ArrowDownRight, Activity, Search } from 'lucide-react'
-import { getShipmentStatus, getShipmentProgress, type Shipment } from '@/types/database'
+import { Ship, Users, TrendingUp, Package, ArrowRight, ArrowUpRight, ArrowDownRight, MapPin, Truck, Clock, CheckCircle2, AlertCircle } from 'lucide-react'
+import { type Shipment } from '@/types/database'
+import dynamic from 'next/dynamic'
 
-function Hl({ text, q }: { text: string; q: string }) {
-  if (!q || !text) return <>{text}</>
-  const idx = text.toLowerCase().indexOf(q.toLowerCase())
-  if (idx === -1) return <>{text}</>
-  return <>{text.slice(0, idx)}<mark className="bg-yellow-200/80 text-inherit rounded-sm px-0.5">{text.slice(idx, idx + q.length)}</mark>{text.slice(idx + q.length)}</>
-}
+const DashboardMap = dynamic(() => import('@/components/dashboard-map').then(m => ({ default: m.DashboardMap })), { ssr: false })
 
 interface MonthStats {
   shipments: number
   inTransit: number
   delivered: number
   clients: number
+  onBorder: number
 }
 
 export default function DashboardPage() {
-  const [cur, setCur] = useState<MonthStats>({ shipments: 0, inTransit: 0, delivered: 0, clients: 0 })
-  const [prev, setPrev] = useState<MonthStats>({ shipments: 0, inTransit: 0, delivered: 0, clients: 0 })
-  const [recent, setRecent] = useState<Shipment[]>([])
+  const [cur, setCur] = useState<MonthStats>({ shipments: 0, inTransit: 0, delivered: 0, clients: 0, onBorder: 0 })
+  const [prev, setPrev] = useState<MonthStats>({ shipments: 0, inTransit: 0, delivered: 0, clients: 0, onBorder: 0 })
+  const [topCarriers, setTopCarriers] = useState<{ name: string; count: number }[]>([])
+  const [topRoutes, setTopRoutes] = useState<{ route: string; count: number }[]>([])
+  const [originCounts, setOriginCounts] = useState<{ name: string; count: number }[]>([])
+  const [recentActive, setRecentActive] = useState<Shipment[]>([])
   const [loading, setLoading] = useState(true)
-  const [tableSearch, setTableSearch] = useState('')
   const router = useRouter()
-  const supabaseRef = createClient()
-
-  const updateDate = async (id: string, field: 'arrival_date' | 'delivery_date', value: string) => {
-    const update: Record<string, string | boolean> = { [field]: value }
-    if (field === 'delivery_date' && value) update.is_completed = true
-    await supabaseRef.from('shipments').update(update).eq('id', id)
-    setRecent(prev => prev.map(s => s.id === id ? { ...s, [field]: value, ...(field === 'delivery_date' && value ? { is_completed: true } : {}) } : s))
-  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -44,20 +35,66 @@ export default function DashboardPage() {
     const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
 
     const fetchData = async () => {
-      const [cS, cT, cD, cC, pS, pT, pD, pC, { data: rd }] = await Promise.all([
+      const [cS, cT, cD, cC, pS, pT, pD, pC, { data: active }, { data: allShipments }] = await Promise.all([
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('departure_date', curStart),
-        supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('departure_date', curStart).is('delivery_date', null),
+        supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('departure_date', curStart).is('delivery_date', null).not('departure_date', 'is', null).is('arrival_date', null),
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('delivery_date', curStart),
         supabase.from('clients').select('*', { count: 'exact', head: true }).gte('created_at', curStart),
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('departure_date', prevStart).lte('departure_date', prevEnd),
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('departure_date', prevStart).lte('departure_date', prevEnd).is('delivery_date', null),
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('delivery_date', prevStart).lte('delivery_date', prevEnd),
         supabase.from('clients').select('*', { count: 'exact', head: true }).gte('created_at', prevStart).lte('created_at', prevEnd + 'T23:59:59'),
-        supabase.from('shipments').select('*, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)').order('departure_date', { ascending: false, nullsFirst: false }).limit(50),
+        // Active shipments (in transit, no delivery)
+        supabase.from('shipments').select('*, client:clients(name), carrier:carriers(name)').is('delivery_date', null).eq('is_completed', false).not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(6),
+        // All recent for analytics
+        supabase.from('shipments').select('carrier_id, origin, destination_city, destination_station, arrival_date, delivery_date, is_completed').not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(500),
       ])
-      setCur({ shipments: cS.count || 0, inTransit: cT.count || 0, delivered: cD.count || 0, clients: cC.count || 0 })
-      setPrev({ shipments: pS.count || 0, inTransit: pT.count || 0, delivered: pD.count || 0, clients: pC.count || 0 })
-      setRecent((rd as unknown as Shipment[]) || [])
+
+      // Count on border
+      const onBorder = (allShipments || []).filter(s => s.arrival_date && !s.delivery_date).length
+
+      setCur({ shipments: cS.count || 0, inTransit: cT.count || 0, delivered: cD.count || 0, clients: cC.count || 0, onBorder })
+      setPrev({ shipments: pS.count || 0, inTransit: pT.count || 0, delivered: pD.count || 0, clients: pC.count || 0, onBorder: 0 })
+      setRecentActive((active as unknown as Shipment[]) || [])
+
+      // Top carriers — only active (in transit, no delivery)
+      const carrierCounts: Record<string, number> = {}
+      const { data: carriers } = await supabase.from('carriers').select('id, name')
+      const carrierMap = Object.fromEntries((carriers || []).map(c => [c.id, c.name]))
+      ;(allShipments || []).filter(s => !s.delivery_date && !s.is_completed).forEach(s => {
+        if (s.carrier_id) carrierCounts[s.carrier_id] = (carrierCounts[s.carrier_id] || 0) + 1
+      })
+      setTopCarriers(
+        Object.entries(carrierCounts)
+          .map(([id, count]) => ({ name: carrierMap[id] || id, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5)
+      )
+
+      // Top routes
+      const routeCounts: Record<string, number> = {}
+      ;(allShipments || []).forEach(s => {
+        const route = `${s.origin || '?'} → ${s.destination_city || s.destination_station || '?'}`
+        routeCounts[route] = (routeCounts[route] || 0) + 1
+      })
+      setTopRoutes(
+        Object.entries(routeCounts)
+          .map(([route, count]) => ({ route, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5)
+      )
+
+      // Origin counts for map
+      const originCountsMap: Record<string, number> = {}
+      ;(allShipments || []).forEach(s => {
+        if (s.origin) originCountsMap[s.origin] = (originCountsMap[s.origin] || 0) + 1
+      })
+      setOriginCounts(
+        Object.entries(originCountsMap)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count)
+      )
+
       setLoading(false)
     }
     fetchData()
@@ -72,30 +109,25 @@ export default function DashboardPage() {
   const month = new Date().toLocaleString('ru-RU', { month: 'long' })
 
   const cards = [
-    { label: 'Перевозок', sub: 'за месяц', value: cur.shipments, prev: prev.shipments, icon: Ship, gradient: 'from-indigo-500 to-indigo-600' },
-    { label: 'В пути', sub: 'активных', value: cur.inTransit, prev: prev.inTransit, icon: Package, gradient: 'from-amber-500 to-orange-500' },
-    { label: 'Доставлено', sub: 'за месяц', value: cur.delivered, prev: prev.delivered, icon: TrendingUp, gradient: 'from-emerald-500 to-green-600' },
-    { label: 'Новые клиенты', sub: 'за месяц', value: cur.clients, prev: prev.clients, icon: Users, gradient: 'from-violet-500 to-purple-600' },
+    { label: 'Перевозок', value: cur.shipments, prev: prev.shipments, icon: Ship, gradient: 'from-indigo-500 to-indigo-600' },
+    { label: 'В пути', value: cur.inTransit, prev: prev.inTransit, icon: Truck, gradient: 'from-blue-500 to-blue-600' },
+    { label: 'На границе', value: cur.onBorder, prev: 0, icon: Clock, gradient: 'from-amber-500 to-orange-500' },
+    { label: 'Доставлено', value: cur.delivered, prev: prev.delivered, icon: CheckCircle2, gradient: 'from-emerald-500 to-green-600' },
   ]
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div>
         <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Обзор</h1>
         <p className="text-[13px] text-slate-400 mt-0.5 capitalize">{month} — текущий месяц</p>
       </div>
 
-      {/* Stats — Compact */}
+      {/* Stats */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {cards.map((card, i) => {
           const d = diff(card.value, card.prev)
           return (
-            <div
-              key={card.label}
-              className="animate-fade-up bg-white rounded-xl px-4 py-3.5 border border-slate-100 card-interactive"
-              style={{ animationDelay: `${i * 60}ms` }}
-            >
+            <div key={card.label} className="animate-fade-up bg-white rounded-xl px-4 py-3.5 border border-slate-100 card-interactive" style={{ animationDelay: `${i * 60}ms` }}>
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${card.gradient} flex items-center justify-center shrink-0`}>
                   <card.icon className="w-4 h-4 text-white" strokeWidth={2} />
@@ -105,11 +137,11 @@ export default function DashboardPage() {
                     <p className="text-[17px] font-bold text-slate-900 tracking-tight leading-none font-heading">
                       {loading ? <span className="skeleton inline-block w-10 h-6" /> : card.value.toLocaleString()}
                     </p>
-                    <span className={`badge-soft text-[10px] px-1.5 py-0.5 ${d.up ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
-                      {d.text}
-                    </span>
+                    {card.prev > 0 && (
+                      <span className={`badge-soft text-[10px] px-1.5 py-0.5 ${d.up ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>{d.text}</span>
+                    )}
                   </div>
-                  <p className="text-[12px] text-slate-400 mt-0.5">{card.label} <span className="text-slate-300">/ пр. {card.prev}</span></p>
+                  <p className="text-[12px] text-slate-400 mt-0.5">{card.label}</p>
                 </div>
               </div>
             </div>
@@ -117,135 +149,94 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Recent shipments */}
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden overflow-x-auto">
-        <div className="flex items-center justify-between px-5 py-3.5 gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Контейнер, клиент, маршрут..."
-              value={tableSearch}
-              onChange={(e) => setTableSearch(e.target.value)}
-              className="w-full h-8 rounded-lg bg-slate-50 border border-slate-200/60 pl-9 pr-3 text-[12px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all"
-            />
+      {/* Map */}
+      {!loading && originCounts.length > 0 && <DashboardMap origins={originCounts} />}
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Active shipments */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3.5">
+            <h2 className="text-[14px] font-semibold text-slate-900 font-heading">Активные перевозки</h2>
+            <button onClick={() => router.push('/dashboard/shipments')} className="flex items-center gap-1 text-[12px] text-indigo-500 hover:text-indigo-600 font-medium transition-colors">
+              Все <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={() => router.push('/dashboard/shipments')}
-            className="flex items-center gap-1.5 text-[12px] text-indigo-500 hover:text-indigo-600 font-medium transition-colors shrink-0"
-          >
-            Все перевозки <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          {loading ? (
+            <div className="px-5 pb-4 space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="skeleton h-12 w-full" />)}</div>
+          ) : recentActive.length === 0 ? (
+            <div className="px-5 pb-8 text-center text-slate-400 text-[13px]">Нет активных перевозок</div>
+          ) : (
+            <div>
+              {recentActive.map((s) => {
+                const days = s.departure_date ? Math.round((Date.now() - new Date(s.departure_date).getTime()) / 86400000) : 0
+                const hasArrival = !!s.arrival_date
+                return (
+                  <div key={s.id} className="flex items-center gap-4 px-5 py-2.5 border-t border-slate-50 cursor-pointer hover:bg-slate-50/40 transition-colors" onClick={() => router.push(`/dashboard/shipments/${s.id}`)}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${hasArrival ? 'bg-amber-50' : 'bg-indigo-50'}`}>
+                      {hasArrival ? <Clock className="w-4 h-4 text-amber-500" /> : <Truck className="w-4 h-4 text-indigo-500" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-slate-800">{s.container_number}</p>
+                      <p className="text-[11px] text-slate-400">{(s.client as unknown as { name: string })?.name || '—'} · {(s.carrier as unknown as { name: string })?.name || '—'}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[13px] font-bold text-slate-700">{days}д</p>
+                      <p className="text-[10px] text-slate-400">{hasArrival ? 'на границе' : 'в пути'}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Table */}
-        <table className="w-full min-w-[1100px]">
-          <thead>
-            <tr className="border-t border-b border-slate-100 bg-slate-50/60">
-              <th className="text-left px-5 py-2.5 text-[12px] font-semibold text-slate-500">Контейнер</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Загрузка</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Клиент</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Отправитель</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Перевозчик</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Сроки</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Статус</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Граница</th>
-              <th className="text-right px-5 py-2.5 text-[12px] font-semibold text-slate-500">Доставка</th>
-            </tr>
-          </thead>
-          <tbody>
-        {loading ? (
-          <tr><td colSpan={10} className="px-5 py-3"><div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="skeleton h-10 w-full" />)}</div></td></tr>
-        ) : recent.length === 0 ? (
-          <tr><td colSpan={10} className="px-5 py-12 text-center text-slate-400 text-[13px]">Нет перевозок</td></tr>
-        ) : (
-          <>
-            {recent.filter(s => {
-              if (!tableSearch) return true
-              const q = tableSearch.toLowerCase()
-              return (s.container_number || '').toLowerCase().includes(q) ||
-                ((s.client as unknown as { name: string })?.name || '').toLowerCase().includes(q) ||
-                (s.sender_name || '').toLowerCase().includes(q) ||
-                ((s.carrier as unknown as { name: string })?.name || '').toLowerCase().includes(q) ||
-                (s.origin || '').toLowerCase().includes(q) ||
-                (s.destination_city || '').toLowerCase().includes(q)
-            }).map((s, i) => {
-              const isRussia = (s.client as unknown as { name: string; is_russia?: boolean })?.is_russia || false
-              const getStatus = () => {
-                if (s.delivery_date || s.is_completed) return { label: 'Доставлен', color: '#22c55e', bg: '#f0fdf4' }
-                if (s.release_date) return { label: 'Выдан', color: '#22c55e', bg: '#f0fdf4' }
-                if (s.customs_date) return { label: 'Таможня', color: '#d97706', bg: '#fffbeb' }
-                if (s.arrival_date) {
-                  if (isRussia) return { label: 'Транзит КЗ', color: '#d97706', bg: '#fffbeb' }
-                  return { label: 'На границе', color: '#d97706', bg: '#fffbeb' }
-                }
-                if (s.departure_date) return { label: 'В пути', color: '#6366f1', bg: '#eef2ff' }
-                return { label: 'Загрузка', color: '#94a3b8', bg: '#f8fafc' }
-              }
-              const status = getStatus()
+        {/* Right column */}
+        <div className="space-y-4">
+          {/* Top carriers */}
+          <div className="bg-white rounded-xl border border-slate-100 p-5">
+            <h2 className="text-[14px] font-semibold text-slate-900 font-heading mb-3">Перевозчики в пути</h2>
+            {loading ? (
+              <div className="space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="skeleton h-6 w-full" />)}</div>
+            ) : (
+              <div className="space-y-2.5">
+                {topCarriers.map((c, i) => {
+                  const max = topCarriers[0]?.count || 1
+                  return (
+                    <div key={c.name}>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-[12px] text-slate-600 truncate">{c.name}</p>
+                        <p className="text-[12px] font-semibold text-slate-800">{c.count}</p>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${(c.count / max) * 100}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
-              const calcDays = () => {
-                if (s.arrival_date && s.delivery_date) {
-                  const d = Math.round((new Date(s.delivery_date).getTime() - new Date(s.arrival_date).getTime()) / 86400000)
-                  return `${d}д`
-                }
-                if (s.arrival_date && s.departure_date) {
-                  const d = Math.round((new Date(s.arrival_date).getTime() - new Date(s.departure_date).getTime()) / 86400000)
-                  return `${d}д`
-                }
-                if (s.departure_date) {
-                  const d = Math.round((Date.now() - new Date(s.departure_date).getTime()) / 86400000)
-                  return `${d}д`
-                }
-                return '—'
-              }
-
-              return (
-                <tr
-                  key={s.id}
-                  className="border-b border-slate-100 last:border-0 cursor-pointer hover:bg-slate-50/60 transition-colors"
-                  onClick={() => router.push(`/dashboard/shipments/${s.id}`)}
-                >
-                  <td className="px-5 py-2">
-                    <p className="text-[13px] font-semibold text-slate-900"><Hl text={s.container_number || '—'} q={tableSearch} /></p>
-                    <p className="text-[11px] text-slate-400">{s.container_size ? `${s.container_size}ft` : ''} {s.container_type || ''}</p>
-                  </td>
-                  <td className="px-3 py-2 text-[13px] text-slate-500 whitespace-nowrap">{s.departure_date || '—'}</td>
-                  <td className="px-3 py-2 text-[13px] text-slate-600 max-w-[140px] truncate"><Hl text={(s.client as unknown as { name: string })?.name || '—'} q={tableSearch} /></td>
-                  <td className="px-3 py-2 text-[13px] text-slate-500 max-w-[120px] truncate"><Hl text={s.sender_name || '—'} q={tableSearch} /></td>
-                  <td className="px-3 py-2 text-[13px] text-slate-500 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={tableSearch} /></td>
-                  <td className="px-3 py-2 text-[13px] font-medium text-slate-700">{calcDays()}</td>
-                  <td className="px-3 py-2">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: status.bg, color: status.color }}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${status.label === 'В пути' ? 'dot-pulse' : ''}`} style={{ background: status.color }} />
-                      {status.label}
-                    </span>
-                  </td>
-                  <td className="px-3 py-1">
-                    <input
-                      type="date"
-                      value={s.arrival_date || ''}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => { e.stopPropagation(); updateDate(s.id, 'arrival_date', e.target.value) }}
-                      className="h-7 w-[110px] rounded-md border border-slate-200 bg-white px-1.5 text-[11px] text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300"
-                    />
-                  </td>
-                  <td className="px-3 py-1">
-                    <input
-                      type="date"
-                      value={s.delivery_date || ''}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => { e.stopPropagation(); updateDate(s.id, 'delivery_date', e.target.value) }}
-                      className="h-7 w-[110px] rounded-md border border-slate-200 bg-white px-1.5 text-[11px] text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300"
-                    />
-                  </td>
-                </tr>
-              )
-            })}
-          </>
-        )}
-          </tbody>
-        </table>
+          {/* Top routes */}
+          <div className="bg-white rounded-xl border border-slate-100 p-5">
+            <h2 className="text-[14px] font-semibold text-slate-900 font-heading mb-3">Популярные маршруты</h2>
+            {loading ? (
+              <div className="space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="skeleton h-6 w-full" />)}</div>
+            ) : (
+              <div className="space-y-2">
+                {topRoutes.map((r) => (
+                  <div key={r.route} className="flex items-center justify-between py-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <MapPin className="w-3 h-3 text-slate-300 shrink-0" />
+                      <p className="text-[12px] text-slate-600 truncate">{r.route}</p>
+                    </div>
+                    <span className="text-[12px] font-semibold text-slate-800 shrink-0 ml-2">{r.count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
