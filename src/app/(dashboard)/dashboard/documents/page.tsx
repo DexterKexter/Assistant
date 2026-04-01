@@ -11,31 +11,31 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, FileText } from 'lucide-react'
-import { DOC_TYPE_LABELS, type Document, type Client, type Container, type DocumentType } from '@/types/database'
+import { DOC_TYPE_LABELS, type Document, type Shipment, type Client, type DocumentType } from '@/types/database'
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [clients, setClients] = useState<Pick<Client, 'id' | 'name'>[]>([])
-  const [containers, setContainers] = useState<Pick<Container, 'id' | 'container_number'>[]>([])
+  const [shipments, setShipments] = useState<Pick<Shipment, 'id' | 'container_number'>[]>([])
   const [typeFilter, setTypeFilter] = useState('all')
   const [addOpen, setAddOpen] = useState(false)
   const [form, setForm] = useState({
-    title: '', type: 'other' as string, client_id: '', container_id: '', file_name: '', file_url: '',
+    title: '', type: 'other' as string, client_id: '', shipment_id: '', file_name: '', file_url: '',
   })
 
   const supabase = createClient()
 
   const fetchData = async () => {
-    let query = supabase.from('documents').select('*, client:clients(name), container:containers(container_number)').order('created_at', { ascending: false })
+    let query = supabase.from('documents').select('*, client:clients(name), container:shipments(container_number)').order('created_at', { ascending: false })
     if (typeFilter !== 'all') query = query.eq('type', typeFilter)
     const [{ data: d }, { data: c }, { data: cont }] = await Promise.all([
       query,
       supabase.from('clients').select('id, name').order('name'),
-      supabase.from('containers').select('id, container_number').order('container_number'),
+      supabase.from('shipments').select('id, container_number').order('container_number'),
     ])
     setDocuments((d as unknown as Document[]) || [])
     setClients(c || [])
-    setContainers(cont || [])
+    setShipments(cont || [])
   }
 
   useEffect(() => { fetchData() }, [typeFilter])
@@ -45,11 +45,11 @@ export default function DocumentsPage() {
     await supabase.from('documents').insert({
       ...form,
       client_id: form.client_id || null,
-      container_id: form.container_id || null,
+      shipment_id: form.shipment_id || null,
       file_url: form.file_url || null,
       file_name: form.file_name || null,
     })
-    setForm({ title: '', type: 'other', client_id: '', container_id: '', file_name: '', file_url: '' })
+    setForm({ title: '', type: 'other', client_id: '', shipment_id: '', file_name: '', file_url: '' })
     setAddOpen(false)
     fetchData()
   }
@@ -77,9 +77,9 @@ export default function DocumentsPage() {
                 </Select>
               </div>
               <div><Label>Контейнер</Label>
-                <Select value={form.container_id} onValueChange={(v: string | null) => v && setForm({ ...form, container_id: v })}>
+                <Select value={form.shipment_id} onValueChange={(v: string | null) => v && setForm({ ...form, shipment_id: v })}>
                   <SelectTrigger><SelectValue placeholder="Выберите" /></SelectTrigger>
-                  <SelectContent>{containers.map((c) => <SelectItem key={c.id} value={c.id}>{c.container_number}</SelectItem>)}</SelectContent>
+                  <SelectContent>{shipments.map((c) => <SelectItem key={c.id} value={c.id}>{c.container_number}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div><Label>Имя файла</Label><Input value={form.file_name} onChange={(e) => setForm({ ...form, file_name: e.target.value })} placeholder="document.pdf" /></div>
@@ -118,9 +118,9 @@ export default function DocumentsPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell><Badge variant="secondary">{DOC_TYPE_LABELS[d.type]}</Badge></TableCell>
+                    <TableCell><Badge variant="secondary">{DOC_TYPE_LABELS[d.type as keyof typeof DOC_TYPE_LABELS] || d.type}</Badge></TableCell>
                     <TableCell>{(d.client as unknown as { name: string })?.name || '—'}</TableCell>
-                    <TableCell>{(d.container as unknown as { container_number: string })?.container_number || '—'}</TableCell>
+                    <TableCell>{(d.shipment as unknown as { container_number: string })?.container_number || '—'}</TableCell>
                     <TableCell>{new Date(d.created_at).toLocaleDateString('ru-RU')}</TableCell>
                   </TableRow>
                 ))}

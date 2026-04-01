@@ -1,6 +1,4 @@
 export type UserRole = 'admin' | 'manager' | 'client'
-export type ContainerStatus = 'loading' | 'in_transit' | 'customs' | 'delivered'
-export type ContainerType = '20ft' | '40ft' | '40ft_hc'
 export type TransactionType = 'income' | 'expense'
 export type DocumentType = 'invoice' | 'bill_of_lading' | 'customs_declaration' | 'contract' | 'other'
 
@@ -14,45 +12,78 @@ export interface Profile {
   updated_at: string
 }
 
+export interface Carrier {
+  id: string
+  glide_row_id: string | null
+  name: string
+  created_at: string
+}
+
+export interface Sender {
+  id: string
+  glide_row_id: string | null
+  name: string
+  created_at: string
+}
+
+export interface Recipient {
+  id: string
+  glide_row_id: string | null
+  name: string
+  created_at: string
+}
+
 export interface Client {
   id: string
+  glide_row_id: string | null
   name: string
-  company: string | null
-  phone: string | null
-  email: string | null
+  is_russia: boolean
   address: string | null
-  contact_person: string | null
-  notes: string | null
+  phone: string | null
   created_at: string
   updated_at: string
 }
 
-export interface Container {
+export interface Shipment {
   id: string
-  container_number: string
-  type: ContainerType
-  status: ContainerStatus
+  glide_row_id: string | null
+  recipient_id: string | null
+  client_id: string | null
+  sender_id: string | null
+  carrier_id: string | null
+  container_number: string | null
+  container_size: number | null
+  container_type: string | null
+  cargo_description: string | null
   origin: string | null
-  destination: string | null
+  destination_station: string | null
+  destination_city: string | null
   departure_date: string | null
   arrival_date: string | null
-  estimated_arrival: string | null
-  client_id: string | null
+  delivery_date: string | null
+  customs_date: string | null
+  release_date: string | null
+  delivery_cost: number | null
+  price: number | null
+  invoice_amount: number | null
+  client_payment: number | null
+  customs_cost: number | null
+  weight_tons: number | null
+  days_count: number | null
+  additional_cost: number | null
+  is_completed: boolean
+  excel_files: string[] | null
+  photos: string[] | null
+  contract_pdf: string | null
+  email: string | null
   notes: string | null
   created_at: string
   updated_at: string
+  // Joined
+  recipient?: Recipient
   client?: Client
-}
-
-export interface ContainerItem {
-  id: string
-  container_id: string
-  description: string
-  quantity: number
-  weight: number | null
-  volume: number | null
-  value: number | null
-  created_at: string
+  sender?: Sender
+  carrier?: Carrier
 }
 
 export interface Transaction {
@@ -63,39 +94,44 @@ export interface Transaction {
   description: string | null
   category: string | null
   client_id: string | null
-  container_id: string | null
+  shipment_id: string | null
   date: string
   created_at: string
   client?: Client
-  container?: Container
+  shipment?: Shipment
 }
 
 export interface Document {
   id: string
   title: string
-  type: DocumentType
+  type: string
   file_url: string | null
   file_name: string | null
   client_id: string | null
-  container_id: string | null
+  shipment_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
   client?: Client
-  container?: Container
+  shipment?: Shipment
 }
 
-export const STATUS_LABELS: Record<ContainerStatus, string> = {
-  loading: 'Загрузка',
-  in_transit: 'В пути',
-  customs: 'Таможня',
-  delivered: 'Доставлен',
+export function getShipmentStatus(s: Shipment): { key: string; label: string; color: string } {
+  if (s.is_completed || s.delivery_date) return { key: 'delivered', label: 'Доставлен', color: '#22c55e' }
+  if (s.release_date) return { key: 'released', label: 'Выдан', color: '#22c55e' }
+  if (s.customs_date) return { key: 'customs', label: 'Таможня', color: '#f59e0b' }
+  if (s.arrival_date) return { key: 'arrived', label: 'Прибыл', color: '#3b82f6' }
+  if (s.departure_date) return { key: 'in_transit', label: 'В пути', color: '#3b82f6' }
+  return { key: 'loading', label: 'Загрузка', color: '#94a3b8' }
 }
 
-export const TYPE_LABELS: Record<ContainerType, string> = {
-  '20ft': '20 футов',
-  '40ft': '40 футов',
-  '40ft_hc': '40 футов HC',
+export function getShipmentProgress(s: Shipment): number {
+  if (s.is_completed || s.delivery_date) return 100
+  if (s.release_date) return 90
+  if (s.customs_date) return 70
+  if (s.arrival_date) return 50
+  if (s.departure_date) return 25
+  return 5
 }
 
 export const DOC_TYPE_LABELS: Record<DocumentType, string> = {
@@ -107,11 +143,6 @@ export const DOC_TYPE_LABELS: Record<DocumentType, string> = {
 }
 
 export const TRANSACTION_CATEGORIES = [
-  'Доставка',
-  'Таможня',
-  'Хранение',
-  'Страхование',
-  'Погрузка/разгрузка',
-  'Оплата от клиента',
-  'Прочее',
+  'Доставка', 'Таможня', 'Хранение', 'Страхование',
+  'Погрузка/разгрузка', 'Оплата от клиента', 'Прочее',
 ]

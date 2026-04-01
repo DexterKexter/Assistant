@@ -11,17 +11,17 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, TrendingUp, TrendingDown, DollarSign } from 'lucide-react'
-import { TRANSACTION_CATEGORIES, type Transaction, type Client, type Container } from '@/types/database'
+import { TRANSACTION_CATEGORIES, type Transaction, type Client, type Shipment } from '@/types/database'
 
 export default function FinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [clients, setClients] = useState<Pick<Client, 'id' | 'name'>[]>([])
-  const [containers, setContainers] = useState<Pick<Container, 'id' | 'container_number'>[]>([])
+  const [shipments, setShipments] = useState<Pick<Shipment, 'id' | 'container_number'>[]>([])
   const [filter, setFilter] = useState('all')
   const [addOpen, setAddOpen] = useState(false)
   const [form, setForm] = useState({
     type: 'income' as string, amount: '', currency: 'USD', description: '',
-    category: '', client_id: '', container_id: '', date: new Date().toISOString().split('T')[0],
+    category: '', client_id: '', shipment_id: '', date: new Date().toISOString().split('T')[0],
   })
 
   const supabase = createClient()
@@ -32,11 +32,11 @@ export default function FinancePage() {
     const [{ data: t }, { data: c }, { data: cont }] = await Promise.all([
       query,
       supabase.from('clients').select('id, name').order('name'),
-      supabase.from('containers').select('id, container_number').order('container_number'),
+      supabase.from('shipments').select('id, container_number').order('container_number'),
     ])
     setTransactions((t as unknown as Transaction[]) || [])
     setClients(c || [])
-    setContainers(cont || [])
+    setShipments(cont || [])
   }
 
   useEffect(() => { fetchData() }, [filter])
@@ -51,9 +51,9 @@ export default function FinancePage() {
       ...form,
       amount: parseFloat(form.amount),
       client_id: form.client_id || null,
-      container_id: form.container_id || null,
+      shipment_id: form.shipment_id || null,
     })
-    setForm({ type: 'income', amount: '', currency: 'USD', description: '', category: '', client_id: '', container_id: '', date: new Date().toISOString().split('T')[0] })
+    setForm({ type: 'income', amount: '', currency: 'USD', description: '', category: '', client_id: '', shipment_id: '', date: new Date().toISOString().split('T')[0] })
     setAddOpen(false)
     fetchData()
   }
@@ -96,9 +96,9 @@ export default function FinancePage() {
                 </Select>
               </div>
               <div><Label>Контейнер</Label>
-                <Select value={form.container_id} onValueChange={(v: string | null) => v && setForm({ ...form, container_id: v })}>
+                <Select value={form.shipment_id} onValueChange={(v: string | null) => v && setForm({ ...form, shipment_id: v })}>
                   <SelectTrigger><SelectValue placeholder="Выберите" /></SelectTrigger>
-                  <SelectContent>{containers.map((c) => <SelectItem key={c.id} value={c.id}>{c.container_number}</SelectItem>)}</SelectContent>
+                  <SelectContent>{shipments.map((c) => <SelectItem key={c.id} value={c.id}>{c.container_number}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div><Label>Дата</Label><Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>

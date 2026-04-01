@@ -5,20 +5,20 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   LayoutDashboard,
-  Container,
+  Ship,
   Users,
   DollarSign,
   FileText,
   LogOut,
-  Package,
+  Building2,
+  UserCircle,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard', label: 'Обзор', icon: LayoutDashboard },
-  { href: '/dashboard/containers', label: 'Контейнеры', icon: Container },
+  { href: '/dashboard/shipments', label: 'Перевозки', icon: Ship },
   { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
   { href: '/dashboard/finance', label: 'Финансы', icon: DollarSign },
   { href: '/dashboard/documents', label: 'Документы', icon: FileText },
@@ -36,49 +36,53 @@ export function Sidebar() {
   }
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r bg-white dark:bg-neutral-950">
-      <div className="flex h-16 items-center gap-3 border-b px-6">
-        <div className="w-8 h-8 bg-neutral-900 dark:bg-neutral-100 rounded-lg flex items-center justify-center">
-          <Package className="w-4 h-4 text-white dark:text-neutral-900" />
+    <div className="flex h-screen w-[240px] flex-col bg-[#0f172a] text-slate-400">
+      {/* Logo */}
+      <div className="flex h-16 items-center gap-3 px-5">
+        <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
+          <Ship className="w-5 h-5 text-white" />
         </div>
-        <span className="font-semibold text-lg">Логистика</span>
+        <div>
+          <span className="font-semibold text-[15px] text-white tracking-tight">Logistics</span>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest">Dashboard</p>
+        </div>
       </div>
 
-      <ScrollArea className="flex-1 px-3 py-4">
-        <nav className="space-y-1">
-          {navItems.map((item) => {
-            const isActive =
-              item.href === '/dashboard'
-                ? pathname === '/dashboard'
-                : pathname.startsWith(item.href)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100'
-                    : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-neutral-100'
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
-      </ScrollArea>
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-6 space-y-1">
+        <p className="text-[10px] uppercase tracking-widest text-slate-600 px-3 mb-3 font-medium">Меню</p>
+        {navItems.map((item) => {
+          const isActive =
+            item.href === '/dashboard'
+              ? pathname === '/dashboard'
+              : pathname.startsWith(item.href)
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200',
+                isActive
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+              )}
+            >
+              <item.icon className="h-[18px] w-[18px]" />
+              {item.label}
+            </Link>
+          )
+        })}
+      </nav>
 
-      <div className="border-t p-3">
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-3 text-neutral-500"
+      {/* Bottom */}
+      <div className="px-3 pb-4">
+        <button
           onClick={handleLogout}
+          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] w-full text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 transition-all duration-200"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-[18px] w-[18px]" />
           Выйти
-        </Button>
+        </button>
       </div>
     </div>
   )

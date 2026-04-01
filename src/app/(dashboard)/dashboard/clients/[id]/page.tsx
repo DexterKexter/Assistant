@@ -10,12 +10,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ArrowLeft } from 'lucide-react'
-import { STATUS_LABELS, DOC_TYPE_LABELS, type Client, type Container, type Transaction, type Document } from '@/types/database'
+import { DOC_TYPE_LABELS, type Client, type Shipment, type Transaction, type Document } from '@/types/database'
 
 export default function ClientDetailPage() {
   const { id } = useParams()
   const [client, setClient] = useState<Client | null>(null)
-  const [containers, setContainers] = useState<Container[]>([])
+  const [shipments, setShipments] = useState<Shipment[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
 
@@ -24,12 +24,12 @@ export default function ClientDetailPage() {
     const fetch = async () => {
       const [{ data: c }, { data: cont }, { data: trans }, { data: docs }] = await Promise.all([
         supabase.from('clients').select('*').eq('id', id).single(),
-        supabase.from('containers').select('*').eq('client_id', id).order('created_at', { ascending: false }),
+        supabase.from('shipments').select('*').eq('client_id', id).order('created_at', { ascending: false }),
         supabase.from('transactions').select('*').eq('client_id', id).order('date', { ascending: false }),
         supabase.from('documents').select('*').eq('client_id', id).order('created_at', { ascending: false }),
       ])
       setClient(c)
-      setContainers(cont || [])
+      setShipments(cont || [])
       setTransactions(trans || [])
       setDocuments(docs || [])
     }
@@ -48,35 +48,32 @@ export default function ClientDetailPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            <div><span className="text-muted-foreground">Компания:</span> {client.company || '—'}</div>
             <div><span className="text-muted-foreground">Телефон:</span> {client.phone || '—'}</div>
-            <div><span className="text-muted-foreground">Email:</span> {client.email || '—'}</div>
             <div><span className="text-muted-foreground">Адрес:</span> {client.address || '—'}</div>
-            <div><span className="text-muted-foreground">Контакт:</span> {client.contact_person || '—'}</div>
+            <div><span className="text-muted-foreground">Россия:</span> {client.is_russia ? 'Да 🇷🇺' : 'Нет'}</div>
           </div>
-          {client.notes && <p className="text-sm text-muted-foreground mt-3">{client.notes}</p>}
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="containers">
+      <Tabs defaultValue="shipments">
         <TabsList>
-          <TabsTrigger value="containers">Контейнеры ({containers.length})</TabsTrigger>
+          <TabsTrigger value="shipments">Контейнеры ({shipments.length})</TabsTrigger>
           <TabsTrigger value="finance">Финансы ({transactions.length})</TabsTrigger>
           <TabsTrigger value="documents">Документы ({documents.length})</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="containers">
+        <TabsContent value="shipments">
           <Card>
             <CardContent className="pt-6">
-              {containers.length === 0 ? <p className="text-sm text-muted-foreground">Нет контейнеров</p> : (
+              {shipments.length === 0 ? <p className="text-sm text-muted-foreground">Нет контейнеров</p> : (
                 <Table>
                   <TableHeader><TableRow><TableHead>Номер</TableHead><TableHead>Статус</TableHead><TableHead>Маршрут</TableHead><TableHead>Дата</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {containers.map((c) => (
+                    {shipments.map((c) => (
                       <TableRow key={c.id}>
                         <TableCell className="font-medium">{c.container_number}</TableCell>
-                        <TableCell><Badge>{STATUS_LABELS[c.status]}</Badge></TableCell>
-                        <TableCell>{c.origin} → {c.destination}</TableCell>
+                        <TableCell><Badge>{'—'}</Badge></TableCell>
+                        <TableCell>{c.origin} → {c.destination_city}</TableCell>
                         <TableCell>{c.departure_date || '—'}</TableCell>
                       </TableRow>
                     ))}
@@ -119,7 +116,7 @@ export default function ClientDetailPage() {
                     {documents.map((d) => (
                       <TableRow key={d.id}>
                         <TableCell className="font-medium">{d.title}</TableCell>
-                        <TableCell><Badge variant="secondary">{DOC_TYPE_LABELS[d.type]}</Badge></TableCell>
+                        <TableCell><Badge variant="secondary">{d.type}</Badge></TableCell>
                         <TableCell>{new Date(d.created_at).toLocaleDateString('ru-RU')}</TableCell>
                       </TableRow>
                     ))}
