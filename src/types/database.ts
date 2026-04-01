@@ -76,6 +76,7 @@ export interface Shipment {
   photos: string[] | null
   contract_pdf: string | null
   email: string | null
+  sender_name: string | null
   notes: string | null
   created_at: string
   updated_at: string

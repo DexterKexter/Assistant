@@ -9,6 +9,9 @@ import {
   FileText, Image as ImageIcon, Download, Truck, Clock, CheckCircle2, Circle,
 } from 'lucide-react'
 import { getShipmentStatus, getShipmentProgress, type Shipment } from '@/types/database'
+import dynamic from 'next/dynamic'
+
+const ShipmentMap = dynamic(() => import('@/components/shipment-map').then(m => ({ default: m.ShipmentMap })), { ssr: false })
 
 export default function ShipmentDetailPage() {
   const { id } = useParams()
@@ -176,19 +179,19 @@ export default function ShipmentDetailPage() {
 
           {/* Files */}
           {(shipment.photos?.length || shipment.excel_files?.length) && (
-            <div className="bg-white rounded-2xl border border-slate-100 p-6">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Файлы</h3>
-              <div className="flex flex-wrap gap-3">
+            <div className="bg-white rounded-2xl border border-slate-100 p-5">
+              <h3 className="text-sm font-semibold text-slate-900 mb-3">Файлы</h3>
+              <div className="flex flex-wrap gap-2">
                 {shipment.photos?.map((url, i) => (
                   <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-100">
-                    <ImageIcon className="w-4 h-4" /> Фото {i + 1}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg text-[12px] text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-100">
+                    <ImageIcon className="w-3.5 h-3.5" /> Фото {i + 1}
                   </a>
                 ))}
                 {shipment.excel_files?.map((url, i) => (
                   <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-sm text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 transition-colors border border-slate-100">
-                    <Download className="w-4 h-4" /> Excel {i + 1}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg text-[12px] text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 transition-colors border border-slate-100">
+                    <Download className="w-3.5 h-3.5" /> Excel {i + 1}
                   </a>
                 ))}
               </div>
@@ -196,6 +199,13 @@ export default function ShipmentDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Map — full width */}
+      <ShipmentMap
+        origin={shipment.origin}
+        border={shipment.destination_station}
+        destination={shipment.destination_city}
+      />
     </div>
   )
 }
