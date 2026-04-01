@@ -116,12 +116,15 @@ export interface Document {
   shipment?: Shipment
 }
 
-export function getShipmentStatus(s: Shipment): { key: string; label: string; color: string } {
+export function getShipmentStatus(s: Shipment, isRussia?: boolean): { key: string; label: string; color: string } {
   if (s.is_completed || s.delivery_date) return { key: 'delivered', label: 'Доставлен', color: '#22c55e' }
   if (s.release_date) return { key: 'released', label: 'Выдан', color: '#22c55e' }
   if (s.customs_date) return { key: 'customs', label: 'Таможня', color: '#f59e0b' }
-  if (s.arrival_date) return { key: 'arrived', label: 'Прибыл', color: '#3b82f6' }
-  if (s.departure_date) return { key: 'in_transit', label: 'В пути', color: '#3b82f6' }
+  if (s.arrival_date) {
+    if (isRussia) return { key: 'transit_kz', label: 'Транзит КЗ', color: '#f59e0b' }
+    return { key: 'border', label: 'На границе', color: '#f59e0b' }
+  }
+  if (s.departure_date) return { key: 'in_transit', label: 'В пути', color: '#6366f1' }
   return { key: 'loading', label: 'Загрузка', color: '#94a3b8' }
 }
 

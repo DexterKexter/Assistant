@@ -4,24 +4,32 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import {
-  LayoutDashboard,
+  LayoutGrid,
   Ship,
   Users,
-  DollarSign,
+  Wallet,
   FileText,
   LogOut,
-  Building2,
-  UserCircle,
+  ChevronLeft,
+  Truck,
+  Clock,
+  CheckCircle2,
+  Snowflake,
 } from 'lucide-react'
 
-const navItems = [
-  { href: '/dashboard', label: 'Обзор', icon: LayoutDashboard },
+const coreItems = [
+  { href: '/dashboard', label: 'Обзор', icon: LayoutGrid },
   { href: '/dashboard/shipments', label: 'Перевозки', icon: Ship },
   { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
-  { href: '/dashboard/finance', label: 'Финансы', icon: DollarSign },
+  { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
   { href: '/dashboard/documents', label: 'Документы', icon: FileText },
+]
+
+const statusItems = [
+  { href: '/dashboard/shipments?status=in_transit', label: 'В пути', icon: Truck },
+  { href: '/dashboard/shipments?status=arrived', label: 'На границе', icon: Clock },
+  { href: '/dashboard/shipments?status=delivered', label: 'Доставлено', icon: CheckCircle2 },
 ]
 
 export function Sidebar() {
@@ -35,52 +43,74 @@ export function Sidebar() {
     router.refresh()
   }
 
+  const isActive = (href: string) => {
+    if (href === '/dashboard') return pathname === '/dashboard'
+    if (href.includes('?')) return false
+    return pathname.startsWith(href)
+  }
+
   return (
-    <div className="flex h-screen w-[240px] flex-col bg-[#0f172a] text-slate-400">
+    <div className="flex h-screen w-[250px] flex-col bg-white border-r border-slate-200/80">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 px-5">
-        <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
-          <Ship className="w-5 h-5 text-white" />
+      <div className="flex h-[56px] items-center justify-between px-5 border-b border-slate-100">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
+            <Ship className="w-4 h-4 text-white" strokeWidth={2.5} />
+          </div>
+          <span className="font-heading font-bold text-[15px] text-slate-900 tracking-tight">Logistics</span>
         </div>
-        <div>
-          <span className="font-semibold text-[15px] text-white tracking-tight">Logistics</span>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest">Dashboard</p>
-        </div>
+        <button className="w-6 h-6 rounded-md border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
+          <ChevronLeft className="w-3 h-3 text-slate-400" />
+        </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-6 space-y-1">
-        <p className="text-[10px] uppercase tracking-widest text-slate-600 px-3 mb-3 font-medium">Меню</p>
-        {navItems.map((item) => {
-          const isActive =
-            item.href === '/dashboard'
-              ? pathname === '/dashboard'
-              : pathname.startsWith(item.href)
-          return (
+      {/* Core Nav */}
+      <nav className="flex-1 px-3 pt-5 overflow-y-auto">
+        <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400 font-semibold px-2 mb-2">Основное</p>
+        <div className="space-y-0.5">
+          {coreItems.map((item) => {
+            const active = isActive(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[14px] transition-all duration-150',
+                  active
+                    ? 'bg-slate-100 text-slate-900 font-semibold'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium'
+                )}
+              >
+                <item.icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.2 : 1.6} />
+                {item.label}
+              </Link>
+            )
+          })}
+        </div>
+
+        {/* Status shortcuts */}
+        <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400 font-semibold px-2 mb-2 mt-6">Статусы</p>
+        <div className="space-y-0.5">
+          {statusItems.map((item) => (
             <Link
-              key={item.href}
+              key={item.label}
               href={item.href}
-              className={cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200',
-                isActive
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
-              )}
+              className="flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[14px] text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium transition-all duration-150"
             >
-              <item.icon className="h-[18px] w-[18px]" />
+              <item.icon className="h-[18px] w-[18px]" strokeWidth={1.6} />
               {item.label}
             </Link>
-          )
-        })}
+          ))}
+        </div>
       </nav>
 
       {/* Bottom */}
-      <div className="px-3 pb-4">
+      <div className="px-3 pb-4 border-t border-slate-100 pt-3">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] w-full text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 transition-all duration-200"
+          className="flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[14px] w-full text-slate-400 hover:text-slate-600 hover:bg-slate-50 font-medium transition-all duration-150"
         >
-          <LogOut className="h-[18px] w-[18px]" />
+          <LogOut className="h-[18px] w-[18px]" strokeWidth={1.6} />
           Выйти
         </button>
       </div>

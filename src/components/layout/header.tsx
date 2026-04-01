@@ -1,29 +1,35 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Bell } from 'lucide-react'
+import { Search, Bell, ChevronRight } from 'lucide-react'
 import type { Profile } from '@/types/database'
 
 const ROLE_LABELS: Record<string, string> = {
-  admin: 'Админ',
+  admin: 'Администратор',
   manager: 'Менеджер',
   client: 'Клиент',
 }
 
+const PAGE_TITLES: Record<string, string> = {
+  '/dashboard': 'Обзор',
+  '/dashboard/shipments': 'Перевозки',
+  '/dashboard/clients': 'Клиенты',
+  '/dashboard/finance': 'Финансы',
+  '/dashboard/documents': 'Документы',
+}
+
 export function Header() {
   const [profile, setProfile] = useState<Profile | null>(null)
+  const pathname = usePathname()
 
   useEffect(() => {
     const supabase = createClient()
     const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
+        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
         setProfile(data)
       }
     }
@@ -34,36 +40,41 @@ export function Header() {
     ? profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : '??'
 
+  const pageTitle = PAGE_TITLES[pathname] || ''
+
   return (
-    <header className="flex h-16 items-center justify-between border-b border-slate-200/80 bg-white px-6">
-      {/* Search */}
-      <div className="relative w-80">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+    <header className="flex h-[64px] items-center gap-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-sm px-6">
+      {/* Search — takes available space */}
+      <div className="relative flex-1">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
         <input
           type="text"
           placeholder="Поиск по номеру контейнера..."
-          className="w-full h-9 rounded-lg bg-slate-50 border-0 pl-9 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all"
+          className="w-full h-9 rounded-lg bg-slate-50 border border-slate-200/60 pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 focus:bg-white transition-all"
         />
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-4">
-        <button className="relative p-2 rounded-lg hover:bg-slate-50 transition-colors">
-          <Bell className="h-[18px] w-[18px] text-slate-500" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-600 rounded-full" />
+      <div className="flex items-center gap-3 shrink-0">
+        {/* Notification */}
+        <button className="relative w-9 h-9 rounded-lg border border-slate-200/60 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors">
+          <Bell className="h-4 w-4 text-slate-500" strokeWidth={1.8} />
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-indigo-500 rounded-full ring-2 ring-white" />
         </button>
 
-        <div className="h-6 w-px bg-slate-200" />
+        {/* Divider */}
+        <div className="h-8 w-px bg-slate-100" />
 
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white text-xs font-semibold shadow-sm">
+        {/* Profile */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[11px] font-semibold">
             {initials}
           </div>
           <div className="hidden md:block">
-            <p className="text-sm font-medium text-slate-800 leading-tight">
-              {profile?.full_name || 'Загрузка...'}
+            <p className="text-[13px] font-semibold text-slate-800 leading-tight">
+              {profile?.full_name || '...'}
             </p>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-400 leading-tight">
               {profile ? ROLE_LABELS[profile.role] || profile.role : ''}
             </p>
           </div>

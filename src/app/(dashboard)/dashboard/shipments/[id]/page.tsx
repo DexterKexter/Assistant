@@ -30,17 +30,25 @@ export default function ShipmentDetailPage() {
     </div>
   )
 
-  const status = getShipmentStatus(shipment)
-  const progress = getShipmentProgress(shipment)
   const client = shipment.client as unknown as { name: string; is_russia: boolean } | null
+  const isRussia = client?.is_russia || false
+  const status = getShipmentStatus(shipment, isRussia)
+  const progress = getShipmentProgress(shipment)
   const recipient = shipment.recipient as unknown as { name: string } | null
   const sender = shipment.sender as unknown as { name: string } | null
   const carrier = shipment.carrier as unknown as { name: string } | null
 
-  const timeline = [
+  const timeline = isRussia ? [
     { label: 'Загрузка', date: shipment.departure_date, icon: Package, done: !!shipment.departure_date },
     { label: 'В пути', date: shipment.departure_date, icon: Truck, done: !!shipment.arrival_date },
-    { label: 'Прибытие', date: shipment.arrival_date, icon: MapPin, done: !!shipment.arrival_date },
+    { label: 'Транзит КЗ', date: shipment.arrival_date, icon: MapPin, done: !!shipment.arrival_date },
+    { label: 'Таможня', date: shipment.customs_date, icon: FileText, done: !!shipment.customs_date },
+    { label: 'В пути в РФ', date: shipment.release_date, icon: Truck, done: !!shipment.release_date },
+    { label: 'Доставлен в РФ', date: shipment.delivery_date, icon: CheckCircle2, done: !!shipment.delivery_date || shipment.is_completed },
+  ] : [
+    { label: 'Загрузка', date: shipment.departure_date, icon: Package, done: !!shipment.departure_date },
+    { label: 'В пути', date: shipment.departure_date, icon: Truck, done: !!shipment.arrival_date },
+    { label: 'На границе КЗ', date: shipment.arrival_date, icon: MapPin, done: !!shipment.arrival_date },
     { label: 'Таможня', date: shipment.customs_date, icon: FileText, done: !!shipment.customs_date },
     { label: 'Выдача', date: shipment.release_date, icon: CheckCircle2, done: !!shipment.release_date },
     { label: 'Доставлен', date: shipment.delivery_date, icon: CheckCircle2, done: !!shipment.delivery_date || shipment.is_completed },
@@ -138,7 +146,7 @@ export default function ShipmentDetailPage() {
             <h3 className="text-sm font-semibold text-slate-900 mb-4">Информация о перевозке</h3>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
               <InfoRow icon={MapPin} label="Откуда" value={shipment.origin} />
-              <InfoRow icon={MapPin} label="Станция назначения" value={shipment.destination_station} />
+              <InfoRow icon={MapPin} label="Погранпереход" value={shipment.destination_station} />
               <InfoRow icon={MapPin} label="Город назначения" value={shipment.destination_city} />
               <InfoRow icon={Ship} label="Перевозчик" value={carrier?.name} />
               <InfoRow icon={User} label="Клиент" value={client?.name} badge={client?.is_russia ? '🇷🇺' : undefined} />
