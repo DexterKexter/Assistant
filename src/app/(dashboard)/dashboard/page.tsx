@@ -10,16 +10,15 @@ import dynamic from 'next/dynamic'
 const DashboardMap = dynamic(() => import('@/components/dashboard-map').then(m => ({ default: m.DashboardMap })), { ssr: false })
 
 interface MonthStats {
-  shipments: number
+  loaded: number
   inTransit: number
-  delivered: number
-  clients: number
   onBorder: number
+  delivered: number
 }
 
 export default function DashboardPage() {
-  const [cur, setCur] = useState<MonthStats>({ shipments: 0, inTransit: 0, delivered: 0, clients: 0, onBorder: 0 })
-  const [prev, setPrev] = useState<MonthStats>({ shipments: 0, inTransit: 0, delivered: 0, clients: 0, onBorder: 0 })
+  const [cur, setCur] = useState<MonthStats>({ loaded: 0, inTransit: 0, onBorder: 0, delivered: 0 })
+  const [prev, setPrev] = useState<MonthStats>({ loaded: 0, inTransit: 0, onBorder: 0, delivered: 0 })
   const [topCarriers, setTopCarriers] = useState<{ name: string; count: number }[]>([])
   const [topRoutes, setTopRoutes] = useState<{ route: string; count: number }[]>([])
   const [originCounts, setOriginCounts] = useState<{ name: string; count: number }[]>([])
@@ -35,26 +34,32 @@ export default function DashboardPage() {
     const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
 
     const fetchData = async () => {
-      const [cS, cT, cD, cC, pS, pT, pD, pC, { data: active }, { data: allShipments }] = await Promise.all([
+      const [
+        { count: curLoaded },
+        { count: curDelivered },
+        { count: prevLoaded },
+        { count: prevDelivered },
+        { count: inTransit },
+        { count: onBorder },
+        { data: active },
+        { data: allShipments },
+      ] = await Promise.all([
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('departure_date', curStart),
-        supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('departure_date', curStart).is('delivery_date', null).not('departure_date', 'is', null).is('arrival_date', null),
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('delivery_date', curStart),
-        supabase.from('clients').select('*', { count: 'exact', head: true }).gte('created_at', curStart),
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('departure_date', prevStart).lte('departure_date', prevEnd),
-        supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('departure_date', prevStart).lte('departure_date', prevEnd).is('delivery_date', null),
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('delivery_date', prevStart).lte('delivery_date', prevEnd),
-        supabase.from('clients').select('*', { count: 'exact', head: true }).gte('created_at', prevStart).lte('created_at', prevEnd + 'T23:59:59'),
-        // Active shipments (in transit, no delivery)
+        // В пути: отправлен, не на границе, не доставлен
+        supabase.from('shipments').select('*', { count: 'exact', head: true }).not('departure_date', 'is', null).is('arrival_date', null).is('delivery_date', null).eq('is_completed', false),
+        // На границе: есть arrival, нет delivery
+        supabase.from('shipments').select('*', { count: 'exact', head: true }).not('arrival_date', 'is', null).is('delivery_date', null).eq('is_completed', false),
+        // Active shipments list
         supabase.from('shipments').select('*, client:clients(name), carrier:carriers(name)').is('delivery_date', null).eq('is_completed', false).not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(6),
-        // All recent for analytics
+        // All for analytics
         supabase.from('shipments').select('carrier_id, origin, destination_city, destination_station, arrival_date, delivery_date, is_completed').not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(500),
       ])
 
-      // Count on border
-      const onBorder = (allShipments || []).filter(s => s.arrival_date && !s.delivery_date).length
-
-      setCur({ shipments: cS.count || 0, inTransit: cT.count || 0, delivered: cD.count || 0, clients: cC.count || 0, onBorder })
-      setPrev({ shipments: pS.count || 0, inTransit: pT.count || 0, delivered: pD.count || 0, clients: pC.count || 0, onBorder: 0 })
+      setCur({ loaded: curLoaded || 0, inTransit: inTransit || 0, onBorder: onBorder || 0, delivered: curDelivered || 0 })
+      setPrev({ loaded: prevLoaded || 0, inTransit: 0, onBorder: 0, delivered: prevDelivered || 0 })
       setRecentActive((active as unknown as Shipment[]) || [])
 
       // Top carriers — only active (in transit, no delivery)
@@ -109,18 +114,14 @@ export default function DashboardPage() {
   const month = new Date().toLocaleString('ru-RU', { month: 'long' })
 
   const cards = [
-    { label: 'Перевозок', value: cur.shipments, prev: prev.shipments, icon: Ship, gradient: 'from-indigo-500 to-indigo-600' },
-    { label: 'В пути', value: cur.inTransit, prev: prev.inTransit, icon: Truck, gradient: 'from-blue-500 to-blue-600' },
-    { label: 'На границе', value: cur.onBorder, prev: 0, icon: Clock, gradient: 'from-amber-500 to-orange-500' },
-    { label: 'Доставлено', value: cur.delivered, prev: prev.delivered, icon: CheckCircle2, gradient: 'from-emerald-500 to-green-600' },
+    { label: 'Загружено', value: cur.loaded, prev: prev.loaded, icon: Ship, gradient: 'from-indigo-500 to-indigo-600', compare: true },
+    { label: 'В пути', value: cur.inTransit, prev: 0, icon: Truck, gradient: 'from-blue-500 to-blue-600', compare: false },
+    { label: 'На границе', value: cur.onBorder, prev: 0, icon: Clock, gradient: 'from-amber-500 to-orange-500', compare: false },
+    { label: 'Доставлено', value: cur.delivered, prev: prev.delivered, icon: CheckCircle2, gradient: 'from-emerald-500 to-green-600', compare: true },
   ]
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Обзор</h1>
-        <p className="text-[13px] text-slate-400 mt-0.5 capitalize">{month} — текущий месяц</p>
-      </div>
 
       {/* Stats */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
@@ -137,8 +138,8 @@ export default function DashboardPage() {
                     <p className="text-[17px] font-bold text-slate-900 tracking-tight leading-none font-heading">
                       {loading ? <span className="skeleton inline-block w-10 h-6" /> : card.value.toLocaleString()}
                     </p>
-                    {card.prev > 0 && (
-                      <span className={`badge-soft text-[10px] px-1.5 py-0.5 ${d.up ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>{d.text}</span>
+                    {card.compare && card.prev > 0 && (
+                      <span className={`text-[10px] ${d.up ? 'text-emerald-500' : 'text-red-400'}`}>{d.text}</span>
                     )}
                   </div>
                   <p className="text-[12px] text-slate-400 mt-0.5">{card.label}</p>

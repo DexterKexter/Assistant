@@ -43,7 +43,7 @@ export function Header() {
   const pageTitle = PAGE_TITLES[pathname] || ''
 
   return (
-    <header className="flex h-[64px] items-center gap-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-sm px-6">
+    <header className="flex h-[56px] items-center gap-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-sm px-6">
       {/* Search — takes available space */}
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />

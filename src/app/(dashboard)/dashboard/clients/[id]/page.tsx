@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ArrowLeft } from 'lucide-react'
 import { DOC_TYPE_LABELS, type Client, type Shipment, type Transaction, type Document } from '@/types/database'
+import { fmtDate } from '@/lib/utils'
 
 export default function ClientDetailPage() {
   const { id } = useParams()
@@ -74,7 +75,7 @@ export default function ClientDetailPage() {
                         <TableCell className="font-medium">{c.container_number}</TableCell>
                         <TableCell><Badge>{'—'}</Badge></TableCell>
                         <TableCell>{c.origin} → {c.destination_city}</TableCell>
-                        <TableCell>{c.departure_date || '—'}</TableCell>
+                        <TableCell>{fmtDate(c.departure_date)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

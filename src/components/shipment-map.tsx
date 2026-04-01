@@ -4,6 +4,12 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
+const fmt = (d: string | null | undefined) => {
+  if (!d) return ''
+  const [y, m, dd] = d.split('-')
+  return y && m && dd ? `${dd}.${m}.${y}` : d
+}
+
 // City coordinates lookup
 const COORDS: Record<string, [number, number]> = {
   // Origins
@@ -105,6 +111,10 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return
 
+    // Wait for DOM to be ready
+    const timer = setTimeout(() => {
+    if (!mapRef.current) return
+
     const points: { coord: [number, number]; label: string; color: string; tooltip: string; hasDate: boolean }[] = []
     const originCoord = getCoord(origin)
     const borderCoord = getCoord(border)
@@ -122,7 +132,7 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
 
     if (originCoord) points.push({
       coord: originCoord, label: origin || '', color: '#6366f1',
-      tooltip: `<b>Загрузка</b><br/>${origin}${departureDate ? '<br/>' + departureDate : ''}${originDaysText}`,
+      tooltip: `<b>Загрузка</b><br/>${origin}${departureDate ? '<br/>' + fmt(departureDate) : ''}${originDaysText}`,
       hasDate: !!departureDate,
     })
 
@@ -132,7 +142,7 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
 
     if (borderCoord) points.push({
       coord: borderCoord, label: border || '', color: arrivalDate ? '#f59e0b' : '#d1d5db',
-      tooltip: `<b>Граница</b><br/>${border}${arrivalDate ? '<br/>' + arrivalDate + borderDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>'}`,
+      tooltip: `<b>Граница</b><br/>${border}${arrivalDate ? '<br/>' + fmt(arrivalDate) + borderDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>'}`,
       hasDate: !!arrivalDate,
     })
 
@@ -142,7 +152,7 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
 
     if (destCoord) points.push({
       coord: destCoord, label: destination || '', color: deliveryDate ? '#22c55e' : '#d1d5db',
-      tooltip: `<b>Доставка</b><br/>${destination}${deliveryDate ? '<br/>' + deliveryDate + destDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>' + destDaysText}`,
+      tooltip: `<b>Доставка</b><br/>${destination}${deliveryDate ? '<br/>' + fmt(deliveryDate) + destDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>' + destDaysText}`,
       hasDate: !!deliveryDate,
     })
 
@@ -151,12 +161,12 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
     }
 
     const map = L.map(mapRef.current, {
-      zoomControl: true,
+      zoomControl: false,
       attributionControl: false,
-      dragging: true,
-      touchZoom: true,
-      doubleClickZoom: true,
-      scrollWheelZoom: true,
+      dragging: false,
+      touchZoom: false,
+      doubleClickZoom: false,
+      scrollWheelZoom: false,
       boxZoom: false,
       keyboard: false,
     }).setView(points[0].coord, 4)
@@ -178,9 +188,10 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
       })
       L.marker(p.coord, { icon, interactive: true }).addTo(map).bindTooltip(p.tooltip, {
         permanent: false,
-        direction: 'top',
-        offset: [0, -16],
+        direction: 'auto',
+        offset: [0, -14],
         className: 'map-tooltip',
+        sticky: false,
       })
     })
 
@@ -197,19 +208,23 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
 
     // Always fit bounds to show all points
     const bounds = L.latLngBounds(latlngs)
-    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 6 })
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 })
 
     mapInstance.current = map
+    }, 100) // end setTimeout
 
     return () => {
-      map.remove()
-      mapInstance.current = null
+      clearTimeout(timer)
+      if (mapInstance.current) {
+        mapInstance.current.remove()
+        mapInstance.current = null
+      }
     }
   }, [origin, border, destination])
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-      <div ref={mapRef} style={{ height: 320, width: '100%', cursor: 'default' }} />
+      <div ref={mapRef} style={{ height: 220, width: '100%', cursor: 'default' }} />
     </div>
   )
 }

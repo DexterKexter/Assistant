@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Ship, ArrowRight, X, Filter } from 'lucide-react'
 import { getShipmentStatus, type Shipment, type Carrier, type Client } from '@/types/database'
+import { fmtDate } from '@/lib/utils'
 
 function Hl({ text, q }: { text: string; q: string }) {
   if (!q || !text) return <>{text}</>
@@ -180,30 +181,47 @@ export default function ShipmentsPage() {
               </td></tr>
             ) : (
               <>
-                {filtered.map((s) => {
+                {(() => {
+                  let lastMonth = ''
+                  return filtered.map((s) => {
                   const isRussia = (s.client as unknown as { is_russia?: boolean })?.is_russia || false
                   const status = getShipmentStatus(s, isRussia)
+                  const curMonth = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : ''
+                  const showMonthHeader = curMonth && curMonth !== lastMonth
+                  if (showMonthHeader) lastMonth = curMonth
                   const statusBg = status.key === 'delivered' ? '#f0fdf4' : status.key === 'in_transit' ? '#eef2ff' : '#fffbeb'
 
                   const calcDays = () => {
-                    if (s.arrival_date && s.delivery_date) return `${Math.round((new Date(s.delivery_date).getTime() - new Date(s.arrival_date).getTime()) / 86400000)}д`
-                    if (s.arrival_date && s.departure_date) return `${Math.round((new Date(s.arrival_date).getTime() - new Date(s.departure_date).getTime()) / 86400000)}д`
-                    if (s.departure_date) return `${Math.round((Date.now() - new Date(s.departure_date).getTime()) / 86400000)}д`
-                    return '—'
+                    if (!s.departure_date) return '—'
+                    const end = s.delivery_date ? new Date(s.delivery_date).getTime() : Date.now()
+                    return `${Math.round((end - new Date(s.departure_date).getTime()) / 86400000)}д`
                   }
 
-                  return (
+                  return (<>
+                    {showMonthHeader && (
+                      <tr key={`month-${curMonth}`}><td colSpan={9} className="px-5 py-2 bg-slate-50/80 border-b border-slate-100">
+                        <span className="text-[12px] font-semibold text-slate-500 capitalize">{curMonth}</span>
+                      </td></tr>
+                    )}
                     <tr key={s.id} className="border-b border-slate-100 last:border-0 cursor-pointer hover:bg-slate-50/60 transition-colors"
                       onClick={() => router.push(`/dashboard/shipments/${s.id}`)}>
                       <td className="px-5 py-2">
-                        <p className="text-[13px] font-semibold text-slate-900"><Hl text={s.container_number || '—'} q={search} /></p>
-                        <p className="text-[11px] text-slate-400">{s.container_size ? `${s.container_size}ft` : ''} {s.container_type || ''}</p>
+                        <p className="text-[14px] font-bold text-slate-900"><Hl text={s.container_number || '—'} q={search} /></p>
+                        <p className="text-[11px] text-slate-400">
+                          {s.container_size ? <span className={`inline-block rounded px-1.5 py-px mr-1 text-[10px] font-medium ${s.container_size === 20 ? 'bg-blue-100 text-blue-600' : 'bg-violet-100 text-violet-600'}`}>{s.container_size}ft</span> : ''}
+                          {s.container_type ? <span className={`inline-block rounded px-1.5 py-px text-[10px] font-medium ${
+                            s.container_type === 'Выкупной' ? 'bg-amber-100 text-amber-700' :
+                            s.container_type === 'Возвратный' ? 'bg-emerald-100 text-emerald-700' :
+                            s.container_type === 'Собственный' ? 'bg-indigo-100 text-indigo-700' :
+                            'bg-slate-200/80 text-slate-600'
+                          }`}>{s.container_type}</span> : ''}
+                        </p>
                       </td>
-                      <td className="px-3 py-2 text-[13px] text-slate-500 whitespace-nowrap">{s.departure_date || '—'}</td>
-                      <td className="px-3 py-2 text-[13px] text-slate-600 max-w-[140px] truncate"><Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} /></td>
-                      <td className="px-3 py-2 text-[13px] text-slate-500 max-w-[120px] truncate"><Hl text={s.sender_name || '—'} q={search} /></td>
-                      <td className="px-3 py-2 text-[13px] text-slate-500 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} /></td>
-                      <td className="px-3 py-2 text-[13px] font-medium text-slate-700">{calcDays()}</td>
+                      <td className="px-3 py-2.5 text-[14px] font-medium text-slate-800 whitespace-nowrap">{fmtDate(s.departure_date)}</td>
+                      <td className="px-3 py-2.5 text-[14px] font-medium text-slate-900 max-w-[140px] truncate"><Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} /></td>
+                      <td className="px-3 py-2.5 text-[14px] text-slate-800 max-w-[120px] truncate"><Hl text={s.sender_name || '—'} q={search} /></td>
+                      <td className="px-3 py-2.5 text-[14px] text-slate-800 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} /></td>
+                      <td className="px-3 py-2.5 text-[14px] font-semibold text-slate-900">{calcDays()}</td>
                       <td className="px-3 py-2">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: statusBg, color: status.color }}>
                           <span className={`w-1.5 h-1.5 rounded-full ${status.key === 'in_transit' ? 'dot-pulse' : ''}`} style={{ background: status.color }} />
@@ -221,8 +239,9 @@ export default function ShipmentsPage() {
                           className="h-7 w-[110px] rounded-md border border-slate-200 bg-white px-1.5 text-[11px] text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300" />
                       </td>
                     </tr>
-                  )
-                })}
+                  </>)
+                })
+                })()}
               </>
             )}
           </tbody>

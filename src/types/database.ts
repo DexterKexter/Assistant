@@ -118,9 +118,7 @@ export interface Document {
 }
 
 export function getShipmentStatus(s: Shipment, isRussia?: boolean): { key: string; label: string; color: string } {
-  if (s.is_completed || s.delivery_date) return { key: 'delivered', label: 'Доставлен', color: '#22c55e' }
-  if (s.release_date) return { key: 'released', label: 'Выдан', color: '#22c55e' }
-  if (s.customs_date) return { key: 'customs', label: 'Таможня', color: '#f59e0b' }
+  if (s.delivery_date || s.is_completed) return { key: 'delivered', label: 'Доставлен', color: '#22c55e' }
   if (s.arrival_date) {
     if (isRussia) return { key: 'transit_kz', label: 'Транзит КЗ', color: '#f59e0b' }
     return { key: 'border', label: 'На границе', color: '#f59e0b' }
