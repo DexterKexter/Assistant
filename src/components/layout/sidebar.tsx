@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -12,12 +11,11 @@ import {
   Wallet,
   FileText,
   LogOut,
-  ChevronLeft,
-  ChevronRight,
   Truck,
   Clock,
   CheckCircle2,
   Shield,
+  Settings,
 } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 
@@ -39,11 +37,17 @@ interface SidebarProps {
   onNavigate?: () => void
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Администратор',
+  manager: 'Менеджер',
+  accountant: 'Бухгалтер',
+  client: 'Клиент',
+}
+
 export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const pathname = usePathname()
   const router = useRouter()
-  const { hasRole } = useProfile()
-  const [collapsed, setCollapsed] = useState(false)
+  const { profile, hasRole } = useProfile()
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -58,31 +62,23 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     return pathname.startsWith(href)
   }
 
+  const initials = profile?.full_name
+    ? profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+    : '??'
+
   return (
-    <div className={cn(
-      'relative flex h-screen flex-col bg-white border-r border-slate-200/80 transition-all duration-200 shrink-0 overflow-visible',
-      collapsed ? 'w-[68px]' : 'w-[250px]'
-    )}>
+    <div className="flex h-screen w-[260px] flex-col bg-[#f4f5f7] shrink-0 overflow-hidden">
       {/* Logo */}
-      <div className="relative flex h-[56px] items-center px-4 border-b border-slate-100">
-        <div className={cn('flex items-center gap-2.5 overflow-hidden w-full', collapsed && 'justify-center')}>
-          <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center shrink-0">
-            <Ship className="w-4 h-4 text-white" strokeWidth={2.5} />
-          </div>
-          {!collapsed && <span className="font-heading font-bold text-[15px] text-slate-900 tracking-tight whitespace-nowrap">Logistics</span>}
+      <div className="flex h-[64px] items-center px-5 gap-3">
+        <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center shrink-0 shadow-md">
+          <Ship className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
         </div>
-        {/* Toggle button on sidebar edge */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 shadow-sm transition-colors"
-        >
-          {collapsed ? <ChevronRight className="w-3 h-3 text-slate-400" /> : <ChevronLeft className="w-3 h-3 text-slate-400" />}
-        </button>
+        <span className="font-heading font-bold text-[16px] text-slate-900 tracking-tight">Logistics</span>
       </div>
 
-      {/* Core Nav */}
-      <nav className="flex-1 px-2 pt-5 overflow-y-auto">
-        {!collapsed && <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400 font-semibold px-2 mb-2">Основное</p>}
+      {/* Main nav */}
+      <nav className="flex-1 px-3 pt-2 overflow-y-auto">
+        <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2">Основное</p>
         <div className="space-y-0.5">
           {coreItems.map((item) => {
             const active = isActive(item.href)
@@ -91,40 +87,32 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                title={collapsed ? item.label : undefined}
                 className={cn(
-                  'flex items-center rounded-lg transition-all duration-150',
-                  collapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-2.5 py-[7px]',
-                  'text-[14px]',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] transition-all duration-150',
                   active
-                    ? 'bg-slate-100 text-slate-900 font-semibold'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium'
+                    ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-slate-200/60'
+                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-700 font-medium'
                 )}
               >
                 <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={active ? 2.2 : 1.6} />
-                {!collapsed && item.label}
+                {item.label}
               </Link>
             )
           })}
         </div>
 
         {/* Status shortcuts */}
-        {!collapsed && <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400 font-semibold px-2 mb-2 mt-6">Статусы</p>}
-        {collapsed && <div className="my-3 mx-2 h-px bg-slate-100" />}
+        <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2 mt-6">Статусы</p>
         <div className="space-y-0.5">
           {statusItems.map((item) => (
             <Link
               key={item.label}
               href={item.href}
               onClick={onNavigate}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                'flex items-center rounded-lg text-[14px] text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium transition-all duration-150',
-                collapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-2.5 py-[7px]'
-              )}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-500 hover:bg-white/60 hover:text-slate-700 font-medium transition-all duration-150"
             >
               <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.6} />
-              {!collapsed && item.label}
+              {item.label}
             </Link>
           ))}
         </div>
@@ -132,41 +120,53 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
         {/* Admin */}
         {hasRole('admin') && (
           <>
-            {!collapsed && <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400 font-semibold px-2 mb-2 mt-6">Управление</p>}
-            {collapsed && <div className="my-3 mx-2 h-px bg-slate-100" />}
+            <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2 mt-6">Управление</p>
             <div className="space-y-0.5">
               <Link
                 href="/dashboard/admin"
                 onClick={onNavigate}
-                title={collapsed ? 'Админка' : undefined}
                 className={cn(
-                  'flex items-center rounded-lg text-[14px] transition-all duration-150',
-                  collapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-2.5 py-[7px]',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] transition-all duration-150',
                   isActive('/dashboard/admin')
-                    ? 'bg-slate-100 text-slate-900 font-semibold'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium'
+                    ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-slate-200/60'
+                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-700 font-medium'
                 )}
               >
                 <Shield className="h-[18px] w-[18px] shrink-0" strokeWidth={isActive('/dashboard/admin') ? 2.2 : 1.6} />
-                {!collapsed && 'Админка'}
+                Админка
+              </Link>
+              <Link
+                href="/dashboard/admin"
+                onClick={onNavigate}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-500 hover:bg-white/60 hover:text-slate-700 font-medium transition-all duration-150"
+              >
+                <Settings className="h-[18px] w-[18px] shrink-0" strokeWidth={1.6} />
+                Настройки
               </Link>
             </div>
           </>
         )}
       </nav>
 
-      {/* Bottom */}
-      <div className="px-2 pb-4 border-t border-slate-100 pt-3">
+      {/* Account section at bottom */}
+      <div className="px-3 pb-4 pt-3">
+        {/* Profile card */}
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/70 mb-2">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-sm">
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-semibold text-slate-800 truncate leading-tight">{profile?.full_name || '...'}</p>
+            <p className="text-[11px] text-slate-400 leading-tight">{profile ? ROLE_LABELS[profile.role] || profile.role : ''}</p>
+          </div>
+        </div>
+        {/* Logout */}
         <button
           onClick={handleLogout}
-          title={collapsed ? 'Выйти' : undefined}
-          className={cn(
-            'flex items-center rounded-lg text-[14px] w-full text-slate-400 hover:text-slate-600 hover:bg-slate-50 font-medium transition-all duration-150',
-            collapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-2.5 py-[7px]'
-          )}
+          className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] w-full text-slate-400 hover:text-slate-600 hover:bg-white/60 font-medium transition-all duration-150"
         >
-          <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.6} />
-          {!collapsed && 'Выйти'}
+          <LogOut className="h-[16px] w-[16px] shrink-0" strokeWidth={1.6} />
+          Выйти
         </button>
       </div>
     </div>
