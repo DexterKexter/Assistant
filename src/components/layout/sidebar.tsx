@@ -67,7 +67,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     : '??'
 
   return (
-    <div className="flex h-screen w-[260px] flex-col bg-[#f4f5f7] shrink-0 overflow-hidden">
+    <div className="flex h-screen w-[260px] flex-col bg-gradient-to-b from-[#eef2ff] via-[#e8eeff] to-[#f0f0ff] shrink-0 overflow-hidden">
       {/* Logo */}
       <div className="flex h-[64px] items-center px-5 gap-3">
         <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center shrink-0 shadow-md">
@@ -78,7 +78,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
 
       {/* Main nav */}
       <nav className="flex-1 px-3 pt-2 overflow-y-auto">
-        <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2">Основное</p>
+        <p className="text-[11px] uppercase tracking-[0.1em] text-indigo-400/70 font-semibold px-3 mb-2">Основное</p>
         <div className="space-y-0.5">
           {coreItems.map((item) => {
             const active = isActive(item.href)
@@ -90,8 +90,8 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] transition-all duration-150',
                   active
-                    ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-slate-200/60'
-                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-700 font-medium'
+                    ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-indigo-200/50'
+                    : 'text-slate-700 hover:bg-white/60 hover:text-slate-900 font-medium'
                 )}
               >
                 <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={active ? 2.2 : 1.6} />
@@ -102,14 +102,14 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
         </div>
 
         {/* Status shortcuts */}
-        <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2 mt-6">Статусы</p>
+        <p className="text-[11px] uppercase tracking-[0.1em] text-indigo-400/70 font-semibold px-3 mb-2 mt-6">Статусы</p>
         <div className="space-y-0.5">
           {statusItems.map((item) => (
             <Link
               key={item.label}
               href={item.href}
               onClick={onNavigate}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-500 hover:bg-white/60 hover:text-slate-700 font-medium transition-all duration-150"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-700 hover:bg-white/60 hover:text-slate-900 font-medium transition-all duration-150"
             >
               <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.6} />
               {item.label}
@@ -120,7 +120,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
         {/* Admin */}
         {hasRole('admin') && (
           <>
-            <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2 mt-6">Управление</p>
+            <p className="text-[11px] uppercase tracking-[0.1em] text-indigo-400/70 font-semibold px-3 mb-2 mt-6">Управление</p>
             <div className="space-y-0.5">
               <Link
                 href="/dashboard/admin"
@@ -128,8 +128,8 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] transition-all duration-150',
                   isActive('/dashboard/admin')
-                    ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-slate-200/60'
-                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-700 font-medium'
+                    ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-indigo-200/50'
+                    : 'text-slate-700 hover:bg-white/60 hover:text-slate-900 font-medium'
                 )}
               >
                 <Shield className="h-[18px] w-[18px] shrink-0" strokeWidth={isActive('/dashboard/admin') ? 2.2 : 1.6} />
@@ -138,7 +138,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
               <Link
                 href="/dashboard/admin"
                 onClick={onNavigate}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-500 hover:bg-white/60 hover:text-slate-700 font-medium transition-all duration-150"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-700 hover:bg-white/60 hover:text-slate-900 font-medium transition-all duration-150"
               >
                 <Settings className="h-[18px] w-[18px] shrink-0" strokeWidth={1.6} />
                 Настройки
