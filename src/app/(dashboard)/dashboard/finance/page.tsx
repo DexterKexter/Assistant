@@ -63,7 +63,7 @@ export default function FinancePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Финансы</h1>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger><Button><Plus className="h-4 w-4 mr-2" />Добавить транзакцию</Button></DialogTrigger>
+          <DialogTrigger render={<Button><Plus className="h-4 w-4 mr-2" />Добавить транзакцию</Button>} />
           <DialogContent>
             <DialogHeader><DialogTitle>Новая транзакция</DialogTitle></DialogHeader>
             <form onSubmit={handleAdd} className="space-y-3">

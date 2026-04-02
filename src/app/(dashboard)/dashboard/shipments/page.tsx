@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
@@ -325,7 +325,7 @@ export default function ShipmentsPage() {
                   if (showMonthHeader) lastMonth = curMonth
                   const statusBg = status.key === 'delivered' ? '#f0fdf4' : status.key === 'in_transit' ? '#eef2ff' : '#fffbeb'
 
-                  return (<>
+                  return (<Fragment key={s.id}>
                     {showMonthHeader && (
                       <tr key={`month-${curMonth}`}><td colSpan={8} className="px-5 py-2 bg-slate-50/80 border-b border-slate-100">
                         <span className="text-[12px] font-semibold text-slate-500 capitalize">{curMonth}</span>
@@ -358,7 +358,7 @@ export default function ShipmentsPage() {
                         </span>
                       </td>
                     </tr>
-                  </>)
+                  </Fragment>)
                 })
                 })()}
               </>
