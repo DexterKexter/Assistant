@@ -211,7 +211,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
     displayValue?: string; bold?: boolean
   }) {
     if (!editing) {
-      const val = displayValue ?? String((shipment as Record<string, unknown>)[field] || '—')
+      const val = displayValue ?? String((shipment as unknown as Record<string, unknown>)[field] || '—')
       return <DetailIcon icon={icon} label={label} value={val} bold={bold} />
     }
     const raw = draft[field] ?? ''
