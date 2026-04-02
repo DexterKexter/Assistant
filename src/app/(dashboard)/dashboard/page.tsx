@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useShipmentModal } from '@/lib/shipment-modal'
 import { Ship, Users, TrendingUp, Package, ArrowRight, ArrowUpRight, ArrowDownRight, MapPin, Truck, Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 import { type Shipment } from '@/types/database'
 import dynamic from 'next/dynamic'
@@ -25,6 +26,7 @@ export default function DashboardPage() {
   const [recentActive, setRecentActive] = useState<Shipment[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const { openShipment } = useShipmentModal()
 
   useEffect(() => {
     const supabase = createClient()
@@ -172,7 +174,7 @@ export default function DashboardPage() {
                 const days = s.departure_date ? Math.round((Date.now() - new Date(s.departure_date).getTime()) / 86400000) : 0
                 const hasArrival = !!s.arrival_date
                 return (
-                  <div key={s.id} className="flex items-center gap-4 px-5 py-2.5 border-t border-slate-50 cursor-pointer hover:bg-slate-50/40 transition-colors" onClick={() => router.push(`/dashboard/shipments/${s.id}`)}>
+                  <div key={s.id} className="flex items-center gap-4 px-5 py-2.5 border-t border-slate-50 cursor-pointer hover:bg-slate-50/40 transition-colors" onClick={() => openShipment(s.id)}>
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${hasArrival ? 'bg-amber-50' : 'bg-indigo-50'}`}>
                       {hasArrival ? <Clock className="w-4 h-4 text-amber-500" /> : <Truck className="w-4 h-4 text-indigo-500" />}
                     </div>

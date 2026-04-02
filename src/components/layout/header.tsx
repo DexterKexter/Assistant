@@ -1,46 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { Search, Bell, ChevronRight } from 'lucide-react'
-import type { Profile } from '@/types/database'
+import { useProfile } from '@/lib/useProfile'
+import { Search, Bell } from 'lucide-react'
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Администратор',
   manager: 'Менеджер',
+  accountant: 'Бухгалтер',
   client: 'Клиент',
 }
 
-const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': 'Обзор',
-  '/dashboard/shipments': 'Перевозки',
-  '/dashboard/clients': 'Клиенты',
-  '/dashboard/finance': 'Финансы',
-  '/dashboard/documents': 'Документы',
-}
-
 export function Header() {
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const pathname = usePathname()
-
-  useEffect(() => {
-    const supabase = createClient()
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-        setProfile(data)
-      }
-    }
-    fetchProfile()
-  }, [])
+  const { profile } = useProfile()
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : '??'
-
-  const pageTitle = PAGE_TITLES[pathname] || ''
 
   return (
     <header className="flex h-[56px] items-center gap-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-sm px-6">

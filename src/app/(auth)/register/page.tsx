@@ -4,11 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Package } from 'lucide-react'
+import { Ship, ArrowRight } from 'lucide-react'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -43,66 +39,84 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-neutral-900 dark:bg-neutral-100 rounded-xl flex items-center justify-center">
-              <Package className="w-6 h-6 text-white dark:text-neutral-900" />
+    <div className="min-h-screen flex">
+      {/* Left: branding */}
+      <div className="hidden lg:flex w-[45%] bg-[#0f172a] text-white flex-col justify-between p-12 relative overflow-hidden">
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-16">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/30">
+              <Ship className="w-5 h-5" />
             </div>
+            <span className="text-xl font-bold tracking-tight">Logistics</span>
           </div>
-          <CardTitle className="text-2xl">Регистрация</CardTitle>
-          <CardDescription>Создайте аккаунт</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Имя</Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="Иван Иванов"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="email@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Пароль</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Минимум 6 символов"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
-                required
-              />
-            </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Регистрация...' : 'Зарегистрироваться'}
-            </Button>
-          </form>
-          <p className="text-sm text-center text-muted-foreground mt-4">
-            Уже есть аккаунт?{' '}
-            <Link href="/login" className="text-primary underline">
-              Войти
-            </Link>
+          <h1 className="text-4xl font-bold leading-tight tracking-tight max-w-md">
+            Управление
+            <br />перевозками
+            <br />
+            <span className="text-blue-400">без хаоса.</span>
+          </h1>
+          <p className="text-slate-400 mt-6 max-w-sm leading-relaxed">
+            Контейнеры, клиенты, финансы и документы — всё в одном месте.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+        <p className="text-xs text-slate-600 relative z-10">© 2024 Logistics Dashboard</p>
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl" />
+        <div className="absolute top-20 -right-16 w-64 h-64 bg-blue-600/10 rounded-full blur-2xl" />
+      </div>
+
+      {/* Right: form */}
+      <div className="flex-1 flex items-center justify-center px-6">
+        <div className="w-full max-w-sm">
+          <div className="lg:hidden flex items-center gap-3 mb-10">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center">
+              <Ship className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-bold text-slate-900">Logistics</span>
+          </div>
+
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Регистрация</h2>
+          <p className="text-sm text-slate-400 mt-2 mb-8">Создайте аккаунт для доступа к панели</p>
+
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Имя</label>
+              <input
+                type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)}
+                className="mt-1.5 w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+                placeholder="Иван Иванов"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Email</label>
+              <input
+                type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                className="mt-1.5 w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+                placeholder="email@example.com"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Пароль</label>
+              <input
+                type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
+                className="mt-1.5 w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+                placeholder="Минимум 6 символов"
+              />
+            </div>
+            {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+            <button
+              type="submit" disabled={loading}
+              className="w-full h-11 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
+            >
+              {loading ? 'Регистрация...' : <><span>Зарегистрироваться</span><ArrowRight className="w-4 h-4" /></>}
+            </button>
+          </form>
+
+          <p className="text-sm text-center text-slate-400 mt-6">
+            Уже есть аккаунт?{' '}
+            <Link href="/login" className="text-blue-600 font-medium hover:text-blue-700">Войти</Link>
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

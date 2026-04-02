@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { getShipmentStatus, getShipmentProgress, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
+import { DetailIcon } from '@/components/detail-icon'
 import dynamic from 'next/dynamic'
 
 const ShipmentMap = dynamic(() => import('@/components/shipment-map').then(m => ({ default: m.ShipmentMap })), { ssr: false })
@@ -414,17 +415,6 @@ function FinanceCard({ label, value }: { label: string; value: number }) {
   )
 }
 
-function DetailIcon({ icon, label, value, bold }: { icon: React.ReactNode; label: string; value: string; bold?: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <div className="w-7 h-7 rounded-md bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">{icon}</div>
-      <div className="min-w-0">
-        <p className="text-[12px] text-slate-500">{label}</p>
-        <p className={`text-[15px] text-slate-900 mt-0.5 truncate ${bold ? 'font-bold font-mono' : 'font-semibold'}`}>{value}</p>
-      </div>
-    </div>
-  )
-}
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (

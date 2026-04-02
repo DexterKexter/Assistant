@@ -15,8 +15,9 @@ import {
   Truck,
   Clock,
   CheckCircle2,
-  Snowflake,
+  Shield,
 } from 'lucide-react'
+import { useProfile } from '@/lib/useProfile'
 
 const coreItems = [
   { href: '/dashboard', label: 'Обзор', icon: LayoutGrid },
@@ -35,6 +36,7 @@ const statusItems = [
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { hasRole } = useProfile()
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -102,6 +104,26 @@ export function Sidebar() {
             </Link>
           ))}
         </div>
+        {/* Admin */}
+        {hasRole('admin') && (
+          <>
+            <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400 font-semibold px-2 mb-2 mt-6">Управление</p>
+            <div className="space-y-0.5">
+              <Link
+                href="/dashboard/admin"
+                className={cn(
+                  'flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[14px] transition-all duration-150',
+                  isActive('/dashboard/admin')
+                    ? 'bg-slate-100 text-slate-900 font-semibold'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium'
+                )}
+              >
+                <Shield className="h-[18px] w-[18px]" strokeWidth={isActive('/dashboard/admin') ? 2.2 : 1.6} />
+                Админка
+              </Link>
+            </div>
+          </>
+        )}
       </nav>
 
       {/* Bottom */}

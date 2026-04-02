@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'manager' | 'client'
+export type UserRole = 'admin' | 'manager' | 'accountant' | 'client'
 export type TransactionType = 'income' | 'expense'
 export type DocumentType = 'invoice' | 'bill_of_lading' | 'customs_declaration' | 'contract' | 'other'
 
