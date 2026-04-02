@@ -9,6 +9,7 @@ import {
   Search, Send, Paperclip, X, ArrowLeft, Plus, Users, User, Hash,
   Image as ImageIcon, FileText, Download, MessageSquare, AtSign
 } from 'lucide-react'
+import { useShipmentModal } from '@/lib/shipment-modal'
 
 /* ── Helpers ── */
 function timeAgo(date: string) {
@@ -120,9 +121,9 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="-mx-3 -my-3 md:-mx-5 md:-my-4 h-[calc(100vh-56px)] flex flex-col">
+    <div className="absolute inset-0 flex flex-col overflow-hidden bg-white">
       {/* Mobile: show list or thread */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Conversation list */}
         <div className={cn(
           'flex flex-col border-r border-slate-100 bg-white',
@@ -245,6 +246,12 @@ function MessageThread({ conversation, profile, onBack, onMessageSent }: {
     : conversation.name || 'Группа'
 
   const memberCount = conversation.members?.length || 0
+  const { openShipment } = useShipmentModal()
+
+  function handleMentionClick(m: MessageMention) {
+    if (m.type === 'shipment') openShipment(m.id)
+    if (m.type === 'client') window.location.href = `/dashboard/clients/${m.id}`
+  }
 
   // Fetch messages
   useEffect(() => {
@@ -285,7 +292,11 @@ function MessageThread({ conversation, profile, onBack, onMessageSent }: {
           .eq('id', payload.new.id)
           .single()
         if (data) {
-          setMessages(prev => [...prev, data])
+          // Skip if already in list (own messages added after insert)
+          setMessages(prev => {
+            if (prev.find(m => m.id === data.id)) return prev
+            return [...prev, data]
+          })
           // Mark read
           await supabase
             .from('conversation_members')
@@ -351,7 +362,7 @@ function MessageThread({ conversation, profile, onBack, onMessageSent }: {
                 )}>
                   {/* Render content with mentions */}
                   <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
-                    {renderContentWithMentions(msg.content, msg.mentions || [])}
+                    {renderContentWithMentions(msg.content, msg.mentions || [], handleMentionClick)}
                   </p>
                   {/* Attachments */}
                   {msg.attachments?.length > 0 && (
@@ -372,13 +383,14 @@ function MessageThread({ conversation, profile, onBack, onMessageSent }: {
       </div>
 
       {/* Input */}
-      <MessageInput conversationId={conversation.id} profileId={profile.id} onSent={onMessageSent} />
+      <MessageInput conversationId={conversation.id} profileId={profile.id} onSent={onMessageSent}
+        onOptimisticSend={(msg) => setMessages(prev => [...prev, msg])} senderProfile={profile} />
     </>
   )
 }
 
 /* ── Render mentions in text ── */
-function renderContentWithMentions(text: string, mentions: MessageMention[]) {
+function renderContentWithMentions(text: string, mentions: MessageMention[], onMentionClick?: (m: MessageMention) => void) {
   if (!mentions.length) return text
   const parts: (string | JSX.Element)[] = []
   let remaining = text
@@ -390,7 +402,8 @@ function renderContentWithMentions(text: string, mentions: MessageMention[]) {
     if (idx === -1) continue
     if (idx > 0) parts.push(remaining.slice(0, idx))
     parts.push(
-      <span key={key++} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-700 text-[12px] font-medium cursor-pointer hover:bg-indigo-200 mx-0.5">
+      <span key={key++} onClick={(e) => { e.stopPropagation(); onMentionClick?.(m) }}
+        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-700 text-[12px] font-medium cursor-pointer hover:bg-indigo-200 mx-0.5">
         {m.type === 'shipment' ? <Hash className="w-3 h-3" /> : <User className="w-3 h-3" />}
         {m.label}
       </span>
@@ -422,10 +435,16 @@ function AttachmentItem({ att, isMine }: { att: MessageAttachment; isMine: boole
 }
 
 /* ── Message Input ── */
-function MessageInput({ conversationId, profileId, onSent }: { conversationId: string; profileId: string; onSent: () => void }) {
+function MessageInput({ conversationId, profileId, onSent, onOptimisticSend, senderProfile }: {
+  conversationId: string; profileId: string; onSent: () => void
+  onOptimisticSend?: (msg: Message) => void; senderProfile?: Profile
+}) {
   const supabase = createClient()
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
+  const [showShipmentPicker, setShowShipmentPicker] = useState(false)
+  const [shipmentSearch, setShipmentSearch] = useState('')
+  const [shipmentPickerResults, setShipmentPickerResults] = useState<{ id: string; container_number: string; origin: string | null; destination_city: string | null; destination_station: string | null }[]>([])
   const [mentions, setMentions] = useState<MessageMention[]>([])
   const [sending, setSending] = useState(false)
   const [showMention, setShowMention] = useState(false)
@@ -436,6 +455,18 @@ function MessageInput({ conversationId, profileId, onSent }: { conversationId: s
   // Mention search results
   const [shipmentResults, setShipmentResults] = useState<{ id: string; container_number: string }[]>([])
   const [clientResults, setClientResults] = useState<{ id: string; name: string }[]>([])
+
+  // Shipment picker search
+  useEffect(() => {
+    if (!showShipmentPicker) { setShipmentPickerResults([]); return }
+    const timer = setTimeout(async () => {
+      let query = supabase.from('shipments').select('id, container_number, origin, destination_city, destination_station').order('departure_date', { ascending: false }).limit(10)
+      if (shipmentSearch.trim()) query = query.ilike('container_number', `%${shipmentSearch}%`)
+      const { data } = await query
+      setShipmentPickerResults(data || [])
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [shipmentSearch, showShipmentPicker])
 
   useEffect(() => {
     if (!showMention || !mentionQuery) { setShipmentResults([]); setClientResults([]); return }
@@ -476,11 +507,18 @@ function MessageInput({ conversationId, profileId, onSent }: { conversationId: s
 
   async function handleSend() {
     if ((!text.trim() && files.length === 0) || sending) return
-    setSending(true)
 
-    // Upload files
+    const msgText = text.trim()
+    const msgMentions = [...mentions]
+    const msgFiles = [...files]
+
+    // Clear input immediately
+    setText('')
+    setFiles([])
+    setMentions([])
+    setSending(true)
     const attachments: MessageAttachment[] = []
-    for (const file of files) {
+    for (const file of msgFiles) {
       const path = `${conversationId}/${Date.now()}_${file.name}`
       const { error } = await supabase.storage.from('message-attachments').upload(path, file)
       if (!error) {
@@ -489,17 +527,18 @@ function MessageInput({ conversationId, profileId, onSent }: { conversationId: s
       }
     }
 
-    await supabase.from('messages').insert({
+    const { data: inserted } = await supabase.from('messages').insert({
       conversation_id: conversationId,
       sender_id: profileId,
-      content: text.trim(),
+      content: msgText,
       attachments,
-      mentions,
-    })
+      mentions: msgMentions,
+    }).select('*, sender:profiles(*)').single()
 
-    setText('')
-    setFiles([])
-    setMentions([])
+    if (inserted && onOptimisticSend) {
+      onOptimisticSend(inserted)
+    }
+
     setSending(false)
     onSent()
   }
@@ -551,10 +590,48 @@ function MessageInput({ conversationId, profileId, onSent }: { conversationId: s
         </div>
       )}
 
+      {/* Shipment picker popover */}
+      {showShipmentPicker && (
+        <div className="absolute bottom-full left-4 right-4 mb-2 bg-white rounded-xl border border-slate-200 shadow-xl max-h-[250px] overflow-hidden z-20 flex flex-col">
+          <div className="px-3 pt-3 pb-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input value={shipmentSearch} onChange={e => setShipmentSearch(e.target.value)} autoFocus
+                placeholder="Номер контейнера..."
+                className="w-full h-8 rounded-lg border border-slate-200 pl-8 pr-3 text-[12px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/30" />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-1 pb-2">
+            {shipmentPickerResults.map(s => (
+              <button key={s.id} onClick={() => {
+                insertMention({ type: 'shipment', id: s.id, label: s.container_number })
+                setShowShipmentPicker(false)
+                setShipmentSearch('')
+              }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 rounded-lg">
+                <Hash className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-slate-800">{s.container_number}</p>
+                  <p className="text-[10px] text-slate-400">{s.origin || '—'} → {s.destination_city || s.destination_station || '—'}</p>
+                </div>
+              </button>
+            ))}
+            {shipmentPickerResults.length === 0 && shipmentSearch && (
+              <p className="text-[12px] text-slate-400 text-center py-4">Не найдено</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Input row */}
-      <div className="flex items-end gap-2">
-        <button onClick={() => fileRef.current?.click()} className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center hover:bg-slate-200 shrink-0">
+      <div className="flex items-end gap-1.5">
+        <button onClick={() => fileRef.current?.click()} className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center hover:bg-slate-200 shrink-0" title="Прикрепить файл">
           <Paperclip className="w-4 h-4 text-slate-500" />
+        </button>
+        <button onClick={() => { setShowShipmentPicker(!showShipmentPicker); setShowMention(false) }}
+          className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', showShipmentPicker ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500 hover:bg-slate-200')}
+          title="Указать перевозку">
+          <Hash className="w-4 h-4" />
         </button>
         <input ref={fileRef} type="file" multiple className="hidden" onChange={e => {
           if (e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)])
