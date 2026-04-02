@@ -223,8 +223,8 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
   }, [origin, border, destination])
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-      <div ref={mapRef} style={{ height: 220, width: '100%', cursor: 'default' }} />
+    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden h-full">
+      <div ref={mapRef} style={{ height: '100%', minHeight: 180, width: '100%', cursor: 'default' }} />
     </div>
   )
 }

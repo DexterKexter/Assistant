@@ -73,7 +73,7 @@ export default function ShipmentDetailPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-2 h-[calc(100vh-120px)]">
       {/* Top bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -180,15 +180,17 @@ export default function ShipmentDetailPage() {
           </div>
         </div>
 
-        {/* Row 3: Map */}
-        <ShipmentMap
-          origin={shipment.origin}
-          border={shipment.destination_station}
-          destination={shipment.destination_city}
-          departureDate={shipment.departure_date}
-          arrivalDate={shipment.arrival_date}
-          deliveryDate={shipment.delivery_date}
-        />
+        {/* Row 3: Map — fills remaining space */}
+        <div className="flex-1 min-h-0">
+          <ShipmentMap
+            origin={shipment.origin}
+            border={shipment.destination_station}
+            destination={shipment.destination_city}
+            departureDate={shipment.departure_date}
+            arrivalDate={shipment.arrival_date}
+            deliveryDate={shipment.delivery_date}
+          />
+        </div>
       </>}
 
       {tab === 'documents' && (
