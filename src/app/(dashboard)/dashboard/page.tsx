@@ -22,7 +22,7 @@ export default function DashboardPage() {
   const [prev, setPrev] = useState<MonthStats>({ loaded: 0, inTransit: 0, onBorder: 0, delivered: 0 })
   const [topCarriers, setTopCarriers] = useState<{ name: string; count: number }[]>([])
   const [topRoutes, setTopRoutes] = useState<{ route: string; count: number }[]>([])
-  const [originCounts, setOriginCounts] = useState<{ name: string; count: number }[]>([])
+  const [mapShipments, setMapShipments] = useState<{ origin: string | null; departure_date: string | null }[]>([])
   const [recentActive, setRecentActive] = useState<Shipment[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -57,7 +57,7 @@ export default function DashboardPage() {
         // Active shipments list
         supabase.from('shipments').select('*, client:clients(name), carrier:carriers(name)').is('delivery_date', null).eq('is_completed', false).not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(6),
         // All for analytics
-        supabase.from('shipments').select('carrier_id, origin, destination_city, destination_station, arrival_date, delivery_date, is_completed').not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(2000),
+        supabase.from('shipments').select('carrier_id, origin, destination_city, destination_station, departure_date, arrival_date, delivery_date, is_completed').not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(2000),
       ])
 
       setCur({ loaded: curLoaded || 0, inTransit: inTransit || 0, onBorder: onBorder || 0, delivered: curDelivered || 0 })
@@ -91,16 +91,8 @@ export default function DashboardPage() {
           .slice(0, 5)
       )
 
-      // Origin counts for map
-      const originCountsMap: Record<string, number> = {}
-      ;(allShipments || []).forEach(s => {
-        if (s.origin) originCountsMap[s.origin] = (originCountsMap[s.origin] || 0) + 1
-      })
-      setOriginCounts(
-        Object.entries(originCountsMap)
-          .map(([name, count]) => ({ name, count }))
-          .sort((a, b) => b.count - a.count)
-      )
+      // Shipments for map
+      setMapShipments((allShipments || []).map(s => ({ origin: s.origin, departure_date: s.departure_date })))
 
       setLoading(false)
     }
@@ -153,7 +145,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Map */}
-      {!loading && originCounts.length > 0 && <DashboardMap origins={originCounts} />}
+      {!loading && mapShipments.length > 0 && <DashboardMap shipments={mapShipments} />}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Active shipments */}
