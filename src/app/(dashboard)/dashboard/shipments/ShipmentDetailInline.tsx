@@ -17,6 +17,7 @@ interface Lookups {
   carriers: { id: string; name: string }[]
   recipients: { id: string; name: string }[]
   senders: { id: string; name: string }[]
+  refs: Record<string, string[]>
 }
 
 const CONTAINER_TYPES = ['Выкупной', 'Возвратный', 'Собственный', 'Малшы']
@@ -97,17 +98,24 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
     // Fetch lookups if not loaded
     if (!lookups) {
-      const [{ data: cl }, { data: ca }, { data: re }, { data: se }] = await Promise.all([
+      const [{ data: cl }, { data: ca }, { data: re }, { data: se }, { data: refData }] = await Promise.all([
         supabase.from('clients').select('id, name').order('name'),
         supabase.from('carriers').select('id, name').order('name'),
         supabase.from('recipients').select('id, name').order('name'),
         supabase.from('senders').select('id, name').order('name'),
+        supabase.from('reference_items').select('category, name').order('name'),
       ])
+      const refs: Record<string, string[]> = {}
+      ;(refData || []).forEach((r: { category: string; name: string }) => {
+        if (!refs[r.category]) refs[r.category] = []
+        refs[r.category].push(r.name)
+      })
       setLookups({
         clients: cl || [],
         carriers: ca || [],
         recipients: re || [],
         senders: se || [],
+        refs,
       })
     }
   }
@@ -204,10 +212,11 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   const inputCls = 'w-full text-[13px] border border-slate-200 rounded-md px-2 py-1.5 text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 transition-all'
 
   // EditField: renders DetailIcon in view, input in edit
-  function EditField({ icon, label, field, type = 'text', options, displayValue, bold }: {
+  function EditField({ icon, label, field, type = 'text', options, refCategory, displayValue, bold }: {
     icon: React.ReactNode; label: string; field: string;
-    type?: 'text' | 'number' | 'date' | 'select';
+    type?: 'text' | 'number' | 'date' | 'select' | 'ref';
     options?: { value: string; label: string }[];
+    refCategory?: string;
     displayValue?: string; bold?: boolean
   }) {
     if (!editing) {
@@ -215,6 +224,9 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       return <DetailIcon icon={icon} label={label} value={val} bold={bold} />
     }
     const raw = draft[field] ?? ''
+    const refOptions = refCategory && lookups?.refs[refCategory]
+      ? lookups.refs[refCategory].map(n => ({ value: n, label: n }))
+      : []
     return (
       <div className="flex items-center gap-2.5">
         <div className="w-7 h-7 rounded-md bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">{icon}</div>
@@ -227,12 +239,19 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
               onChange={v => setField(field, v)}
               placeholder="— Не выбрано —"
             />
+          ) : type === 'ref' && refCategory ? (
+            <SearchableSelect
+              options={refOptions}
+              value={String(raw)}
+              onChange={v => setField(field, v)}
+              placeholder="— Выберите —"
+            />
           ) : (
             <input
               type={type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'}
               className={inputCls}
               value={String(raw)}
-              onChange={e => setField(field, type === 'number' ? e.target.value : e.target.value)}
+              onChange={e => setField(field, e.target.value)}
             />
           )}
         </div>
@@ -302,7 +321,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                 displayValue={shipment.container_size ? `${shipment.container_size}ft` : '—'} />
               <EditField icon={<FileText className="w-3.5 h-3.5" />} label="Тип" field="container_type" type="select"
                 options={CONTAINER_TYPES.map(t => ({ value: t, label: t }))} />
-              <EditField icon={<Package className="w-3.5 h-3.5" />} label="Груз" field="cargo_description" />
+              <EditField icon={<Package className="w-3.5 h-3.5" />} label="Груз" field="cargo_description" type="ref" refCategory="cargo" />
             </div>
           </div>
           <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
@@ -314,7 +333,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
               <EditField icon={<Building2 className="w-3.5 h-3.5" />} label="Получатель" field="recipient_id" type="select"
                 options={lookups?.recipients.map(r => ({ value: r.id, label: r.name })) || []}
                 displayValue={recipient?.name || '—'} />
-              <EditField icon={<User className="w-3.5 h-3.5" />} label="Отправитель" field="sender_name" />
+              <EditField icon={<User className="w-3.5 h-3.5" />} label="Отправитель" field="sender_name" type="ref" refCategory="sender" />
               <EditField icon={<Truck className="w-3.5 h-3.5" />} label="Перевозчик" field="carrier_id" type="select"
                 options={lookups?.carriers.map(c => ({ value: c.id, label: c.name })) || []}
                 displayValue={carrier?.name || '—'} />
@@ -358,9 +377,9 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
         <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
           <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Маршрут</p>
           <div className="grid grid-cols-3 gap-x-4 gap-y-2">
-            <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Откуда" field="origin" />
-            <EditField icon={<Filter className="w-3.5 h-3.5" />} label="Погранпереход" field="destination_station" />
-            <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Город назначения" field="destination_city" />
+            <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Откуда" field="origin" type="ref" refCategory="origin" />
+            <EditField icon={<Filter className="w-3.5 h-3.5" />} label="Погранпереход" field="destination_station" type="ref" refCategory="station" />
+            <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Город назначения" field="destination_city" type="ref" refCategory="city" />
             <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Дата отправки" field="departure_date" type="date" />
             <EditField icon={<Filter className="w-3.5 h-3.5" />} label="Дата на границе" field="arrival_date" type="date" />
             <EditField icon={<Check className="w-3.5 h-3.5" />} label="Дата доставки" field="delivery_date" type="date" />

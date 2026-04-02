@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/useProfile'
 import { useRouter } from 'next/navigation'
 import type { Profile, UserRole } from '@/types/database'
-import { Shield, Users, ChevronDown, Check, Search, UserPlus, Calculator } from 'lucide-react'
+import { Shield, Users, ChevronDown, Check, Search, UserPlus, Calculator, BookOpen } from 'lucide-react'
+import Link from 'next/link'
 
 const ALL_ROLES: UserRole[] = ['admin', 'manager', 'accountant', 'client']
 
@@ -103,6 +104,10 @@ export default function AdminPage() {
           <h1 className="text-[20px] font-bold text-slate-900 font-heading">Управление пользователями</h1>
           <p className="text-[13px] text-slate-400 mt-0.5">{users.length} пользователей в системе</p>
         </div>
+        <Link href="/dashboard/admin/references" className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors">
+          <BookOpen className="w-3.5 h-3.5" />
+          Справочники
+        </Link>
       </div>
 
       {/* Role cards */}
