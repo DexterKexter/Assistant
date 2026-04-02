@@ -120,7 +120,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-56px-24px)] md:h-[calc(100vh-56px-56px)] flex flex-col">
+    <div className="-mx-3 -my-3 md:-mx-5 md:-my-4 h-[calc(100vh-56px)] flex flex-col">
       {/* Mobile: show list or thread */}
       <div className="flex flex-1 min-h-0">
         {/* Conversation list */}
@@ -129,7 +129,7 @@ export default function MessagesPage() {
           selectedId ? 'hidden md:flex md:w-[340px]' : 'w-full md:w-[340px]'
         )}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 h-[56px]">
             <h2 className="text-[16px] font-bold text-slate-900 font-heading">Сообщения</h2>
             <button onClick={() => setShowNew(true)}
               className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800">
@@ -302,7 +302,7 @@ function MessageThread({ conversation, profile, onBack, onMessageSent }: {
   return (
     <>
       {/* Thread header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100 shrink-0">
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-white border-b border-slate-100 shrink-0 h-[56px]">
         <button onClick={onBack} className="md:hidden w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
           <ArrowLeft className="w-4 h-4 text-slate-600" />
         </button>
@@ -594,16 +594,12 @@ function NewConversationDialog({ profile, onClose, onCreated }: {
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {
-    if (!search.trim()) { setUsers([]); return }
     const timer = setTimeout(async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .ilike('full_name', `%${search}%`)
-        .neq('id', profile.id)
-        .limit(10)
+      let query = supabase.from('profiles').select('*').neq('id', profile.id).limit(20)
+      if (search.trim()) query = query.ilike('full_name', `%${search}%`)
+      const { data } = await query
       setUsers(data || [])
-    }, 300)
+    }, 200)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -706,18 +702,47 @@ function NewConversationDialog({ profile, onClose, onCreated }: {
           {/* Results */}
           <div className="max-h-[200px] overflow-y-auto space-y-0.5">
             {users.filter(u => !selected.find(s => s.id === u.id)).map(u => (
-              <button key={u.id} onClick={() => {
-                if (mode === 'dm') setSelected([u])
-                else setSelected(prev => [...prev, u])
+              <button key={u.id} onClick={async () => {
+                if (mode === 'dm') {
+                  // Immediately create/open DM
+                  setCreating(true)
+                  // Check existing DM
+                  const { data: existing } = await supabase.from('conversation_members').select('conversation_id').eq('profile_id', profile.id)
+                  if (existing) {
+                    for (const e of existing) {
+                      const { data: conv } = await supabase.from('conversations').select('*').eq('id', e.conversation_id).eq('type', 'dm').single()
+                      if (!conv) continue
+                      const { data: members } = await supabase.from('conversation_members').select('profile_id').eq('conversation_id', conv.id)
+                      if (members?.length === 2 && members.some(m => m.profile_id === u.id)) {
+                        onCreated(conv.id); return
+                      }
+                    }
+                  }
+                  // Create new DM
+                  const { data: conv } = await supabase.from('conversations').insert({ type: 'dm', name: null, created_by: profile.id }).select().single()
+                  if (conv) {
+                    await supabase.from('conversation_members').insert([
+                      { conversation_id: conv.id, profile_id: profile.id },
+                      { conversation_id: conv.id, profile_id: u.id },
+                    ])
+                    onCreated(conv.id)
+                  }
+                  setCreating(false)
+                } else {
+                  setSelected(prev => [...prev, u])
+                }
               }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold">
                   {getInitials(u.full_name)}
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-slate-800">{u.full_name}</p>
                   <p className="text-[11px] text-slate-400">{u.email}</p>
                 </div>
+                {mode === 'dm' && (
+                  <span className="text-[11px] text-indigo-500 font-medium shrink-0">Написать</span>
+                )}
               </button>
             ))}
           </div>
