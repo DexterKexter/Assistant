@@ -67,7 +67,13 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     : '??'
 
   return (
-    <div className="flex h-screen w-[260px] flex-col bg-gradient-to-b from-[#eef2ff] via-[#e8eeff] to-[#f0f0ff] shrink-0 overflow-hidden">
+    <div
+      className="flex h-screen w-[260px] flex-col shrink-0 overflow-hidden"
+      style={{
+        backgroundColor: '#f7f8fa',
+        backgroundImage: 'radial-gradient(ellipse at 20% 15%, rgba(199,210,254,0.45) 0%, transparent 55%), radial-gradient(ellipse at 75% 85%, rgba(221,210,255,0.3) 0%, transparent 50%)',
+      }}
+    >
       {/* Logo */}
       <div className="flex h-[64px] items-center px-5 gap-3">
         <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center shrink-0 shadow-md">
