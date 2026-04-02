@@ -146,7 +146,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
         if (newVal !== '' && newVal !== null) payload[key] = newVal
       } else {
         // Only changed fields for update
-        const orig = (shipment as Record<string, unknown>)[key]
+        const orig = (shipment as unknown as Record<string, unknown>)[key]
         const origNorm = orig === null || orig === undefined ? (numFields.includes(key) || dateFields.includes(key) ? null : '') : orig
         if (newVal !== origNorm) payload[key] = newVal
       }
