@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Users, Building2, Truck, Pencil } from 'lucide-react'
+import { Search, Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Users, Building2, Truck, Pencil, Plus } from 'lucide-react'
 import { getShipmentStatus, type Shipment, type Carrier, type Client } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
 import { DetailIcon } from '@/components/detail-icon'
@@ -26,7 +26,7 @@ export default function ShipmentsPage() {
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
   const router = useRouter()
-  const { openShipment, closeShipment, selectedId } = useShipmentModal()
+  const { openShipment, closeShipment, createShipment, selectedId } = useShipmentModal()
   const supabase = createClient()
 
   const [search, setSearch] = useState('')
@@ -39,7 +39,7 @@ export default function ShipmentsPage() {
   useEffect(() => {
     const fetch = async () => {
       const [{ data: shipData }, { data: carrierData }, { data: clientData }] = await Promise.all([
-        supabase.from('shipments').select('*, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)').order('departure_date', { ascending: false, nullsFirst: false }).limit(500),
+        supabase.from('shipments').select('*, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)').order('departure_date', { ascending: false, nullsFirst: false }).limit(2000),
         supabase.from('carriers').select('id, name').order('name'),
         supabase.from('clients').select('id, name').order('name').limit(100),
       ])
@@ -101,7 +101,13 @@ export default function ShipmentsPage() {
           <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Перевозки</h1>
           <p className="text-[13px] text-slate-400 mt-0.5">Отслеживание контейнеров и грузов</p>
         </div>
-        <p className="text-[13px] text-slate-400">{filtered.length} из {shipments.length}</p>
+        <div className="flex items-center gap-3">
+          <p className="text-[13px] text-slate-400">{filtered.length} из {shipments.length}</p>
+          <button onClick={() => createShipment()} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-[12px] font-medium hover:bg-indigo-600 transition-colors">
+            <Plus className="w-3.5 h-3.5" />
+            Новая
+          </button>
+        </div>
       </div>
 
       {/* Search + Filters */}

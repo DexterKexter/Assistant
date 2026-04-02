@@ -57,7 +57,7 @@ export default function DashboardPage() {
         // Active shipments list
         supabase.from('shipments').select('*, client:clients(name), carrier:carriers(name)').is('delivery_date', null).eq('is_completed', false).not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(6),
         // All for analytics
-        supabase.from('shipments').select('carrier_id, origin, destination_city, destination_station, arrival_date, delivery_date, is_completed').not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(500),
+        supabase.from('shipments').select('carrier_id, origin, destination_city, destination_station, arrival_date, delivery_date, is_completed').not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(2000),
       ])
 
       setCur({ loaded: curLoaded || 0, inTransit: inTransit || 0, onBorder: onBorder || 0, delivered: curDelivered || 0 })

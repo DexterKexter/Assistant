@@ -31,7 +31,7 @@ export default function DocumentsPage() {
       .select('id, container_number, contract_pdf, photos, departure_date, client:clients(name), recipient:recipients(name)')
       .not('departure_date', 'is', null)
       .order('departure_date', { ascending: false })
-      .limit(500)
+      .limit(2000)
       .then(({ data }) => {
         setAllShipments((data as unknown as Shipment[]) || [])
         setLoading(false)

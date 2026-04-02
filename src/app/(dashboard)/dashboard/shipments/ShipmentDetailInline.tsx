@@ -3,21 +3,44 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Building2, Truck, Pencil } from 'lucide-react'
+import { Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Building2, Truck, Pencil, Check, Save } from 'lucide-react'
 import { getShipmentStatus, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
 import { DetailIcon } from '@/components/detail-icon'
+import { useProfile } from '@/lib/useProfile'
+import { SearchableSelect } from '@/components/searchable-select'
 
 const ShipmentMap = dynamic(() => import('@/components/shipment-map').then(m => ({ default: m.ShipmentMap })), { ssr: false })
 
-export default function ShipmentDetailInline({ id, onClose }: { id: string; onClose: () => void }) {
-  const [shipment, setShipment] = useState<Shipment | null>(null)
+interface Lookups {
+  clients: { id: string; name: string }[]
+  carriers: { id: string; name: string }[]
+  recipients: { id: string; name: string }[]
+  senders: { id: string; name: string }[]
+}
+
+const CONTAINER_TYPES = ['Выкупной', 'Возвратный', 'Собственный', 'Малшы']
+
+export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { id: string; mode?: 'view' | 'create'; onClose: () => void }) {
+  const isCreateMode = mode === 'create'
+  const [shipment, setShipment] = useState<Shipment | null>(isCreateMode ? ({} as Shipment) : null)
   const [tab, setTab] = useState<'shipment' | 'documents' | 'finance'>('shipment')
   const [photoIdx, setPhotoIdx] = useState(0)
   const [lightbox, setLightbox] = useState(false)
 
+  // Edit mode
+  const { hasRole } = useProfile()
+  const canEdit = hasRole('admin', 'manager')
+  const [editing, setEditing] = useState(isCreateMode)
+  const [draft, setDraft] = useState<Record<string, unknown>>(isCreateMode ? { container_size: '40', container_type: 'Выкупной', is_completed: false } : {})
+  const [saving, setSaving] = useState(false)
+  const [lookups, setLookups] = useState<Lookups | null>(null)
+
+  const supabase = createClient()
+
+  // Fetch existing shipment (edit mode)
   useEffect(() => {
-    const supabase = createClient()
+    if (isCreateMode) return
     supabase
       .from('shipments')
       .select('*, recipient:recipients(name), client:clients(name, is_russia), sender:senders(name), carrier:carriers(name)')
@@ -25,6 +48,145 @@ export default function ShipmentDetailInline({ id, onClose }: { id: string; onCl
       .single()
       .then(({ data }) => setShipment(data as unknown as Shipment))
   }, [id])
+
+  // Fetch lookups on create mode mount
+  useEffect(() => {
+    if (isCreateMode && !lookups) {
+      Promise.all([
+        supabase.from('clients').select('id, name').order('name'),
+        supabase.from('carriers').select('id, name').order('name'),
+        supabase.from('recipients').select('id, name').order('name'),
+        supabase.from('senders').select('id, name').order('name'),
+      ]).then(([{ data: cl }, { data: ca }, { data: re }, { data: se }]) => {
+        setLookups({ clients: cl || [], carriers: ca || [], recipients: re || [], senders: se || [] })
+      })
+    }
+  }, [isCreateMode])
+
+  const setField = (field: string, value: unknown) => setDraft(prev => ({ ...prev, [field]: value }))
+
+  const enterEditMode = async () => {
+    if (!shipment) return
+    // Copy editable fields to draft
+    setDraft({
+      container_number: shipment.container_number || '',
+      container_size: shipment.container_size || '',
+      container_type: shipment.container_type || '',
+      cargo_description: shipment.cargo_description || '',
+      client_id: shipment.client_id || '',
+      recipient_id: shipment.recipient_id || '',
+      sender_name: shipment.sender_name || '',
+      carrier_id: shipment.carrier_id || '',
+      origin: shipment.origin || '',
+      destination_station: shipment.destination_station || '',
+      destination_city: shipment.destination_city || '',
+      departure_date: shipment.departure_date || '',
+      arrival_date: shipment.arrival_date || '',
+      delivery_date: shipment.delivery_date || '',
+      delivery_cost: shipment.delivery_cost ?? '',
+      price: shipment.price ?? '',
+      invoice_amount: shipment.invoice_amount ?? '',
+      client_payment: shipment.client_payment ?? '',
+      customs_cost: shipment.customs_cost ?? '',
+      weight_tons: shipment.weight_tons ?? '',
+      additional_cost: shipment.additional_cost ?? '',
+      notes: shipment.notes || '',
+      is_completed: shipment.is_completed || false,
+    })
+    setEditing(true)
+
+    // Fetch lookups if not loaded
+    if (!lookups) {
+      const [{ data: cl }, { data: ca }, { data: re }, { data: se }] = await Promise.all([
+        supabase.from('clients').select('id, name').order('name'),
+        supabase.from('carriers').select('id, name').order('name'),
+        supabase.from('recipients').select('id, name').order('name'),
+        supabase.from('senders').select('id, name').order('name'),
+      ])
+      setLookups({
+        clients: cl || [],
+        carriers: ca || [],
+        recipients: re || [],
+        senders: se || [],
+      })
+    }
+  }
+
+  const cancelEdit = () => {
+    if (isCreateMode) { onClose(); return }
+    setEditing(false)
+    setDraft({})
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+
+    const numFields = ['container_size', 'delivery_cost', 'price', 'invoice_amount', 'client_payment', 'customs_cost', 'weight_tons', 'additional_cost']
+    const dateFields = ['departure_date', 'arrival_date', 'delivery_date']
+
+    // Build clean payload
+    const payload: Record<string, unknown> = {}
+    for (const [key, val] of Object.entries(draft)) {
+      let newVal: unknown = val
+      if (numFields.includes(key)) {
+        newVal = val === '' || val === null ? null : Number(val)
+      }
+      if (dateFields.includes(key)) {
+        newVal = val === '' ? null : val
+      }
+      if (key === 'is_completed') {
+        newVal = !!val
+      }
+      if (key === 'client_id' || key === 'carrier_id' || key === 'recipient_id' || key === 'sender_id') {
+        newVal = val === '' ? null : val
+      }
+
+      if (isCreateMode) {
+        // Include all non-empty fields for insert
+        if (newVal !== '' && newVal !== null) payload[key] = newVal
+      } else {
+        // Only changed fields for update
+        const orig = (shipment as Record<string, unknown>)[key]
+        const origNorm = orig === null || orig === undefined ? (numFields.includes(key) || dateFields.includes(key) ? null : '') : orig
+        if (newVal !== origNorm) payload[key] = newVal
+      }
+    }
+
+    if (isCreateMode) {
+      const { data, error } = await supabase.from('shipments').insert(payload).select('id').single()
+      if (error) {
+        console.error('Create error:', error)
+        setSaving(false)
+        return
+      }
+      // Close and reload page
+      setSaving(false)
+      onClose()
+      window.location.reload()
+      return
+    }
+
+    if (Object.keys(payload).length > 0 && shipment) {
+      const { error } = await supabase.from('shipments').update(payload).eq('id', shipment.id)
+      if (error) {
+        console.error('Save error:', error)
+        setSaving(false)
+        return
+      }
+    }
+
+    // Re-fetch with joins
+    const { data } = await supabase
+      .from('shipments')
+      .select('*, recipient:recipients(name), client:clients(name, is_russia), sender:senders(name), carrier:carriers(name)')
+      .eq('id', id)
+      .single()
+    if (data) setShipment(data as unknown as Shipment)
+
+    setEditing(false)
+    setDraft({})
+    setSaving(false)
+  }
 
   if (!shipment) return (
     <div className="flex items-center justify-center h-full">
@@ -38,6 +200,46 @@ export default function ShipmentDetailInline({ id, onClose }: { id: string; onCl
   const recipient = shipment.recipient as unknown as { name: string } | null
   const carrier = shipment.carrier as unknown as { name: string } | null
 
+  // Shared input styles
+  const inputCls = 'w-full text-[13px] border border-slate-200 rounded-md px-2 py-1.5 text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 transition-all'
+
+  // EditField: renders DetailIcon in view, input in edit
+  function EditField({ icon, label, field, type = 'text', options, displayValue, bold }: {
+    icon: React.ReactNode; label: string; field: string;
+    type?: 'text' | 'number' | 'date' | 'select';
+    options?: { value: string; label: string }[];
+    displayValue?: string; bold?: boolean
+  }) {
+    if (!editing) {
+      const val = displayValue ?? String((shipment as Record<string, unknown>)[field] || '—')
+      return <DetailIcon icon={icon} label={label} value={val} bold={bold} />
+    }
+    const raw = draft[field] ?? ''
+    return (
+      <div className="flex items-center gap-2.5">
+        <div className="w-7 h-7 rounded-md bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">{icon}</div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] text-slate-400 mb-0.5">{label}</p>
+          {type === 'select' && options ? (
+            <SearchableSelect
+              options={options}
+              value={String(raw)}
+              onChange={v => setField(field, v)}
+              placeholder="— Не выбрано —"
+            />
+          ) : (
+            <input
+              type={type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'}
+              className={inputCls}
+              value={String(raw)}
+              onChange={e => setField(field, type === 'number' ? e.target.value : e.target.value)}
+            />
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-3">
       {/* Header */}
@@ -46,16 +248,31 @@ export default function ShipmentDetailInline({ id, onClose }: { id: string; onCl
           <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
             <X className="w-4 h-4 text-slate-500" />
           </button>
-          <h1 className="text-[18px] font-bold text-slate-900 font-mono">{shipment.container_number}</h1>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: status.color + '15', color: status.color }}>
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: status.color }} />
-            {status.label}
-          </span>
+          <h1 className="text-[18px] font-bold text-slate-900 font-mono">{isCreateMode ? 'Новая перевозка' : shipment.container_number}</h1>
+          {!isCreateMode && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: status.color + '15', color: status.color }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: status.color }} />
+              {status.label}
+            </span>
+          )}
         </div>
-        <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors flex items-center gap-1.5">
-          <Pencil className="w-3 h-3" />
-          Редактировать
-        </button>
+        {canEdit && !editing && (
+          <button onClick={enterEditMode} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors flex items-center gap-1.5">
+            <Pencil className="w-3 h-3" />
+            Редактировать
+          </button>
+        )}
+        {editing && (
+          <div className="flex items-center gap-2">
+            <button onClick={cancelEdit} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-500 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors">
+              Отмена
+            </button>
+            <button onClick={handleSave} disabled={saving} className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-[12px] font-medium hover:bg-indigo-600 transition-colors flex items-center gap-1.5 disabled:opacity-50">
+              <Save className="w-3 h-3" />
+              {saving ? 'Сохранение...' : 'Сохранить'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -73,31 +290,41 @@ export default function ShipmentDetailInline({ id, onClose }: { id: string; onCl
         ))}
       </div>
 
-      {/* Content */}
+      {/* === SHIPMENT TAB === */}
       {tab === 'shipment' && (
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
             <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Контейнер</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-              <DetailIcon icon={<Ship className="w-3.5 h-3.5" />} label="Номер" value={shipment.container_number || '—'} bold />
-              <DetailIcon icon={<Package className="w-3.5 h-3.5" />} label="Размер" value={shipment.container_size ? `${shipment.container_size}ft` : '—'} />
-              <DetailIcon icon={<FileText className="w-3.5 h-3.5" />} label="Тип" value={shipment.container_type || '—'} />
-              <DetailIcon icon={<Package className="w-3.5 h-3.5" />} label="Груз" value={shipment.cargo_description || '—'} />
+              <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Номер" field="container_number" bold />
+              <EditField icon={<Package className="w-3.5 h-3.5" />} label="Размер" field="container_size" type="select"
+                options={[{ value: '20', label: '20ft' }, { value: '40', label: '40ft' }]}
+                displayValue={shipment.container_size ? `${shipment.container_size}ft` : '—'} />
+              <EditField icon={<FileText className="w-3.5 h-3.5" />} label="Тип" field="container_type" type="select"
+                options={CONTAINER_TYPES.map(t => ({ value: t, label: t }))} />
+              <EditField icon={<Package className="w-3.5 h-3.5" />} label="Груз" field="cargo_description" />
             </div>
           </div>
           <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
             <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Участники</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-              <DetailIcon icon={<User className="w-3.5 h-3.5" />} label="Клиент" value={`${client?.name || '—'}${client?.is_russia ? ' 🇷🇺' : ''}`} />
-              <DetailIcon icon={<Building2 className="w-3.5 h-3.5" />} label="Получатель" value={recipient?.name || '—'} />
-              <DetailIcon icon={<User className="w-3.5 h-3.5" />} label="Отправитель" value={shipment.sender_name || '—'} />
-              <DetailIcon icon={<Truck className="w-3.5 h-3.5" />} label="Перевозчик" value={carrier?.name || '—'} />
+              <EditField icon={<User className="w-3.5 h-3.5" />} label="Клиент" field="client_id" type="select"
+                options={lookups?.clients.map(c => ({ value: c.id, label: c.name })) || []}
+                displayValue={`${client?.name || '—'}${client?.is_russia ? ' 🇷🇺' : ''}`} />
+              <EditField icon={<Building2 className="w-3.5 h-3.5" />} label="Получатель" field="recipient_id" type="select"
+                options={lookups?.recipients.map(r => ({ value: r.id, label: r.name })) || []}
+                displayValue={recipient?.name || '—'} />
+              <EditField icon={<User className="w-3.5 h-3.5" />} label="Отправитель" field="sender_name" />
+              <EditField icon={<Truck className="w-3.5 h-3.5" />} label="Перевозчик" field="carrier_id" type="select"
+                options={lookups?.carriers.map(c => ({ value: c.id, label: c.name })) || []}
+                displayValue={carrier?.name || '—'} />
             </div>
           </div>
         </div>
       )}
 
-      {tab === 'shipment' && (
+      {/* Route — view mode: timeline, edit mode: simple grid */}
+      {tab === 'shipment' && !editing && (
         <div className="bg-white rounded-xl border border-slate-100 px-6 py-4">
           <div className="flex items-start">
             <div className="flex-1 text-center">
@@ -127,7 +354,22 @@ export default function ShipmentDetailInline({ id, onClose }: { id: string; onCl
         </div>
       )}
 
-      {tab === 'shipment' && (
+      {tab === 'shipment' && editing && (
+        <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Маршрут</p>
+          <div className="grid grid-cols-3 gap-x-4 gap-y-2">
+            <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Откуда" field="origin" />
+            <EditField icon={<Filter className="w-3.5 h-3.5" />} label="Погранпереход" field="destination_station" />
+            <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Город назначения" field="destination_city" />
+            <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Дата отправки" field="departure_date" type="date" />
+            <EditField icon={<Filter className="w-3.5 h-3.5" />} label="Дата на границе" field="arrival_date" type="date" />
+            <EditField icon={<Check className="w-3.5 h-3.5" />} label="Дата доставки" field="delivery_date" type="date" />
+          </div>
+        </div>
+      )}
+
+      {/* Map — hide in edit mode */}
+      {tab === 'shipment' && !editing && (
         <div className="rounded-xl overflow-hidden border border-slate-100" style={{ height: 200 }}>
           <ShipmentMap
             origin={shipment.origin}
@@ -140,7 +382,25 @@ export default function ShipmentDetailInline({ id, onClose }: { id: string; onCl
         </div>
       )}
 
-      {tab === 'finance' && (
+      {/* Notes + completed — edit mode only */}
+      {tab === 'shipment' && editing && (
+        <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Дополнительно</p>
+          <div className="space-y-3">
+            <div>
+              <p className="text-[11px] text-slate-400 mb-1">Заметки</p>
+              <textarea className={inputCls + ' min-h-[60px] resize-y'} value={String(draft.notes || '')} onChange={e => setField('notes', e.target.value)} placeholder="Заметки..." />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={!!draft.is_completed} onChange={e => setField('is_completed', e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-indigo-500 focus:ring-indigo-400" />
+              <span className="text-[13px] text-slate-700 font-medium">Перевозка завершена</span>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* === FINANCE TAB === */}
+      {tab === 'finance' && !editing && (
         <div className="bg-white rounded-xl border border-slate-100 p-5">
           <div className="grid grid-cols-3 gap-3">
             {shipment.delivery_cost && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[11px] text-slate-400">Доставка</p><p className="text-[18px] font-bold text-slate-900">${shipment.delivery_cost.toLocaleString()}</p></div>}
@@ -153,6 +413,29 @@ export default function ShipmentDetailInline({ id, onClose }: { id: string; onCl
         </div>
       )}
 
+      {tab === 'finance' && editing && (
+        <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Финансы</p>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { field: 'delivery_cost', label: 'Доставка' },
+              { field: 'price', label: 'Цена' },
+              { field: 'invoice_amount', label: 'Счёт' },
+              { field: 'client_payment', label: 'Оплата клиента' },
+              { field: 'customs_cost', label: 'Таможня' },
+              { field: 'weight_tons', label: 'Вес (тонн)' },
+              { field: 'additional_cost', label: 'Доп. расходы' },
+            ].map(f => (
+              <div key={f.field}>
+                <p className="text-[11px] text-slate-400 mb-1">{f.label}</p>
+                <input type="number" className={inputCls} value={String(draft[f.field] ?? '')} onChange={e => setField(f.field, e.target.value)} placeholder="0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* === DOCUMENTS TAB === */}
       {tab === 'documents' && (() => {
         const photos = shipment.photos || []
         const excelFiles = shipment.excel_files || []

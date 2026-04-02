@@ -3,16 +3,15 @@
 import { useShipmentModal } from '@/lib/shipment-modal'
 import dynamic from 'next/dynamic'
 
-// Импортируем ShipmentDetailInline лениво чтобы не тянуть лишний код
 const ShipmentDetailInlineLoader = dynamic(
   () => import('@/app/(dashboard)/dashboard/shipments/ShipmentDetailInline'),
   { ssr: false }
 )
 
 export function ShipmentModalGlobal() {
-  const { selectedId, closeShipment } = useShipmentModal()
+  const { selectedId, isCreating, closeShipment } = useShipmentModal()
 
-  if (!selectedId) return null
+  if (!selectedId && !isCreating) return null
 
   return (
     <div
@@ -24,7 +23,11 @@ export function ShipmentModalGlobal() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex-1 overflow-auto px-5 py-4">
-          <ShipmentDetailInlineLoader id={selectedId} onClose={closeShipment} />
+          <ShipmentDetailInlineLoader
+            id={selectedId || ''}
+            mode={isCreating ? 'create' : 'view'}
+            onClose={closeShipment}
+          />
         </div>
       </div>
     </div>
