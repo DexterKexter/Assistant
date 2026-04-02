@@ -15,11 +15,11 @@ export function ShipmentModalGlobal() {
 
   return (
     <div
-      className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm flex items-end md:items-center justify-center md:p-4"
       onClick={closeShipment}
     >
       <div
-        className="bg-[#f8fafc] rounded-2xl w-[95vw] max-w-6xl h-[90vh] shadow-2xl overflow-hidden flex flex-col"
+        className="bg-[#f8fafc] w-full h-full md:rounded-2xl md:w-[95vw] md:max-w-6xl md:h-[90vh] shadow-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex-1 overflow-auto px-5 py-4">

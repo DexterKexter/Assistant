@@ -289,8 +289,8 @@ export default function ShipmentsPage() {
         </>
       )}
 
-      {/* Table */}
-      <div className={`bg-white rounded-xl border border-slate-100 overflow-hidden ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>
+      {/* Desktop Table */}
+      <div className={`hidden md:block bg-white rounded-xl border border-slate-100 overflow-hidden ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
         <table className="w-full table-fixed min-w-[800px]">
           <thead>
@@ -306,7 +306,6 @@ export default function ShipmentsPage() {
             </tr>
           </thead>
           <tbody>
-
             {loading ? (
               <tr><td colSpan={8} className="px-5 py-3"><div className="space-y-2">{[...Array(6)].map((_, i) => <div key={i} className="skeleton h-10 w-full" />)}</div></td></tr>
             ) : filtered.length === 0 ? (
@@ -367,6 +366,65 @@ export default function ShipmentsPage() {
           </tbody>
         </table>
         </div>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className={`md:hidden space-y-2 ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>
+        {loading ? (
+          <div className="space-y-2">{[...Array(6)].map((_, i) => <div key={i} className="skeleton h-20 w-full rounded-xl" />)}</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <Ship className="w-10 h-10 text-slate-200 mx-auto mb-3" strokeWidth={1.5} />
+            <p className="text-[14px] text-slate-400 font-medium">Не найдено</p>
+          </div>
+        ) : (() => {
+          let lastMonth = ''
+          return filtered.map((s) => {
+            const isRussia = (s.client as unknown as { is_russia?: boolean })?.is_russia || false
+            const status = getShipmentStatus(s, isRussia)
+            const curMonth = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : ''
+            const showMonthHeader = curMonth && curMonth !== lastMonth
+            if (showMonthHeader) lastMonth = curMonth
+            const statusBg = status.key === 'delivered' ? '#f0fdf4' : status.key === 'in_transit' ? '#eef2ff' : '#fffbeb'
+
+            return (
+              <div key={s.id}>
+                {showMonthHeader && (
+                  <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide px-1 pt-3 pb-1.5">{curMonth}</p>
+                )}
+                <div
+                  className="bg-white rounded-xl border border-slate-100 p-3.5 active:bg-slate-50 transition-colors cursor-pointer"
+                  onClick={() => openShipment(s.id)}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-bold text-slate-900 font-mono"><Hl text={s.container_number || '—'} q={search} /></p>
+                      <p className="text-[12px] text-slate-500 truncate mt-0.5">{(s.client as unknown as { name: string })?.name || '—'}</p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap shrink-0" style={{ background: statusBg, color: status.color }}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${status.key === 'in_transit' ? 'dot-pulse' : ''}`} style={{ background: status.color }} />
+                      {status.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                    <span>{s.origin || '—'} → {s.destination_city || s.destination_station || '—'}</span>
+                    <span className="ml-auto">{fmtDate(s.departure_date)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {s.container_size && <span className={`rounded px-1.5 py-px text-[10px] font-medium ${s.container_size === 20 ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>{s.container_size}ft</span>}
+                    {s.container_type && <span className={`rounded px-1.5 py-px text-[10px] font-medium ${
+                      s.container_type === 'Выкупной' ? 'bg-amber-50 text-amber-700' :
+                      s.container_type === 'Возвратный' ? 'bg-emerald-50 text-emerald-700' :
+                      s.container_type === 'Собственный' ? 'bg-indigo-50 text-indigo-700' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>{s.container_type}</span>}
+                    {(s.carrier as unknown as { name: string })?.name && <span className="text-[11px] text-slate-400 ml-auto truncate max-w-[120px]">{(s.carrier as unknown as { name: string })?.name}</span>}
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        })()}
       </div>
 
       {/* Load more */}
