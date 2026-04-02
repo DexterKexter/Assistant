@@ -202,17 +202,17 @@ export default function ShipmentsPage() {
           <BookOpen className="w-3.5 h-3.5" />
           <span className="hidden md:inline">Справочники</span>
         </button>
-        <button onClick={startAddNew} className="h-9 flex items-center gap-1.5 px-3 bg-indigo-500 text-white rounded-lg text-[12px] font-medium hover:bg-indigo-600 transition-colors shrink-0">
+        <button onClick={startAddNew} className="h-9 flex items-center gap-1.5 px-3 bg-slate-900 text-white rounded-lg text-[12px] font-medium hover:bg-slate-800 transition-colors shrink-0">
           <Plus className="w-3.5 h-3.5" />
           <span className="hidden md:inline">Новая</span>
         </button>
       </div>
 
       {/* Status tabs */}
-      <div className="flex gap-1 p-1 bg-white rounded-lg border border-slate-200/80 w-fit overflow-x-auto max-w-full">
+      <div className="flex gap-1 p-1 rounded-lg w-fit overflow-x-auto max-w-full">
         {statusFilters.map((f) => (
           <button key={f.key} onClick={() => setStatusFilter(f.key)}
-            className={`px-3 py-[6px] rounded-md text-[12px] font-medium transition-all duration-150 ${statusFilter === f.key ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
+            className={`px-3 py-[6px] rounded-md text-[12px] font-medium transition-all duration-150 ${statusFilter === f.key ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
             {f.label}
           </button>
         ))}
@@ -228,7 +228,7 @@ export default function ShipmentsPage() {
               <div className="flex gap-2">
                 <button onClick={cancelNew} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-500 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors">Отмена</button>
                 <button onClick={saveNew} disabled={savingNew || !newRow.container_number?.trim()}
-                  className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-[12px] font-medium hover:bg-indigo-600 disabled:opacity-50 flex items-center gap-1.5 transition-colors">
+                  className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[12px] font-medium hover:bg-slate-800 disabled:opacity-50 flex items-center gap-1.5 transition-colors">
                   <Save className="w-3 h-3" /> {savingNew ? 'Сохранение...' : 'Сохранить'}
                 </button>
               </div>

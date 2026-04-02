@@ -109,7 +109,7 @@ export function ReferencesModal({ onClose }: { onClose: () => void }) {
                     className="h-7 rounded-md bg-slate-50 border border-slate-200/60 pl-7 pr-2 text-[14px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-400 transition-all w-36" />
                 </div>
                 <button onClick={() => { setAdding(true); setNewName('') }}
-                  className="flex items-center gap-1 px-2.5 py-1 bg-indigo-500 text-white rounded-md text-[11px] font-medium hover:bg-indigo-600 transition-colors">
+                  className="flex items-center gap-1 px-2.5 py-1 bg-slate-900 text-white rounded-md text-[11px] font-medium hover:bg-slate-800 transition-colors">
                   <Plus className="w-3 h-3" /> Добавить
                 </button>
               </div>
@@ -125,7 +125,7 @@ export function ReferencesModal({ onClose }: { onClose: () => void }) {
                       <input type="text" value={newName} onChange={e => setNewName(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleAdd()} placeholder="Название..." autoFocus
                         className="flex-1 text-[12px] border border-slate-200 rounded-md px-2 py-1 text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400" />
-                      <button onClick={handleAdd} disabled={saving || !newName.trim()} className="w-6 h-6 rounded-md bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 disabled:opacity-50"><Check className="w-3 h-3" /></button>
+                      <button onClick={handleAdd} disabled={saving || !newName.trim()} className="w-6 h-6 rounded-md bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-50"><Check className="w-3 h-3" /></button>
                       <button onClick={() => setAdding(false)} className="w-6 h-6 rounded-md bg-white border border-slate-200 text-slate-400 flex items-center justify-center hover:bg-slate-50"><X className="w-3 h-3" /></button>
                     </div>
                   )}
@@ -136,7 +136,7 @@ export function ReferencesModal({ onClose }: { onClose: () => void }) {
                           <input type="text" value={editName} onChange={e => setEditName(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleEdit(item.id)} autoFocus
                             className="flex-1 text-[12px] border border-slate-200 rounded-md px-2 py-1 text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400" />
-                          <button onClick={() => handleEdit(item.id)} disabled={saving} className="w-5 h-5 rounded bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 disabled:opacity-50"><Check className="w-2.5 h-2.5" /></button>
+                          <button onClick={() => handleEdit(item.id)} disabled={saving} className="w-5 h-5 rounded bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-50"><Check className="w-2.5 h-2.5" /></button>
                           <button onClick={() => setEditingId(null)} className="w-5 h-5 rounded bg-white border border-slate-200 text-slate-400 flex items-center justify-center hover:bg-slate-50"><X className="w-2.5 h-2.5" /></button>
                         </>
                       ) : (

@@ -158,7 +158,7 @@ export default function ReferencesPage() {
               </div>
               <button
                 onClick={() => { setAdding(true); setNewName('') }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-[12px] font-medium hover:bg-indigo-600 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[12px] font-medium hover:bg-slate-800 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Добавить
@@ -184,7 +184,7 @@ export default function ReferencesPage() {
                     autoFocus
                     className="flex-1 text-[13px] border border-slate-200 rounded-md px-2.5 py-1.5 text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
                   />
-                  <button onClick={handleAdd} disabled={saving || !newName.trim()} className="w-7 h-7 rounded-md bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 disabled:opacity-50 transition-colors">
+                  <button onClick={handleAdd} disabled={saving || !newName.trim()} className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-50 transition-colors">
                     <Check className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={() => setAdding(false)} className="w-7 h-7 rounded-md bg-white border border-slate-200 text-slate-400 flex items-center justify-center hover:bg-slate-50 transition-colors">
@@ -205,7 +205,7 @@ export default function ReferencesPage() {
                         autoFocus
                         className="flex-1 text-[13px] border border-slate-200 rounded-md px-2.5 py-1 text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
                       />
-                      <button onClick={() => handleEdit(item.id)} disabled={saving} className="w-6 h-6 rounded-md bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 disabled:opacity-50 transition-colors">
+                      <button onClick={() => handleEdit(item.id)} disabled={saving} className="w-6 h-6 rounded-md bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-50 transition-colors">
                         <Check className="w-3 h-3" />
                       </button>
                       <button onClick={() => setEditingId(null)} className="w-6 h-6 rounded-md bg-white border border-slate-200 text-slate-400 flex items-center justify-center hover:bg-slate-50 transition-colors">

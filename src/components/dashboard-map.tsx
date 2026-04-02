@@ -204,7 +204,7 @@ export function DashboardMap({ shipments }: Props) {
         {YEAR_FILTERS.map(y => (
           <button key={y} onClick={() => setActiveYear(y)}
             className={`px-3.5 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
-              activeYear === y ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+              activeYear === y ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
             }`}>{y}</button>
         ))}
       </div>

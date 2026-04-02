@@ -310,7 +310,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
             <button onClick={cancelEdit} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-500 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors">
               Отмена
             </button>
-            <button onClick={handleSave} disabled={saving} className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-[12px] font-medium hover:bg-indigo-600 transition-colors flex items-center gap-1.5 disabled:opacity-50">
+            <button onClick={handleSave} disabled={saving} className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[12px] font-medium hover:bg-slate-800 transition-colors flex items-center gap-1.5 disabled:opacity-50">
               <Save className="w-3 h-3" />
               {saving ? 'Сохранение...' : 'Сохранить'}
             </button>
