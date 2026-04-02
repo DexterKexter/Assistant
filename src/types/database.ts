@@ -148,3 +148,51 @@ export const TRANSACTION_CATEGORIES = [
   'Доставка', 'Таможня', 'Хранение', 'Страхование',
   'Погрузка/разгрузка', 'Оплата от клиента', 'Прочее',
 ]
+
+/* ── Messaging ── */
+export type ConversationType = 'dm' | 'group'
+
+export interface MessageAttachment {
+  name: string
+  url: string
+  type: string
+  size: number
+}
+
+export interface MessageMention {
+  type: 'shipment' | 'client'
+  id: string
+  label: string
+}
+
+export interface Message {
+  id: string
+  conversation_id: string
+  sender_id: string
+  content: string
+  attachments: MessageAttachment[]
+  mentions: MessageMention[]
+  created_at: string
+  sender?: Profile
+}
+
+export interface ConversationMember {
+  id: string
+  conversation_id: string
+  profile_id: string
+  last_read_at: string
+  joined_at: string
+  profile?: Profile
+}
+
+export interface Conversation {
+  id: string
+  type: ConversationType
+  name: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  members?: ConversationMember[]
+  last_message?: Message
+  unread_count?: number
+}

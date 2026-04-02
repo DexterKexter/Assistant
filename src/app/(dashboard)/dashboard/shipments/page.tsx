@@ -244,7 +244,7 @@ export default function ShipmentsPage() {
               <div>
                 <p className="text-[12px] text-slate-500 font-medium mb-1">Размер / Тип</p>
                 <div className="flex gap-1">
-                  <select value={newRow.container_size || '40'} onChange={e => setNew('container_size', e.target.value)} className={inpCls + ' w-[55px]'}>
+                  <select value={newRow.container_size || '40'} onChange={e => setNew('container_size', e.target.value)} className={inpCls + ' flex-1'}>
                     <option value="20">20ft</option>
                     <option value="40">40ft</option>
                   </select>

@@ -10,6 +10,7 @@ import {
   Users,
   Wallet,
   FileText,
+  MessageSquare,
   LogOut,
   Truck,
   Clock,
@@ -27,6 +28,7 @@ const coreItems = [
   { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
   { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
   { href: '/dashboard/documents', label: 'Документы', icon: FileText },
+  { href: '/dashboard/messages', label: 'Сообщения', icon: MessageSquare },
 ]
 
 const statusItems = [

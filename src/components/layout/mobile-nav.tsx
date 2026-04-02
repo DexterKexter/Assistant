@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutGrid, Ship, Users, Wallet, FileText } from 'lucide-react'
+import { LayoutGrid, Ship, Users, Wallet, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const items = [
@@ -10,7 +10,7 @@ const items = [
   { href: '/dashboard/shipments', label: 'Перевозки', icon: Ship },
   { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
   { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
-  { href: '/dashboard/documents', label: 'Документы', icon: FileText },
+  { href: '/dashboard/messages', label: 'Чат', icon: MessageSquare },
 ]
 
 export function MobileNav() {
