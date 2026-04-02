@@ -44,7 +44,7 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between text-[13px] border border-slate-200 rounded-md px-2 py-1.5 text-slate-800 bg-white hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 transition-all text-left"
+        className="w-full h-9 flex items-center justify-between text-[13px] border border-slate-200 rounded-lg px-2.5 text-slate-800 bg-white hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 transition-all text-left"
       >
         <span className={selected ? 'text-slate-800 truncate' : 'text-slate-400 truncate'}>
           {selected ? selected.label : placeholder}

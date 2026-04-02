@@ -15,8 +15,7 @@ interface RefItem {
 }
 
 const CATEGORIES = [
-  { key: 'origin', label: 'Откуда (города отправки)' },
-  { key: 'city', label: 'Города назначения' },
+  { key: 'city', label: 'Города' },
   { key: 'station', label: 'Погранпереходы' },
   { key: 'cargo', label: 'Грузы (наименования)' },
   { key: 'sender', label: 'Отправители' },
@@ -27,7 +26,7 @@ export default function ReferencesPage() {
   const router = useRouter()
   const [items, setItems] = useState<RefItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeCategory, setActiveCategory] = useState('origin')
+  const [activeCategory, setActiveCategory] = useState('city')
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')

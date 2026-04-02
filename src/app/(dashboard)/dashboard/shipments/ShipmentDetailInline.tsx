@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Building2, Truck, Pencil, Check, Save } from 'lucide-react'
+import { Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Building2, Truck, Pencil, Check, Save, Trash2 } from 'lucide-react'
 import { getShipmentStatus, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
 import { DetailIcon } from '@/components/detail-icon'
@@ -36,6 +36,9 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   const [draft, setDraft] = useState<Record<string, unknown>>(isCreateMode ? { container_size: '40', container_type: 'Выкупной', is_completed: false } : {})
   const [saving, setSaving] = useState(false)
   const [lookups, setLookups] = useState<Lookups | null>(null)
+  const [showDelete, setShowDelete] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const supabase = createClient()
 
@@ -202,6 +205,15 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
     setSaving(false)
   }
 
+  const handleDelete = async () => {
+    if (!shipment || deleteConfirm !== shipment.container_number) return
+    setDeleting(true)
+    await supabase.from('shipments').delete().eq('id', shipment.id)
+    setDeleting(false)
+    onClose()
+    window.location.reload()
+  }
+
   if (!shipment) return (
     <div className="flex items-center justify-center h-full">
       <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -237,7 +249,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       <div className="flex items-center gap-2.5">
         <div className="w-7 h-7 rounded-md bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">{icon}</div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] text-slate-400 mb-0.5">{label}</p>
+          <p className="text-[12px] text-slate-500 font-medium mb-0.5">{label}</p>
           {type === 'select' && options ? (
             <SearchableSelect
               options={options}
@@ -289,6 +301,12 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
         )}
         {editing && (
           <div className="flex items-center gap-2">
+            {!isCreateMode && (
+              <button onClick={() => setShowDelete(true)} className="px-3 py-1.5 bg-white border border-red-200 text-red-500 rounded-lg text-[12px] font-medium hover:bg-red-50 transition-colors flex items-center gap-1.5">
+                <Trash2 className="w-3 h-3" />
+                Удалить
+              </button>
+            )}
             <button onClick={cancelEdit} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-500 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors">
               Отмена
             </button>
@@ -319,7 +337,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       {tab === 'shipment' && (
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
-            <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Контейнер</p>
+            <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Контейнер</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Номер" field="container_number" bold />
               <EditField icon={<Package className="w-3.5 h-3.5" />} label="Размер" field="container_size" type="select"
@@ -331,7 +349,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
             </div>
           </div>
           <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
-            <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Участники</p>
+            <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Участники</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               <EditField icon={<User className="w-3.5 h-3.5" />} label="Клиент" field="client_id" type="select"
                 options={lookups?.clients.map(c => ({ value: c.id, label: c.name })) || []}
@@ -381,9 +399,9 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
       {tab === 'shipment' && editing && (
         <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
-          <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Маршрут</p>
+          <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Маршрут</p>
           <div className="grid grid-cols-3 gap-x-4 gap-y-2">
-            <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Откуда" field="origin" type="ref" refCategory="origin" />
+            <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Откуда" field="origin" type="ref" refCategory="city" />
             <EditField icon={<Filter className="w-3.5 h-3.5" />} label="Погранпереход" field="destination_station" type="ref" refCategory="station" />
             <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Город назначения" field="destination_city" type="ref" refCategory="city" />
             <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Дата отправки" field="departure_date" type="date" />
@@ -410,16 +428,12 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       {/* Notes + completed — edit mode only */}
       {tab === 'shipment' && editing && (
         <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
-          <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Дополнительно</p>
+          <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Дополнительно</p>
           <div className="space-y-3">
             <div>
-              <p className="text-[11px] text-slate-400 mb-1">Заметки</p>
+              <p className="text-[12px] text-slate-500 mb-1">Заметки</p>
               <textarea className={inputCls + ' min-h-[60px] resize-y'} value={String(draft.notes || '')} onChange={e => setField('notes', e.target.value)} placeholder="Заметки..." />
             </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={!!draft.is_completed} onChange={e => setField('is_completed', e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-indigo-500 focus:ring-indigo-400" />
-              <span className="text-[13px] text-slate-700 font-medium">Перевозка завершена</span>
-            </label>
           </div>
         </div>
       )}
@@ -428,11 +442,11 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       {tab === 'finance' && !editing && (
         <div className="bg-white rounded-xl border border-slate-100 p-5">
           <div className="grid grid-cols-3 gap-3">
-            {shipment.delivery_cost && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[11px] text-slate-400">Доставка</p><p className="text-[18px] font-bold text-slate-900">${shipment.delivery_cost.toLocaleString()}</p></div>}
-            {shipment.price && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[11px] text-slate-400">Цена</p><p className="text-[18px] font-bold text-slate-900">${shipment.price.toLocaleString()}</p></div>}
-            {shipment.invoice_amount && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[11px] text-slate-400">Счёт</p><p className="text-[18px] font-bold text-slate-900">${shipment.invoice_amount.toLocaleString()}</p></div>}
-            {shipment.customs_cost && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[11px] text-slate-400">Таможня</p><p className="text-[18px] font-bold text-slate-900">${shipment.customs_cost.toLocaleString()}</p></div>}
-            {shipment.additional_cost && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[11px] text-slate-400">Доп. расходы</p><p className="text-[18px] font-bold text-slate-900">${shipment.additional_cost.toLocaleString()}</p></div>}
+            {shipment.delivery_cost && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Доставка</p><p className="text-[18px] font-bold text-slate-900">${shipment.delivery_cost.toLocaleString()}</p></div>}
+            {shipment.price && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Цена</p><p className="text-[18px] font-bold text-slate-900">${shipment.price.toLocaleString()}</p></div>}
+            {shipment.invoice_amount && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Счёт</p><p className="text-[18px] font-bold text-slate-900">${shipment.invoice_amount.toLocaleString()}</p></div>}
+            {shipment.customs_cost && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Таможня</p><p className="text-[18px] font-bold text-slate-900">${shipment.customs_cost.toLocaleString()}</p></div>}
+            {shipment.additional_cost && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Доп. расходы</p><p className="text-[18px] font-bold text-slate-900">${shipment.additional_cost.toLocaleString()}</p></div>}
           </div>
           {!shipment.delivery_cost && !shipment.price && !shipment.invoice_amount && <p className="text-[13px] text-slate-400 py-8 text-center">Нет данных</p>}
         </div>
@@ -440,7 +454,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
       {tab === 'finance' && editing && (
         <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Финансы</p>
+          <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Финансы</p>
           <div className="grid grid-cols-3 gap-3">
             {[
               { field: 'delivery_cost', label: 'Доставка' },
@@ -452,7 +466,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
               { field: 'additional_cost', label: 'Доп. расходы' },
             ].map(f => (
               <div key={f.field}>
-                <p className="text-[11px] text-slate-400 mb-1">{f.label}</p>
+                <p className="text-[12px] text-slate-500 mb-1">{f.label}</p>
                 <input type="number" className={inputCls} value={String(draft[f.field] ?? '')} onChange={e => setField(f.field, e.target.value)} placeholder="0" />
               </div>
             ))}
@@ -490,7 +504,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
               </div>
             )}
             <div className="flex-1 flex flex-col bg-white rounded-xl border border-slate-100 p-3 overflow-y-auto">
-              <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-3">Файлы</p>
+              <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Файлы</p>
               {shipment.contract_pdf && (
                 <a href={shipment.contract_pdf} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 border border-slate-100 mb-2">
@@ -540,6 +554,42 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
             </button>
           )}
           <img src={shipment.photos[photoIdx]} alt="" className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDelete && shipment && (
+        <div className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowDelete(false)}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-[400px]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-[15px] font-bold text-slate-900">Удалить перевозку?</h3>
+                <p className="text-[12px] text-slate-400">Это действие нельзя отменить</p>
+              </div>
+            </div>
+            <p className="text-[13px] text-slate-600 mb-3">
+              Для подтверждения введите номер контейнера: <span className="font-mono font-bold text-slate-900">{shipment.container_number}</span>
+            </p>
+            <input
+              type="text"
+              value={deleteConfirm}
+              onChange={e => setDeleteConfirm(e.target.value)}
+              placeholder={shipment.container_number || ''}
+              className="w-full text-[13px] border border-slate-200 rounded-lg px-3 py-2 text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-300 font-mono mb-4"
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { setShowDelete(false); setDeleteConfirm('') }} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[13px] font-medium hover:bg-slate-50 transition-colors">
+                Отмена
+              </button>
+              <button onClick={handleDelete} disabled={deleting || deleteConfirm !== shipment.container_number}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg text-[13px] font-medium hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                {deleting ? 'Удаление...' : 'Удалить'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

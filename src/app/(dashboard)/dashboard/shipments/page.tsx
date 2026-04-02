@@ -4,19 +4,25 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Users, Building2, Truck, Pencil, Plus } from 'lucide-react'
-import { getShipmentStatus, type Shipment, type Carrier, type Client } from '@/types/database'
+import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save } from 'lucide-react'
+import { ReferencesModal } from '@/components/references-modal'
+import { SearchableSelect } from '@/components/searchable-select'
+import { getShipmentStatus, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
-import { DetailIcon } from '@/components/detail-icon'
 import { useShipmentModal } from '@/lib/shipment-modal'
-
-const ShipmentMap = dynamic(() => import('@/components/shipment-map').then(m => ({ default: m.ShipmentMap })), { ssr: false })
 
 function Hl({ text, q }: { text: string; q: string }) {
   if (!q || !text) return <>{text}</>
   const idx = text.toLowerCase().indexOf(q.toLowerCase())
   if (idx === -1) return <>{text}</>
   return <>{text.slice(0, idx)}<mark className="bg-yellow-200/80 text-inherit rounded-sm px-0.5">{text.slice(idx, idx + q.length)}</mark>{text.slice(idx + q.length)}</>
+}
+
+interface RefLookups {
+  clients: { id: string; name: string }[]
+  carriers: { id: string; name: string }[]
+  recipients: { id: string; name: string }[]
+  refs: Record<string, string[]>
 }
 
 export default function ShipmentsPage() {
@@ -26,7 +32,7 @@ export default function ShipmentsPage() {
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
   const router = useRouter()
-  const { openShipment, closeShipment, createShipment, selectedId } = useShipmentModal()
+  const { openShipment } = useShipmentModal()
   const supabase = createClient()
 
   const [search, setSearch] = useState('')
@@ -35,13 +41,20 @@ export default function ShipmentsPage() {
   const [clientFilter, setClientFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [showRefs, setShowRefs] = useState(false)
+
+  // Inline new row
+  const [addingNew, setAddingNew] = useState(false)
+  const [newRow, setNewRow] = useState<Record<string, string>>({})
+  const [savingNew, setSavingNew] = useState(false)
+  const [lookups, setLookups] = useState<RefLookups | null>(null)
 
   useEffect(() => {
     const fetch = async () => {
       const [{ data: shipData }, { data: carrierData }, { data: clientData }] = await Promise.all([
         supabase.from('shipments').select('*, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)').order('departure_date', { ascending: false, nullsFirst: false }).limit(2000),
         supabase.from('carriers').select('id, name').order('name'),
-        supabase.from('clients').select('id, name').order('name').limit(100),
+        supabase.from('clients').select('id, name').order('name').limit(300),
       ])
       setShipments((shipData as unknown as Shipment[]) || [])
       setCarriers(carrierData || [])
@@ -51,12 +64,60 @@ export default function ShipmentsPage() {
     fetch()
   }, [])
 
+  const fetchLookups = async () => {
+    if (lookups) return
+    const [{ data: cl }, { data: ca }, { data: re }, { data: refData }] = await Promise.all([
+      supabase.from('clients').select('id, name').order('name'),
+      supabase.from('carriers').select('id, name').order('name'),
+      supabase.from('recipients').select('id, name').order('name'),
+      supabase.from('reference_items').select('category, name').order('name'),
+    ])
+    const refs: Record<string, string[]> = {}
+    ;(refData || []).forEach((r: { category: string; name: string }) => {
+      if (!refs[r.category]) refs[r.category] = []
+      refs[r.category].push(r.name)
+    })
+    setLookups({ clients: cl || [], carriers: ca || [], recipients: re || [], refs })
+  }
+
   const updateDate = async (id: string, field: 'arrival_date' | 'delivery_date', value: string) => {
     const update: Record<string, string | boolean> = { [field]: value }
     if (field === 'delivery_date' && value) update.is_completed = true
     await supabase.from('shipments').update(update).eq('id', id)
     setShipments(prev => prev.map(s => s.id === id ? { ...s, [field]: value, ...(field === 'delivery_date' && value ? { is_completed: true } : {}) } : s))
   }
+
+  const startAddNew = async () => {
+    await fetchLookups()
+    const today = new Date().toISOString().split('T')[0]
+    setNewRow({ container_size: '40', container_type: 'Выкупной', departure_date: today })
+    setAddingNew(true)
+  }
+
+  const cancelNew = () => { setAddingNew(false); setNewRow({}) }
+
+  const saveNew = async () => {
+    if (!newRow.container_number?.trim()) return
+    setSavingNew(true)
+    const payload: Record<string, unknown> = {}
+    const numFields = ['container_size']
+    for (const [k, v] of Object.entries(newRow)) {
+      if (!v) continue
+      payload[k] = numFields.includes(k) ? Number(v) : v
+      if (k === 'client_id' || k === 'carrier_id' || k === 'recipient_id') {
+        payload[k] = v || null
+      }
+    }
+    const { data, error } = await supabase.from('shipments').insert(payload).select('*, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)').single()
+    if (!error && data) {
+      setShipments(prev => [data as unknown as Shipment, ...prev])
+    }
+    setAddingNew(false)
+    setNewRow({})
+    setSavingNew(false)
+  }
+
+  const setNew = (k: string, v: string) => setNewRow(prev => ({ ...prev, [k]: v }))
 
   const filtered = useMemo(() => {
     let results = shipments
@@ -84,7 +145,7 @@ export default function ShipmentsPage() {
   }, [shipments, search, statusFilter, carrierFilter, clientFilter, dateFrom, dateTo])
 
   const activeFiltersCount = [carrierFilter, clientFilter, dateFrom, dateTo].filter(Boolean).length
-  const clearFilters = () => { setSearch(''); setStatusFilter('all'); setCarrierFilter(''); setClientFilter(''); setDateFrom(''); setDateTo('') }
+  const clearFilters = () => { setCarrierFilter(''); setClientFilter(''); setDateFrom(''); setDateTo('') }
 
   const statusFilters = [
     { key: 'all', label: 'Все' },
@@ -94,23 +155,16 @@ export default function ShipmentsPage() {
     { key: 'delivered', label: 'Доставлен' },
   ]
 
+  const inpCls = 'h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300'
+
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Перевозки</h1>
-          <p className="text-[13px] text-slate-400 mt-0.5">Отслеживание контейнеров и грузов</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <p className="text-[13px] text-slate-400">{filtered.length} из {shipments.length}</p>
-          <button onClick={() => createShipment()} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-[12px] font-medium hover:bg-indigo-600 transition-colors">
-            <Plus className="w-3.5 h-3.5" />
-            Новая
-          </button>
-        </div>
+      <div>
+        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Перевозки</h1>
+        <p className="text-[13px] text-slate-400 mt-0.5">Отслеживание контейнеров и грузов</p>
       </div>
 
-      {/* Search + Filters */}
+      {/* Search + Actions */}
       <div className="flex gap-2 items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
@@ -118,44 +172,16 @@ export default function ShipmentsPage() {
             className="w-full h-9 rounded-lg bg-white border border-slate-200/80 pl-9 pr-3 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all"
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <button onClick={() => setShowFilters(!showFilters)}
-          className={`h-9 px-3 rounded-lg border text-[12px] font-medium flex items-center gap-1.5 transition-all ${showFilters || activeFiltersCount > 0 ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200/80 text-slate-500 hover:text-slate-700'}`}>
-          <Filter className="w-3.5 h-3.5" /> Фильтры
-          {activeFiltersCount > 0 && <span className="w-4 h-4 rounded-full bg-indigo-500 text-white text-[10px] flex items-center justify-center">{activeFiltersCount}</span>}
+        <p className="text-[13px] text-slate-400 shrink-0">{filtered.length} из {shipments.length}</p>
+        <button onClick={() => setShowRefs(true)} className="h-9 flex items-center gap-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors shrink-0">
+          <BookOpen className="w-3.5 h-3.5" />
+          Справочники
+        </button>
+        <button onClick={startAddNew} className="h-9 flex items-center gap-1.5 px-3 bg-indigo-500 text-white rounded-lg text-[12px] font-medium hover:bg-indigo-600 transition-colors shrink-0">
+          <Plus className="w-3.5 h-3.5" />
+          Новая
         </button>
       </div>
-
-      {showFilters && (
-        <div className="bg-white rounded-xl border border-slate-200/80 p-4 animate-fade-up grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div>
-            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 block">Перевозчик</label>
-            <select value={carrierFilter} onChange={(e) => setCarrierFilter(e.target.value)} className="w-full h-8 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[12px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
-              <option value="">Все</option>
-              {carriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 block">Клиент</label>
-            <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} className="w-full h-8 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[12px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
-              <option value="">Все</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 block">Дата от</label>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full h-8 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[12px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 block">Дата до</label>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full h-8 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[12px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
-          </div>
-          {activeFiltersCount > 0 && (
-            <button onClick={clearFilters} className="col-span-full text-[12px] text-indigo-500 hover:text-indigo-600 font-medium flex items-center gap-1 mt-1">
-              <X className="w-3 h-3" /> Сбросить фильтры
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Status tabs */}
       <div className="flex gap-1 p-1 bg-white rounded-lg border border-slate-200/80 w-fit">
@@ -167,27 +193,98 @@ export default function ShipmentsPage() {
         ))}
       </div>
 
+      {/* Add new overlay */}
+      {addingNew && lookups && (
+        <>
+          <div className="fixed inset-0 z-[100] bg-black/20 backdrop-blur-[2px]" onClick={cancelNew} />
+          <div className="relative z-[101] bg-white rounded-xl border border-indigo-200 shadow-xl shadow-indigo-500/10 p-4 animate-fade-up">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[14px] font-semibold text-slate-900 font-heading">Новая перевозка</p>
+              <div className="flex gap-2">
+                <button onClick={cancelNew} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-500 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors">Отмена</button>
+                <button onClick={saveNew} disabled={savingNew || !newRow.container_number?.trim()}
+                  className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-[12px] font-medium hover:bg-indigo-600 disabled:opacity-50 flex items-center gap-1.5 transition-colors">
+                  <Save className="w-3 h-3" /> {savingNew ? 'Сохранение...' : 'Сохранить'}
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 lg:grid-cols-5 gap-3">
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Контейнер *</p>
+                <div className="flex gap-1">
+                  <input type="text" value={newRow.container_number || ''} onChange={e => setNew('container_number', e.target.value)}
+                    placeholder="XXXX0000000" autoFocus className={inpCls + ' flex-1 font-mono font-bold'} />
+                </div>
+              </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Размер / Тип</p>
+                <div className="flex gap-1">
+                  <select value={newRow.container_size || '40'} onChange={e => setNew('container_size', e.target.value)} className={inpCls + ' w-[55px]'}>
+                    <option value="20">20ft</option>
+                    <option value="40">40ft</option>
+                  </select>
+                  <select value={newRow.container_type || ''} onChange={e => setNew('container_type', e.target.value)} className={inpCls + ' flex-1'}>
+                    <option value="Выкупной">Выкупной</option>
+                    <option value="Возвратный">Возвратный</option>
+                    <option value="Собственный">Собственный</option>
+                    <option value="Малшы">Малшы</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Дата загрузки</p>
+                <input type="date" value={newRow.departure_date || ''} onChange={e => setNew('departure_date', e.target.value)} className={inpCls + ' w-full'} />
+              </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Клиент</p>
+                <SearchableSelect options={lookups.clients.map(c => ({ value: c.id, label: c.name }))} value={newRow.client_id || ''} onChange={v => setNew('client_id', v)} placeholder="Выберите..." />
+              </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Перевозчик</p>
+                <SearchableSelect options={lookups.carriers.map(c => ({ value: c.id, label: c.name }))} value={newRow.carrier_id || ''} onChange={v => setNew('carrier_id', v)} placeholder="Выберите..." />
+              </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Отправитель</p>
+                <SearchableSelect options={(lookups.refs.sender || []).map(n => ({ value: n, label: n }))} value={newRow.sender_name || ''} onChange={v => setNew('sender_name', v)} placeholder="Выберите..." />
+              </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Откуда</p>
+                <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.origin || ''} onChange={v => setNew('origin', v)} placeholder="Выберите..." />
+              </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Погранпереход</p>
+                <SearchableSelect options={(lookups.refs.station || []).map(n => ({ value: n, label: n }))} value={newRow.destination_station || ''} onChange={v => setNew('destination_station', v)} placeholder="Выберите..." />
+              </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Город назначения</p>
+                <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.destination_city || ''} onChange={v => setNew('destination_city', v)} placeholder="Выберите..." />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-100 overflow-hidden overflow-x-auto">
-        <table className="w-full min-w-[1100px]">
+      <div className={`bg-white rounded-xl border border-slate-100 overflow-hidden ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>
+        <table className="w-full table-fixed">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/60">
-              <th className="text-left px-5 py-2.5 text-[12px] font-semibold text-slate-500">Контейнер</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Загрузка</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Клиент</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Отправитель</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Перевозчик</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Сроки</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Статус</th>
-              <th className="text-left px-3 py-2.5 text-[12px] font-semibold text-slate-500">Граница</th>
-              <th className="text-right px-5 py-2.5 text-[12px] font-semibold text-slate-500">Доставка</th>
+              <th className="text-left pl-4 pr-1 py-2.5 text-[12px] font-semibold text-slate-500 w-[14%]">Контейнер</th>
+              <th className="text-left px-1 py-2.5 text-[12px] font-semibold text-slate-500 w-[8%]">Загрузка</th>
+              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Клиент</th>
+              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Перевозчик</th>
+              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Откуда</th>
+              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Погранпереход</th>
+              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Город</th>
+              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500 w-[9%]">Статус</th>
             </tr>
           </thead>
           <tbody>
+
             {loading ? (
-              <tr><td colSpan={9} className="px-5 py-3"><div className="space-y-2">{[...Array(6)].map((_, i) => <div key={i} className="skeleton h-10 w-full" />)}</div></td></tr>
+              <tr><td colSpan={8} className="px-5 py-3"><div className="space-y-2">{[...Array(6)].map((_, i) => <div key={i} className="skeleton h-10 w-full" />)}</div></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={9} className="px-5 py-16 text-center">
+              <tr><td colSpan={8} className="px-5 py-16 text-center">
                 <Ship className="w-10 h-10 text-slate-200 mx-auto mb-3" strokeWidth={1.5} />
                 <p className="text-[14px] text-slate-400 font-medium">Не найдено</p>
               </td></tr>
@@ -203,21 +300,15 @@ export default function ShipmentsPage() {
                   if (showMonthHeader) lastMonth = curMonth
                   const statusBg = status.key === 'delivered' ? '#f0fdf4' : status.key === 'in_transit' ? '#eef2ff' : '#fffbeb'
 
-                  const calcDays = () => {
-                    if (!s.departure_date) return '—'
-                    const end = s.delivery_date ? new Date(s.delivery_date).getTime() : Date.now()
-                    return `${Math.round((end - new Date(s.departure_date).getTime()) / 86400000)}д`
-                  }
-
                   return (<>
                     {showMonthHeader && (
-                      <tr key={`month-${curMonth}`}><td colSpan={9} className="px-5 py-2 bg-slate-50/80 border-b border-slate-100">
+                      <tr key={`month-${curMonth}`}><td colSpan={8} className="px-5 py-2 bg-slate-50/80 border-b border-slate-100">
                         <span className="text-[12px] font-semibold text-slate-500 capitalize">{curMonth}</span>
                       </td></tr>
                     )}
                     <tr key={s.id} className="border-b border-slate-100 last:border-0 cursor-pointer hover:bg-slate-50/60 transition-colors"
                       onClick={() => openShipment(s.id)}>
-                      <td className="px-5 py-2">
+                      <td className="pl-4 pr-1 py-2">
                         <p className="text-[14px] font-bold text-slate-900"><Hl text={s.container_number || '—'} q={search} /></p>
                         <p className="text-[11px] text-slate-400">
                           {s.container_size ? <span className={`inline-block rounded px-1.5 py-px mr-1 text-[10px] font-medium ${s.container_size === 20 ? 'bg-blue-100 text-blue-600' : 'bg-violet-100 text-violet-600'}`}>{s.container_size}ft</span> : ''}
@@ -229,26 +320,17 @@ export default function ShipmentsPage() {
                           }`}>{s.container_type}</span> : ''}
                         </p>
                       </td>
-                      <td className="px-3 py-2.5 text-[14px] font-medium text-slate-800 whitespace-nowrap">{fmtDate(s.departure_date)}</td>
+                      <td className="px-1 py-2.5 text-[13px] font-medium text-slate-800 whitespace-nowrap">{fmtDate(s.departure_date)}</td>
                       <td className="px-3 py-2.5 text-[14px] font-medium text-slate-900 max-w-[140px] truncate"><Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} /></td>
-                      <td className="px-3 py-2.5 text-[14px] text-slate-800 max-w-[120px] truncate"><Hl text={s.sender_name || '—'} q={search} /></td>
-                      <td className="px-3 py-2.5 text-[14px] text-slate-800 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} /></td>
-                      <td className="px-3 py-2.5 text-[14px] font-semibold text-slate-900">{calcDays()}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-slate-800 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} /></td>
+                      <td className="px-3 py-2.5 text-[13px] text-slate-700 truncate max-w-[110px]">{s.origin || '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-slate-700 truncate max-w-[110px]">{s.destination_station || '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-slate-700 truncate max-w-[110px]">{s.destination_city || '—'}</td>
                       <td className="px-3 py-2">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: statusBg, color: status.color }}>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap" style={{ background: statusBg, color: status.color }}>
                           <span className={`w-1.5 h-1.5 rounded-full ${status.key === 'in_transit' ? 'dot-pulse' : ''}`} style={{ background: status.color }} />
                           {status.label}
                         </span>
-                      </td>
-                      <td className="px-3 py-1">
-                        <input type="date" value={s.arrival_date || ''} onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => { e.stopPropagation(); updateDate(s.id, 'arrival_date', e.target.value) }}
-                          className="h-7 w-[110px] rounded-md border border-slate-200 bg-white px-1.5 text-[11px] text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300" />
-                      </td>
-                      <td className="px-3 py-1">
-                        <input type="date" value={s.delivery_date || ''} onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => { e.stopPropagation(); updateDate(s.id, 'delivery_date', e.target.value) }}
-                          className="h-7 w-[110px] rounded-md border border-slate-200 bg-white px-1.5 text-[11px] text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300" />
                       </td>
                     </tr>
                   </>)
@@ -260,7 +342,7 @@ export default function ShipmentsPage() {
         </table>
       </div>
 
+      {showRefs && <ReferencesModal onClose={() => setShowRefs(false)} />}
     </div>
   )
 }
-
