@@ -58,8 +58,14 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
         supabase.from('carriers').select('id, name').order('name'),
         supabase.from('recipients').select('id, name').order('name'),
         supabase.from('senders').select('id, name').order('name'),
-      ]).then(([{ data: cl }, { data: ca }, { data: re }, { data: se }]) => {
-        setLookups({ clients: cl || [], carriers: ca || [], recipients: re || [], senders: se || [] })
+        supabase.from('reference_items').select('category, name').order('name'),
+      ]).then(([{ data: cl }, { data: ca }, { data: re }, { data: se }, { data: refData }]) => {
+        const refs: Record<string, string[]> = {}
+        ;(refData || []).forEach((r: { category: string; name: string }) => {
+          if (!refs[r.category]) refs[r.category] = []
+          refs[r.category].push(r.name)
+        })
+        setLookups({ clients: cl || [], carriers: ca || [], recipients: re || [], senders: se || [], refs })
       })
     }
   }, [isCreateMode])
