@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   Shield,
   Settings,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 
@@ -33,10 +35,6 @@ const statusItems = [
   { href: '/dashboard/shipments?status=delivered', label: 'Доставлено', icon: CheckCircle2 },
 ]
 
-interface SidebarProps {
-  onNavigate?: () => void
-}
-
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Администратор',
   manager: 'Менеджер',
@@ -44,7 +42,13 @@ const ROLE_LABELS: Record<string, string> = {
   client: 'Клиент',
 }
 
-export function Sidebar({ onNavigate }: SidebarProps = {}) {
+interface SidebarProps {
+  onNavigate?: () => void
+  collapsed?: boolean
+  onToggle?: () => void
+}
+
+export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { profile, hasRole } = useProfile()
@@ -66,26 +70,28 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     ? profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : '??'
 
-  return (
-    <div
-      className="flex h-screen w-[260px] flex-col shrink-0 overflow-hidden"
-      style={{
-        backgroundColor: '#f7f8fa',
-        backgroundImage: 'radial-gradient(ellipse at 20% 15%, rgba(199,210,254,0.45) 0%, transparent 55%), radial-gradient(ellipse at 75% 85%, rgba(221,210,255,0.3) 0%, transparent 50%)',
-      }}
-    >
-      {/* Logo */}
-      <div className="flex h-[64px] items-center px-5 gap-3">
-        <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center shrink-0 shadow-md">
+  /* ── Collapsed view ── */
+  if (collapsed) {
+    return (
+      <div
+        className="flex h-screen w-[80px] flex-col shrink-0 items-center py-4 gap-1 pr-4"
+        style={{
+          backgroundColor: '#f8f9fb',
+          backgroundImage: 'radial-gradient(ellipse at 20% 15%, rgba(199,210,254,0.45) 0%, transparent 55%), radial-gradient(ellipse at 75% 85%, rgba(221,210,255,0.3) 0%, transparent 50%)',
+        }}
+      >
+        {/* Logo */}
+        <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center shrink-0 shadow-md mb-2">
           <Ship className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
         </div>
-        <span className="font-heading font-bold text-[16px] text-slate-900 tracking-tight">Logistics</span>
-      </div>
 
-      {/* Main nav */}
-      <nav className="flex-1 px-3 pt-2 overflow-y-auto">
-        <p className="text-[11px] uppercase tracking-[0.1em] text-indigo-400/70 font-semibold px-3 mb-2">Основное</p>
-        <div className="space-y-0.5">
+        {/* Expand */}
+        <button onClick={onToggle} className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/60 mb-2">
+          <PanelLeftOpen className="w-4 h-4 text-slate-400" strokeWidth={1.8} />
+        </button>
+
+        {/* Nav icons */}
+        <div className="flex-1 flex flex-col items-center gap-1 w-full px-2">
           {coreItems.map((item) => {
             const active = isActive(item.href)
             return (
@@ -93,13 +99,107 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
+                title={item.label}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] transition-all duration-150',
+                  'w-10 h-10 rounded-xl flex items-center justify-center',
                   active
-                    ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-indigo-200/50'
-                    : 'text-slate-700 hover:bg-white/60 hover:text-slate-900 font-medium'
+                    ? 'bg-white shadow-sm shadow-indigo-200/50 text-slate-900'
+                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-800'
                 )}
               >
+                <item.icon className="w-[18px] h-[18px]" strokeWidth={active ? 2.2 : 1.6} />
+              </Link>
+            )
+          })}
+
+          <div className="w-6 h-px bg-slate-300/40 my-2" />
+
+          {statusItems.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              onClick={onNavigate}
+              title={item.label}
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:bg-white/60 hover:text-slate-800"
+            >
+              <item.icon className="w-[18px] h-[18px]" strokeWidth={1.6} />
+            </Link>
+          ))}
+
+          {hasRole('admin') && (
+            <>
+              <div className="w-6 h-px bg-slate-300/40 my-2" />
+              <Link
+                href="/dashboard/admin"
+                onClick={onNavigate}
+                title="Админка"
+                className={cn(
+                  'w-10 h-10 rounded-xl flex items-center justify-center',
+                  isActive('/dashboard/admin')
+                    ? 'bg-white shadow-sm shadow-indigo-200/50 text-slate-900'
+                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-800'
+                )}
+              >
+                <Shield className="w-[18px] h-[18px]" strokeWidth={isActive('/dashboard/admin') ? 2.2 : 1.6} />
+              </Link>
+              <Link href="/dashboard/admin" onClick={onNavigate} title="Настройки"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:bg-white/60 hover:text-slate-800">
+                <Settings className="w-[18px] h-[18px]" strokeWidth={1.6} />
+              </Link>
+            </>
+          )}
+        </div>
+
+        {/* Bottom */}
+        <div className="flex flex-col items-center gap-1 mt-2">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
+            {initials}
+          </div>
+          <button onClick={handleLogout} title="Выйти"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-white/60 hover:text-slate-600">
+            <LogOut className="w-4 h-4" strokeWidth={1.6} />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  /* ── Expanded view ── */
+  return (
+    <div
+      className="flex h-screen w-[240px] flex-col shrink-0 overflow-hidden pl-2"
+      style={{
+        backgroundColor: '#f8f9fb',
+        backgroundImage: 'radial-gradient(ellipse at 20% 15%, rgba(199,210,254,0.45) 0%, transparent 55%), radial-gradient(ellipse at 75% 85%, rgba(221,210,255,0.3) 0%, transparent 50%)',
+      }}
+    >
+      <div className="flex h-[64px] items-center justify-between px-6">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center shrink-0 shadow-md">
+            <Ship className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
+          </div>
+          <span className="font-heading font-bold text-[16px] text-slate-900 tracking-tight">Logistics</span>
+        </div>
+        {onToggle && (
+          <button onClick={onToggle} className="w-7 h-7 rounded-lg border border-slate-200/80 bg-white/80 flex items-center justify-center hover:bg-white shadow-sm">
+            <PanelLeftClose className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.8} />
+          </button>
+        )}
+      </div>
+
+      <nav className="flex-1 pl-4 pr-16 pt-2 overflow-y-auto">
+        <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2">Основное</p>
+        <div className="space-y-0.5">
+          {coreItems.map((item) => {
+            const active = isActive(item.href)
+            return (
+              <Link key={item.href} href={item.href} onClick={onNavigate}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px]',
+                  active
+                    ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-indigo-200/50'
+                    : 'text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold'
+                )}>
                 <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={active ? 2.2 : 1.6} />
                 {item.label}
               </Link>
@@ -107,45 +207,33 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
           })}
         </div>
 
-        {/* Status shortcuts */}
-        <p className="text-[11px] uppercase tracking-[0.1em] text-indigo-400/70 font-semibold px-3 mb-2 mt-6">Статусы</p>
+        <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2 mt-6">Статусы</p>
         <div className="space-y-0.5">
           {statusItems.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={onNavigate}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-700 hover:bg-white/60 hover:text-slate-900 font-medium transition-all duration-150"
-            >
+            <Link key={item.label} href={item.href} onClick={onNavigate}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold">
               <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.6} />
               {item.label}
             </Link>
           ))}
         </div>
 
-        {/* Admin */}
         {hasRole('admin') && (
           <>
-            <p className="text-[11px] uppercase tracking-[0.1em] text-indigo-400/70 font-semibold px-3 mb-2 mt-6">Управление</p>
+            <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2 mt-6">Управление</p>
             <div className="space-y-0.5">
-              <Link
-                href="/dashboard/admin"
-                onClick={onNavigate}
+              <Link href="/dashboard/admin" onClick={onNavigate}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] transition-all duration-150',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px]',
                   isActive('/dashboard/admin')
                     ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-indigo-200/50'
-                    : 'text-slate-700 hover:bg-white/60 hover:text-slate-900 font-medium'
-                )}
-              >
+                    : 'text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold'
+                )}>
                 <Shield className="h-[18px] w-[18px] shrink-0" strokeWidth={isActive('/dashboard/admin') ? 2.2 : 1.6} />
                 Админка
               </Link>
-              <Link
-                href="/dashboard/admin"
-                onClick={onNavigate}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-700 hover:bg-white/60 hover:text-slate-900 font-medium transition-all duration-150"
-              >
+              <Link href="/dashboard/admin" onClick={onNavigate}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold">
                 <Settings className="h-[18px] w-[18px] shrink-0" strokeWidth={1.6} />
                 Настройки
               </Link>
@@ -154,10 +242,8 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
         )}
       </nav>
 
-      {/* Account section at bottom */}
-      <div className="px-3 pb-4 pt-3">
-        {/* Profile card */}
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/70 mb-2">
+      <div className="px-4 pb-4 pt-3">
+        <div className="flex items-center gap-3 px-3 py-2.5 mb-2">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-sm">
             {initials}
           </div>
@@ -166,11 +252,8 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             <p className="text-[11px] text-slate-400 leading-tight">{profile ? ROLE_LABELS[profile.role] || profile.role : ''}</p>
           </div>
         </div>
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] w-full text-slate-400 hover:text-slate-600 hover:bg-white/60 font-medium transition-all duration-150"
-        >
+        <button onClick={handleLogout}
+          className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] w-full text-slate-400 hover:text-slate-600 hover:bg-white/60 font-medium">
           <LogOut className="h-[16px] w-[16px] shrink-0" strokeWidth={1.6} />
           Выйти
         </button>

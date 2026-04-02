@@ -71,7 +71,7 @@ export default function DocumentsPage() {
       ) : (
         <>
           {/* Contracts & Invoices */}
-          <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <div className="rounded-xl p-5">
             <div className="flex items-center gap-3 mb-4">
               <h2 className="text-[14px] font-semibold text-slate-900">Договора и счета</h2>
               <div className="flex-1" />
@@ -164,7 +164,7 @@ export default function DocumentsPage() {
           )}
 
           {/* Photos */}
-          <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <div className="rounded-xl p-5">
             <div className="flex items-center gap-3 mb-4">
               <h2 className="text-[14px] font-semibold text-slate-900">Фото грузов</h2>
               <div className="flex-1" />
