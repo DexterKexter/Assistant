@@ -26,11 +26,14 @@ interface RefLookups {
 }
 
 export default function ShipmentsPage() {
+  const PAGE_SIZE = 50
   const [shipments, setShipments] = useState<Shipment[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [carriers, setCarriers] = useState<{ id: string; name: string }[]>([])
   const [clients, setClients] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
-  const [showFilters, setShowFilters] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
   const router = useRouter()
   const { openShipment } = useShipmentModal()
   const supabase = createClient()
@@ -49,20 +52,42 @@ export default function ShipmentsPage() {
   const [savingNew, setSavingNew] = useState(false)
   const [lookups, setLookups] = useState<RefLookups | null>(null)
 
+  const fetchPage = async (from: number, append: boolean) => {
+    if (append) setLoadingMore(true)
+    const { data, count } = await supabase
+      .from('shipments')
+      .select('*, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)', { count: 'exact' })
+      .order('departure_date', { ascending: false, nullsFirst: false })
+      .range(from, from + PAGE_SIZE - 1)
+    const rows = (data as unknown as Shipment[]) || []
+    if (append) {
+      setShipments(prev => [...prev, ...rows])
+    } else {
+      setShipments(rows)
+    }
+    setTotalCount(count || 0)
+    setHasMore(rows.length === PAGE_SIZE)
+    setLoading(false)
+    setLoadingMore(false)
+  }
+
   useEffect(() => {
-    const fetch = async () => {
-      const [{ data: shipData }, { data: carrierData }, { data: clientData }] = await Promise.all([
-        supabase.from('shipments').select('*, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)').order('departure_date', { ascending: false, nullsFirst: false }).limit(2000),
+    const init = async () => {
+      const [, { data: carrierData }, { data: clientData }] = await Promise.all([
+        fetchPage(0, false),
         supabase.from('carriers').select('id, name').order('name'),
         supabase.from('clients').select('id, name').order('name').limit(300),
       ])
-      setShipments((shipData as unknown as Shipment[]) || [])
       setCarriers(carrierData || [])
       setClients(clientData || [])
-      setLoading(false)
     }
-    fetch()
+    init()
   }, [])
+
+  const loadMore = () => {
+    if (loadingMore || !hasMore) return
+    fetchPage(shipments.length, true)
+  }
 
   const fetchLookups = async () => {
     if (lookups) return
@@ -172,7 +197,7 @@ export default function ShipmentsPage() {
             className="w-full h-9 rounded-lg bg-white border border-slate-200/80 pl-9 pr-3 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all"
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <p className="text-[13px] text-slate-400 shrink-0">{filtered.length} из {shipments.length}</p>
+        <p className="text-[13px] text-slate-400 shrink-0">{shipments.length} из {totalCount}</p>
         <button onClick={() => setShowRefs(true)} className="h-9 flex items-center gap-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors shrink-0">
           <BookOpen className="w-3.5 h-3.5" />
           Справочники
@@ -341,6 +366,16 @@ export default function ShipmentsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Load more */}
+      {hasMore && !loading && (
+        <div className="flex justify-center py-3">
+          <button onClick={loadMore} disabled={loadingMore}
+            className="px-5 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[13px] font-medium hover:bg-slate-50 transition-colors disabled:opacity-50">
+            {loadingMore ? 'Загрузка...' : `Ещё ${Math.min(PAGE_SIZE, totalCount - shipments.length)} из ${totalCount - shipments.length}`}
+          </button>
+        </div>
+      )}
 
       {showRefs && <ReferencesModal onClose={() => setShowRefs(false)} />}
     </div>
