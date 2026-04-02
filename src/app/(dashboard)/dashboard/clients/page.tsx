@@ -50,7 +50,9 @@ export default function ClientsPage() {
           <p className="text-slate-400">Клиенты не найдены</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+        <>
+        {/* Desktop table */}
+        <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden hidden md:block">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
@@ -90,7 +92,36 @@ export default function ClientsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile card view */}
+        <div className="md:hidden space-y-2">
+          {clients.map((c, i) => (
+            <div
+              key={c.id}
+              className="bg-white rounded-xl border border-slate-100 p-3.5 cursor-pointer active:bg-slate-50 transition-colors animate-fade-up"
+              style={{ animationDelay: `${i * 20}ms` }}
+              onClick={() => router.push(`/dashboard/clients/${c.id}`)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-500 shrink-0">
+                  {c.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-semibold text-slate-800 truncate">{c.name}</p>
+                  <p className="text-[12px] text-slate-400">{c.phone || 'Нет телефона'}</p>
+                </div>
+                {c.is_russia ? (
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 text-blue-700 shrink-0">🇷🇺</span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-50 text-slate-500 shrink-0">🇰🇿</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
       )}
+
     </div>
   )
 }

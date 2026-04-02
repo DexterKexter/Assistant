@@ -35,7 +35,11 @@ const statusItems = [
   { href: '/dashboard/shipments?status=delivered', label: 'Доставлено', icon: CheckCircle2 },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void
+}
+
+export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const pathname = usePathname()
   const router = useRouter()
   const { hasRole } = useProfile()
@@ -86,6 +90,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={onNavigate}
                 title={collapsed ? item.label : undefined}
                 className={cn(
                   'flex items-center rounded-lg transition-all duration-150',
@@ -111,6 +116,7 @@ export function Sidebar() {
             <Link
               key={item.label}
               href={item.href}
+              onClick={onNavigate}
               title={collapsed ? item.label : undefined}
               className={cn(
                 'flex items-center rounded-lg text-[14px] text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium transition-all duration-150',
@@ -131,6 +137,7 @@ export function Sidebar() {
             <div className="space-y-0.5">
               <Link
                 href="/dashboard/admin"
+                onClick={onNavigate}
                 title={collapsed ? 'Админка' : undefined}
                 className={cn(
                   'flex items-center rounded-lg text-[14px] transition-all duration-150',

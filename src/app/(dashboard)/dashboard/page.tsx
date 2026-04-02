@@ -115,34 +115,34 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 md:space-y-5">
 
-      {/* Map as hero section — full width, flush with header */}
-      <div className="-mx-5 -mt-4 mb-1">
+      {/* Map — hidden on mobile, shown on md+ */}
+      <div className="-mx-3 -mt-3 md:-mx-5 md:-mt-4 mb-1 hidden md:block">
         {!loading && mapShipments.length > 0 && <DashboardMap shipments={mapShipments} />}
         {loading && <div className="h-[340px] lg:h-[380px] bg-slate-100 animate-pulse" />}
       </div>
 
-      {/* Stats cards below map */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      {/* Stats cards */}
+      <div className="grid gap-2 grid-cols-2 md:gap-3 lg:grid-cols-4">
         {cards.map((card, i) => {
           const d = diff(card.value, card.prev)
           return (
-            <div key={card.label} className="animate-fade-up bg-white rounded-xl px-4 py-3.5 border border-slate-100 shadow-sm card-interactive" style={{ animationDelay: `${i * 60}ms` }}>
-              <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${card.gradient} flex items-center justify-center shrink-0`}>
-                  <card.icon className="w-4 h-4 text-white" strokeWidth={2} />
+            <div key={card.label} className="animate-fade-up bg-white rounded-xl px-3 py-3 md:px-4 md:py-3.5 border border-slate-100 shadow-sm card-interactive" style={{ animationDelay: `${i * 60}ms` }}>
+              <div className="flex items-center gap-2.5 md:gap-3">
+                <div className={`w-8 h-8 md:w-9 md:h-9 rounded-lg bg-gradient-to-br ${card.gradient} flex items-center justify-center shrink-0`}>
+                  <card.icon className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" strokeWidth={2} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-[17px] font-bold text-slate-900 tracking-tight leading-none font-heading">
+                  <div className="flex items-center gap-1.5 md:gap-2">
+                    <p className="text-[15px] md:text-[17px] font-bold text-slate-900 tracking-tight leading-none font-heading">
                       {loading ? <span className="skeleton inline-block w-10 h-6" /> : card.value.toLocaleString()}
                     </p>
                     {card.compare && card.prev > 0 && (
                       <span className={`text-[10px] ${d.up ? 'text-emerald-500' : 'text-red-400'}`}>{d.text}</span>
                     )}
                   </div>
-                  <p className="text-[12px] text-slate-400 mt-0.5">{card.label}</p>
+                  <p className="text-[11px] md:text-[12px] text-slate-400 mt-0.5">{card.label}</p>
                 </div>
               </div>
             </div>
@@ -150,7 +150,7 @@ export default function DashboardPage() {
         })}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-3 md:gap-4 lg:grid-cols-3">
         {/* Active shipments */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3.5">

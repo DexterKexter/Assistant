@@ -190,26 +190,26 @@ export default function ShipmentsPage() {
       </div>
 
       {/* Search + Actions */}
-      <div className="flex gap-2 items-center">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <input type="text" placeholder="Контейнер, клиент, перевозчик, отправитель..."
+          <input type="text" placeholder="Контейнер, клиент..."
             className="w-full h-9 rounded-lg bg-white border border-slate-200/80 pl-9 pr-3 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all"
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <p className="text-[13px] text-slate-400 shrink-0">{shipments.length} из {totalCount}</p>
+        <p className="text-[13px] text-slate-400 shrink-0 hidden md:block">{shipments.length} из {totalCount}</p>
         <button onClick={() => setShowRefs(true)} className="h-9 flex items-center gap-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors shrink-0">
           <BookOpen className="w-3.5 h-3.5" />
-          Справочники
+          <span className="hidden md:inline">Справочники</span>
         </button>
         <button onClick={startAddNew} className="h-9 flex items-center gap-1.5 px-3 bg-indigo-500 text-white rounded-lg text-[12px] font-medium hover:bg-indigo-600 transition-colors shrink-0">
           <Plus className="w-3.5 h-3.5" />
-          Новая
+          <span className="hidden md:inline">Новая</span>
         </button>
       </div>
 
       {/* Status tabs */}
-      <div className="flex gap-1 p-1 bg-white rounded-lg border border-slate-200/80 w-fit">
+      <div className="flex gap-1 p-1 bg-white rounded-lg border border-slate-200/80 w-fit overflow-x-auto max-w-full">
         {statusFilters.map((f) => (
           <button key={f.key} onClick={() => setStatusFilter(f.key)}
             className={`px-3 py-[6px] rounded-md text-[12px] font-medium transition-all duration-150 ${statusFilter === f.key ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
@@ -291,7 +291,8 @@ export default function ShipmentsPage() {
 
       {/* Table */}
       <div className={`bg-white rounded-xl border border-slate-100 overflow-hidden ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>
-        <table className="w-full table-fixed">
+        <div className="overflow-x-auto">
+        <table className="w-full table-fixed min-w-[800px]">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/60">
               <th className="text-left pl-4 pr-1 py-2.5 text-[12px] font-semibold text-slate-500 w-[14%]">Контейнер</th>
@@ -365,6 +366,7 @@ export default function ShipmentsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Load more */}

@@ -333,8 +333,8 @@ export function DashboardMap({ shipments }: Props) {
           )}
         </div>
 
-        {/* Stats panel */}
-        <div className="w-[200px] xl:w-[230px] shrink-0 border-l border-slate-200/50 p-4 flex flex-col justify-center">
+        {/* Stats panel — hidden on mobile */}
+        <div className="hidden md:flex w-[200px] xl:w-[230px] shrink-0 border-l border-slate-200/50 p-4 flex-col justify-center">
           <p className="text-[28px] font-bold text-slate-900 leading-none font-heading">{total.toLocaleString()}</p>
           <p className="text-[11px] text-slate-400 mt-1 mb-4">Контейнеров {activeYear === 'Все' ? 'за всё время' : `за ${activeYear}`}</p>
           <div className="space-y-2.5">
