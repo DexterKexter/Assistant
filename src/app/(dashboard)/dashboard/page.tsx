@@ -22,7 +22,7 @@ export default function DashboardPage() {
   const [prev, setPrev] = useState<MonthStats>({ loaded: 0, inTransit: 0, onBorder: 0, delivered: 0 })
   const [topCarriers, setTopCarriers] = useState<{ name: string; count: number }[]>([])
   const [topRoutes, setTopRoutes] = useState<{ route: string; count: number }[]>([])
-  const [mapShipments, setMapShipments] = useState<{ origin: string | null; departure_date: string | null }[]>([])
+  const [mapShipments, setMapShipments] = useState<{ origin: string | null; departure_date: string | null; destination_city: string | null; destination_station: string | null }[]>([])
   const [recentActive, setRecentActive] = useState<Shipment[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -92,7 +92,7 @@ export default function DashboardPage() {
       )
 
       // Shipments for map
-      setMapShipments((allShipments || []).map(s => ({ origin: s.origin, departure_date: s.departure_date })))
+      setMapShipments((allShipments || []).map(s => ({ origin: s.origin, departure_date: s.departure_date, destination_city: s.destination_city, destination_station: s.destination_station })))
 
       setLoading(false)
     }
@@ -117,39 +117,37 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5">
 
-      {/* Map as hero section — full width */}
-      <div className="relative -mx-6 -mt-6 mb-2">
+      {/* Map as hero section — full width, flush with header */}
+      <div className="-mx-5 -mt-4 mb-1">
         {!loading && mapShipments.length > 0 && <DashboardMap shipments={mapShipments} />}
-        {loading && <div className="h-[calc(100vh-120px)] bg-slate-100 animate-pulse rounded-b-2xl" />}
+        {loading && <div className="h-[340px] lg:h-[380px] bg-slate-100 animate-pulse" />}
+      </div>
 
-        {/* Stats cards overlaid on bottom of map */}
-        <div className="absolute bottom-4 left-6 right-6 z-10">
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-            {cards.map((card, i) => {
-              const d = diff(card.value, card.prev)
-              return (
-                <div key={card.label} className="animate-fade-up bg-white/95 backdrop-blur-md rounded-xl px-4 py-3.5 border border-white/60 shadow-lg card-interactive" style={{ animationDelay: `${i * 60}ms` }}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${card.gradient} flex items-center justify-center shrink-0`}>
-                      <card.icon className="w-4 h-4 text-white" strokeWidth={2} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-[17px] font-bold text-slate-900 tracking-tight leading-none font-heading">
-                          {loading ? <span className="skeleton inline-block w-10 h-6" /> : card.value.toLocaleString()}
-                        </p>
-                        {card.compare && card.prev > 0 && (
-                          <span className={`text-[10px] ${d.up ? 'text-emerald-500' : 'text-red-400'}`}>{d.text}</span>
-                        )}
-                      </div>
-                      <p className="text-[12px] text-slate-400 mt-0.5">{card.label}</p>
-                    </div>
-                  </div>
+      {/* Stats cards below map */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        {cards.map((card, i) => {
+          const d = diff(card.value, card.prev)
+          return (
+            <div key={card.label} className="animate-fade-up bg-white rounded-xl px-4 py-3.5 border border-slate-100 shadow-sm card-interactive" style={{ animationDelay: `${i * 60}ms` }}>
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${card.gradient} flex items-center justify-center shrink-0`}>
+                  <card.icon className="w-4 h-4 text-white" strokeWidth={2} />
                 </div>
-              )
-            })}
-          </div>
-        </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[17px] font-bold text-slate-900 tracking-tight leading-none font-heading">
+                      {loading ? <span className="skeleton inline-block w-10 h-6" /> : card.value.toLocaleString()}
+                    </p>
+                    {card.compare && card.prev > 0 && (
+                      <span className={`text-[10px] ${d.up ? 'text-emerald-500' : 'text-red-400'}`}>{d.text}</span>
+                    )}
+                  </div>
+                  <p className="text-[12px] text-slate-400 mt-0.5">{card.label}</p>
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
