@@ -89,7 +89,7 @@ function buildSvgPosCache() {
   // Add all known coords as pins to one map and extract positions
   const entries = Object.entries(COORDS)
   for (const [name, coord] of entries) {
-    const map = new DottedMap({ map: mapJson })
+    const map = new DottedMap({ map: mapJson as any })
     map.addPin({ lat: coord.lat, lng: coord.lng, svgOptions: { color: '#000', radius: 0.1 } })
     const pts = map.getPoints()
     const pin = pts.find((p: any) => p.lat !== undefined && Math.abs(p.lat - coord.lat) < 1.5)
@@ -180,7 +180,7 @@ export function DashboardMap({ shipments }: Props) {
 
   /* Base map dots */
   const mapDots = useMemo(() => {
-    const map = new DottedMap({ map: mapJson })
+    const map = new DottedMap({ map: mapJson as any })
     return map.getPoints().map((p: any) => ({ x: p.x as number, y: p.y as number }))
   }, [])
 
