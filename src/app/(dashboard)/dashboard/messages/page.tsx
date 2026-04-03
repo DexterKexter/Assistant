@@ -127,7 +127,7 @@ export default function MessagesPage() {
         {/* Conversation list */}
         <div className={cn(
           'flex flex-col border-r border-slate-100 bg-white',
-          selectedId ? 'hidden md:flex md:w-[340px]' : 'w-full md:w-[340px]'
+          selectedId ? 'hidden md:flex md:w-[30%]' : 'w-full md:w-[30%]'
         )}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 h-[56px]">

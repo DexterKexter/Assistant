@@ -21,6 +21,7 @@ import {
   PanelLeftOpen,
 } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
+import { useUnreadCount } from '@/lib/useMessages'
 
 const coreItems = [
   { href: '/dashboard', label: 'Обзор', icon: LayoutGrid },
@@ -68,6 +69,8 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
     return pathname.startsWith(href)
   }
 
+  const unreadCount = useUnreadCount()
+
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : '??'
@@ -103,13 +106,18 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
                 onClick={onNavigate}
                 title={item.label}
                 className={cn(
-                  'w-10 h-10 rounded-xl flex items-center justify-center',
+                  'w-10 h-10 rounded-xl flex items-center justify-center relative',
                   active
                     ? 'bg-white shadow-sm shadow-indigo-200/50 text-slate-900'
                     : 'text-slate-500 hover:bg-white/60 hover:text-slate-800'
                 )}
               >
                 <item.icon className="w-[18px] h-[18px]" strokeWidth={active ? 2.2 : 1.6} />
+                {item.href === '/dashboard/messages' && unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-indigo-500 text-white text-[8px] font-bold flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </Link>
             )
           })}
@@ -203,7 +211,12 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
                     : 'text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold'
                 )}>
                 <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={active ? 2.2 : 1.6} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.href === '/dashboard/messages' && unreadCount > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </Link>
             )
           })}

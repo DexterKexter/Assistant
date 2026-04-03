@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutGrid, Ship, Users, Wallet, MessageSquare } from 'lucide-react'
+import { useUnreadCount } from '@/lib/useMessages'
 import { cn } from '@/lib/utils'
 
 const items = [
@@ -15,6 +16,7 @@ const items = [
 
 export function MobileNav() {
   const pathname = usePathname()
+  const unreadCount = useUnreadCount()
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
@@ -38,12 +40,15 @@ export function MobileNav() {
               )}
             >
               <div className={cn(
-                'w-9 h-9 rounded-xl flex items-center justify-center transition-all',
+                'w-9 h-9 rounded-xl flex items-center justify-center transition-all relative',
                 active
                   ? 'bg-indigo-50 shadow-sm shadow-indigo-500/10'
                   : ''
               )}>
                 <item.icon className={cn('w-[18px] h-[18px]', active && 'text-indigo-600')} strokeWidth={active ? 2.2 : 1.6} />
+                {item.href === '/dashboard/messages' && unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-indigo-500 text-white text-[8px] font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                )}
               </div>
               <span className={cn(
                 'text-[10px] leading-tight',
