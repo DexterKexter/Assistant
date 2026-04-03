@@ -392,7 +392,7 @@ function MessageThread({ conversation, profile, onBack, onMessageSent }: {
 /* ── Render mentions in text ── */
 function renderContentWithMentions(text: string, mentions: MessageMention[], onMentionClick?: (m: MessageMention) => void) {
   if (!mentions.length) return text
-  const parts: (string | JSX.Element)[] = []
+  const parts: (string | React.ReactNode)[] = []
   let remaining = text
   let key = 0
 
