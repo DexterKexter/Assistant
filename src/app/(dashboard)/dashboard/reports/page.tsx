@@ -44,19 +44,29 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('shipments')
-      .select('id, departure_date, arrival_date, delivery_date, is_completed, container_size, container_type, origin, destination_city, destination_station, carrier_id, client:clients(is_russia), carrier:carriers(name)')
-      .order('departure_date', { ascending: false })
-      .limit(5000)
-      .then(({ data: rows }) => {
-        const mapped = (rows || []).map((r: any) => ({
-          ...r,
-          is_russia: r.client?.is_russia || false,
-          carrier_name: r.carrier?.name || null,
-        }))
-        setData(mapped)
-        setLoading(false)
-      })
+    async function loadAll() {
+      const allRows: any[] = []
+      let from = 0
+      const pageSize = 1000
+      while (true) {
+        const { data: rows } = await supabase.from('shipments')
+          .select('id, departure_date, arrival_date, delivery_date, is_completed, container_size, container_type, origin, destination_city, destination_station, carrier_id, client:clients(is_russia), carrier:carriers(name)')
+          .order('departure_date', { ascending: false })
+          .range(from, from + pageSize - 1)
+        if (!rows || rows.length === 0) break
+        allRows.push(...rows)
+        if (rows.length < pageSize) break
+        from += pageSize
+      }
+      const mapped = allRows.map((r: any) => ({
+        ...r,
+        is_russia: r.client?.is_russia || false,
+        carrier_name: r.carrier?.name || null,
+      }))
+      setData(mapped)
+      setLoading(false)
+    }
+    loadAll()
   }, [])
 
   // Period filter helper — supports month range
