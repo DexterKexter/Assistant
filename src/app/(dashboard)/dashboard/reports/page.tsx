@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, LabelList } from 'recharts'
-import { Ship, TrendingUp, TrendingDown, Clock, CheckCircle2, Truck, MapPin, Container } from 'lucide-react'
+import { Ship, TrendingUp, TrendingDown, Clock, CheckCircle2, Truck, MapPin, Container, BarChart3, GitCompare, Globe } from 'lucide-react'
 
 const MONTHS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
 const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
@@ -33,6 +33,7 @@ function pct(a: number, b: number) {
 export default function ReportsPage() {
   const [data, setData] = useState<ShipmentRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'charts' | 'compare' | 'geo'>('charts')
 
   // Period comparison
   const now = new Date()
@@ -177,51 +178,114 @@ export default function ReportsPage() {
     )
   }
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Отчёты</h1>
+  // Yearly data with % change
+  const yearlyLoaded = useMemo(() => {
+    return YEARS.map((y, i) => {
+      const count = data.filter(s => s.departure_date?.startsWith(y)).length
+      const prev = i > 0 ? data.filter(s => s.departure_date?.startsWith(YEARS[i - 1])).length : 0
+      const change = i > 0 && prev > 0 ? Math.round(((count - prev) / prev) * 100) : null
+      return { name: y, count, change }
+    })
+  }, [data])
 
-      {/* ── Yearly totals chart ── */}
+  const yearlyDelivered = useMemo(() => {
+    return YEARS.map((y, i) => {
+      const count = data.filter(s => s.delivery_date?.startsWith(y)).length
+      const prev = i > 0 ? data.filter(s => s.delivery_date?.startsWith(YEARS[i - 1])).length : 0
+      const change = i > 0 && prev > 0 ? Math.round(((count - prev) / prev) * 100) : null
+      return { name: y, count, change }
+    })
+  }, [data])
+
+  const tabs = [
+    { key: 'charts' as const, label: 'Графики', icon: BarChart3 },
+    { key: 'compare' as const, label: 'Сравнение', icon: GitCompare },
+    { key: 'geo' as const, label: 'География', icon: Globe },
+  ]
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Отчёты</h1>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-slate-200">
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setActiveTab(t.key)}
+            className={`flex items-center gap-1.5 px-4 pb-2.5 text-[13px] font-medium border-b-2 -mb-px transition-all ${
+              activeTab === t.key ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600'
+            }`}>
+            <t.icon className="w-3.5 h-3.5" strokeWidth={activeTab === t.key ? 2.2 : 1.6} />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── TAB: Charts ── */}
+      {activeTab === 'charts' && <>
+
+      {/* Yearly totals with % change */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-slate-100 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Загружено по годам</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={YEARS.map(y => ({
-              name: y,
-              count: data.filter(s => s.departure_date?.startsWith(y)).length,
-            }))} barSize={48}>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={yearlyLoaded} barSize={44}>
+              <defs><linearGradient id="gradYearLoad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#4f46e5" /></linearGradient></defs>
               <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-              <defs><linearGradient id="gradYearLoad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#4f46e5" /></linearGradient></defs>
               <Bar dataKey="count" name="Загружено" fill="url(#gradYearLoad)" radius={[8, 8, 0, 0]}>
                 <LabelList dataKey="count" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          {/* % change badges */}
+          <div className="flex justify-around mt-2">
+            {yearlyLoaded.map(y => (
+              <div key={y.name} className="text-center">
+                {y.change !== null && (
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${y.change >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
+                    {y.change >= 0 ? '+' : ''}{y.change}%
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
         <div className="bg-white rounded-xl border border-slate-100 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Доставлено по годам</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={YEARS.map(y => ({
-              name: y,
-              count: data.filter(s => s.delivery_date?.startsWith(y)).length,
-            }))} barSize={48}>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={yearlyDelivered} barSize={44}>
+              <defs><linearGradient id="gradYearDel" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#059669" /></linearGradient></defs>
               <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-              <defs><linearGradient id="gradYearDel" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#059669" /></linearGradient></defs>
               <Bar dataKey="count" name="Доставлено" fill="url(#gradYearDel)" radius={[8, 8, 0, 0]}>
                 <LabelList dataKey="count" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          <div className="flex justify-around mt-2">
+            {yearlyDelivered.map(y => (
+              <div key={y.name} className="text-center">
+                {y.change !== null && (
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${y.change >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
+                    {y.change >= 0 ? '+' : ''}{y.change}%
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* ── Period Comparison — two columns ── */}
+      </>}
+
+      {/* ── TAB: Compare ── */}
+      {activeTab === 'compare' && <>
       <div className="bg-white rounded-xl border border-slate-100 overflow-hidden flex flex-col lg:flex-row">
         {/* Left: selectors + numbers */}
         <div className="lg:w-[280px] shrink-0 p-5 border-b lg:border-b-0 lg:border-r border-slate-100">
@@ -317,6 +381,11 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      </>}
+
+      {/* ── TAB: Charts (continued) — monthly + summary ── */}
+      {activeTab === 'charts' && <>
+
       {/* ── Year selector ── */}
       <div className="flex items-center gap-3">
         <h2 className="text-[16px] font-bold text-slate-900 font-heading">Годовая статистика</h2>
@@ -393,6 +462,10 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      </>}
+
+      {/* ── TAB: Geography ── */}
+      {activeTab === 'geo' && <>
       {/* ── Geography: Origins + Destinations ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-slate-100 p-5">
@@ -435,6 +508,7 @@ export default function ReportsPage() {
           </div>
         </div>
       </div>
+      </>}
     </div>
   )
 }
