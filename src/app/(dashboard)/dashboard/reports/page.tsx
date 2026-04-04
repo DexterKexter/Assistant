@@ -190,11 +190,12 @@ export default function ReportsPage() {
               name: y,
               count: data.filter(s => s.departure_date?.startsWith(y)).length,
             }))} barSize={48}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-              <Bar dataKey="count" name="Загружено" fill="#6366f1" radius={[8, 8, 0, 0]}>
+              <defs><linearGradient id="gradYearLoad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#4f46e5" /></linearGradient></defs>
+              <Bar dataKey="count" name="Загружено" fill="url(#gradYearLoad)" radius={[8, 8, 0, 0]}>
                 <LabelList dataKey="count" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
               </Bar>
             </BarChart>
@@ -207,11 +208,12 @@ export default function ReportsPage() {
               name: y,
               count: data.filter(s => s.delivery_date?.startsWith(y)).length,
             }))} barSize={48}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-              <Bar dataKey="count" name="Доставлено" fill="#10b981" radius={[8, 8, 0, 0]}>
+              <defs><linearGradient id="gradYearDel" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#059669" /></linearGradient></defs>
+              <Bar dataKey="count" name="Доставлено" fill="url(#gradYearDel)" radius={[8, 8, 0, 0]}>
                 <LabelList dataKey="count" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
               </Bar>
             </BarChart>
@@ -219,55 +221,100 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* ── Period Comparison — bar chart ── */}
-      <div className="bg-white rounded-xl border border-slate-100 p-5">
-        <div className="flex flex-wrap items-center gap-3 mb-5">
-          <h2 className="text-[14px] font-semibold text-slate-900">Сравнение периодов</h2>
-          <div className="flex-1" />
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50">
-            <div className="w-3 h-3 rounded-sm bg-indigo-500" />
-            <select value={periodA.monthFrom} onChange={e => setPeriodA(p => ({ ...p, monthFrom: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-indigo-700 border-0 focus:outline-none cursor-pointer">
-              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
-            <span className="text-[10px] text-indigo-400">—</span>
-            <select value={periodA.monthTo} onChange={e => setPeriodA(p => ({ ...p, monthTo: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-indigo-700 border-0 focus:outline-none cursor-pointer">
-              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
-            <select value={periodA.year} onChange={e => setPeriodA(p => ({ ...p, year: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-indigo-700 border-0 focus:outline-none cursor-pointer">
-              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+      {/* ── Period Comparison — two columns ── */}
+      <div className="bg-white rounded-xl border border-slate-100 overflow-hidden flex flex-col lg:flex-row">
+        {/* Left: selectors + numbers */}
+        <div className="lg:w-[280px] shrink-0 p-5 border-b lg:border-b-0 lg:border-r border-slate-100">
+          <h2 className="text-[14px] font-semibold text-slate-900 mb-5">Сравнение периодов</h2>
+
+          {/* Period A */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-3 h-3 rounded-sm bg-indigo-500" />
+              <span className="text-[11px] text-slate-400 font-medium">Период A</span>
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <select value={periodA.monthFrom} onChange={e => setPeriodA(p => ({ ...p, monthFrom: e.target.value }))} className={selCls + ' text-[12px]'}>
+                {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+              </select>
+              <span className="text-[10px] text-slate-300">—</span>
+              <select value={periodA.monthTo} onChange={e => setPeriodA(p => ({ ...p, monthTo: e.target.value }))} className={selCls + ' text-[12px]'}>
+                {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+              </select>
+              <select value={periodA.year} onChange={e => setPeriodA(p => ({ ...p, year: e.target.value }))} className={selCls + ' text-[12px]'}>
+                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
           </div>
-          <span className="text-[12px] text-slate-300 font-medium">vs</span>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50">
-            <div className="w-3 h-3 rounded-sm bg-emerald-500" />
-            <select value={periodB.monthFrom} onChange={e => setPeriodB(p => ({ ...p, monthFrom: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-emerald-700 border-0 focus:outline-none cursor-pointer">
-              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
-            <span className="text-[10px] text-emerald-400">—</span>
-            <select value={periodB.monthTo} onChange={e => setPeriodB(p => ({ ...p, monthTo: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-emerald-700 border-0 focus:outline-none cursor-pointer">
-              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
-            <select value={periodB.year} onChange={e => setPeriodB(p => ({ ...p, year: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-emerald-700 border-0 focus:outline-none cursor-pointer">
-              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+
+          {/* Period B */}
+          <div className="mb-5">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-3 h-3 rounded-sm bg-emerald-500" />
+              <span className="text-[11px] text-slate-400 font-medium">Период B</span>
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <select value={periodB.monthFrom} onChange={e => setPeriodB(p => ({ ...p, monthFrom: e.target.value }))} className={selCls + ' text-[12px]'}>
+                {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+              </select>
+              <span className="text-[10px] text-slate-300">—</span>
+              <select value={periodB.monthTo} onChange={e => setPeriodB(p => ({ ...p, monthTo: e.target.value }))} className={selCls + ' text-[12px]'}>
+                {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+              </select>
+              <select value={periodB.year} onChange={e => setPeriodB(p => ({ ...p, year: e.target.value }))} className={selCls + ' text-[12px]'}>
+                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Quick stats */}
+          <div className="space-y-2 pt-3 border-t border-slate-100">
+            {[
+              { label: 'Загружено', a: statsA.loaded, b: statsB.loaded },
+              { label: 'Доставлено', a: statsA.delivered, b: statsB.delivered },
+              { label: 'РФ', a: statsA.russia, b: statsB.russia },
+              { label: 'КЗ', a: statsA.kz, b: statsB.kz },
+            ].map(r => (
+              <div key={r.label} className="flex items-center justify-between text-[12px]">
+                <span className="text-slate-500">{r.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-indigo-600">{r.a}</span>
+                  <span className="text-slate-300">/</span>
+                  <span className="font-bold text-emerald-600">{r.b}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={[
-            { name: 'Загружено', a: statsA.loaded, b: statsB.loaded },
-            { name: 'Доставлено', a: statsA.delivered, b: statsB.delivered },
-            { name: 'РФ', a: statsA.russia, b: statsB.russia },
-            { name: 'КЗ', a: statsA.kz, b: statsB.kz },
-          ]} barGap={4} barSize={32}>
-            <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
-            <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-            <Bar dataKey="a" name={`${MONTHS[+periodA.monthFrom]}–${MONTHS[+periodA.monthTo]} ${periodA.year}`} fill="#6366f1" radius={[6, 6, 0, 0]} />
-            <Bar dataKey="b" name={`${MONTHS[+periodB.monthFrom]}–${MONTHS[+periodB.monthTo]} ${periodB.year}`} fill="#10b981" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {/* Right: chart */}
+        <div className="flex-1 p-5 min-w-0">
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={[
+              { name: 'Загружено', a: statsA.loaded, b: statsB.loaded },
+              { name: 'Доставлено', a: statsA.delivered, b: statsB.delivered },
+              { name: 'РФ', a: statsA.russia, b: statsB.russia },
+              { name: 'КЗ', a: statsA.kz, b: statsB.kz },
+            ]} barGap={2} barSize={36}>
+              <defs>
+                <linearGradient id="gradA" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#818cf8" />
+                  <stop offset="100%" stopColor="#4f46e5" />
+                </linearGradient>
+                <linearGradient id="gradB" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#34d399" />
+                  <stop offset="100%" stopColor="#059669" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 500 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+              <Bar dataKey="a" name={`${MONTHS[+periodA.monthFrom]}–${MONTHS[+periodA.monthTo]} ${periodA.year}`} fill="url(#gradA)" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="b" name={`${MONTHS[+periodB.monthFrom]}–${MONTHS[+periodB.monthTo]} ${periodB.year}`} fill="url(#gradB)" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* ── Year selector ── */}
@@ -285,7 +332,7 @@ export default function ReportsPage() {
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Загружено по месяцам</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={loadedByMonth} barSize={24}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={30} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
@@ -301,7 +348,7 @@ export default function ReportsPage() {
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Доставлено по месяцам</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={deliveredByMonth} barSize={24}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={30} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
