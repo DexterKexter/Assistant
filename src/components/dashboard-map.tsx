@@ -212,7 +212,7 @@ export function DashboardMap({ shipments }: Props) {
       {/* Map + Stats */}
       <div className="flex">
         {/* SVG Map */}
-        <div ref={containerRef} className="relative flex-1 min-w-0 overflow-hidden">
+        <div ref={containerRef} className="relative flex-1 min-w-0 overflow-hidden pt-8 px-4 pb-4">
           <svg ref={svgRef} viewBox="0 0 198 100" className="w-full h-auto block" xmlns="http://www.w3.org/2000/svg">
             <defs>
               {COLORS.map((c, i) => (

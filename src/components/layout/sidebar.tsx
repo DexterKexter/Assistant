@@ -11,6 +11,7 @@ import {
   Wallet,
   FileText,
   MessageSquare,
+  BarChart3,
   LogOut,
   Truck,
   Clock,
@@ -30,6 +31,7 @@ const coreItems = [
   { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
   { href: '/dashboard/documents', label: 'Документы', icon: FileText },
   { href: '/dashboard/messages', label: 'Сообщения', icon: MessageSquare },
+  { href: '/dashboard/reports', label: 'Отчёты', icon: BarChart3 },
 ]
 
 const statusItems = [

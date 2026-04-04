@@ -11,6 +11,23 @@ import {
 } from 'lucide-react'
 import { useShipmentModal } from '@/lib/shipment-modal'
 
+/* ── Notification sound ── */
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.setValueAtTime(880, ctx.currentTime)
+    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08)
+    gain.gain.setValueAtTime(0.15, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.3)
+  } catch {}
+}
+
 /* ── Helpers ── */
 function timeAgo(date: string) {
   const diff = Date.now() - new Date(date).getTime()
@@ -295,6 +312,8 @@ function MessageThread({ conversation, profile, onBack, onMessageSent }: {
           // Skip if already in list (own messages added after insert)
           setMessages(prev => {
             if (prev.find(m => m.id === data.id)) return prev
+            // Play sound for incoming messages from others
+            if (data.sender_id !== profile.id) playNotificationSound()
             return [...prev, data]
           })
           // Mark read
