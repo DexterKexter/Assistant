@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, LabelList } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, LabelList, PieChart, Pie } from 'recharts'
 import { Ship, TrendingUp, TrendingDown, Clock, CheckCircle2, Truck, MapPin, Container, BarChart3, GitCompare, Globe } from 'lucide-react'
 
 const MONTHS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
@@ -23,6 +23,7 @@ interface ShipmentRow {
   carrier_id: string | null
   is_russia: boolean
   carrier_name: string | null
+  client_name: string | null
 }
 
 function pct(a: number, b: number) {
@@ -33,7 +34,7 @@ function pct(a: number, b: number) {
 export default function ReportsPage() {
   const [data, setData] = useState<ShipmentRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'charts' | 'compare' | 'geo'>('charts')
+  const [activeTab, setActiveTab] = useState<'charts' | 'compare'>('charts')
 
   // Period comparison
   const now = new Date()
@@ -51,7 +52,7 @@ export default function ReportsPage() {
       const pageSize = 1000
       while (true) {
         const { data: rows } = await supabase.from('shipments')
-          .select('id, departure_date, arrival_date, delivery_date, is_completed, container_size, container_type, origin, destination_city, destination_station, carrier_id, client:clients(is_russia), carrier:carriers(name)')
+          .select('id, departure_date, arrival_date, delivery_date, is_completed, container_size, container_type, origin, destination_city, destination_station, carrier_id, client:clients(name, is_russia), carrier:carriers(name)')
           .order('departure_date', { ascending: false })
           .range(from, from + pageSize - 1)
         if (!rows || rows.length === 0) break
@@ -63,6 +64,7 @@ export default function ReportsPage() {
         ...r,
         is_russia: r.client?.is_russia || false,
         carrier_name: r.carrier?.name || null,
+        client_name: r.client?.name || null,
       }))
       setData(mapped)
       setLoading(false)
@@ -158,11 +160,19 @@ export default function ReportsPage() {
     })
     const topDests = Object.entries(destCounts).sort(([, a], [, b]) => b - a).slice(0, 5).map(([name, count]) => ({ name, count }))
 
+    // Top carriers (all)
+    const allCarriers = Object.entries(carrierCounts).sort(([, a], [, b]) => b - a).slice(0, 7).map(([name, count]) => ({ name, count }))
+
+    // Top clients
+    const clientCounts: Record<string, number> = {}
+    yearShipments.forEach(s => { if (s.client_name) clientCounts[s.client_name] = (clientCounts[s.client_name] || 0) + 1 })
+    const topClients = Object.entries(clientCounts).sort(([, a], [, b]) => b - a).slice(0, 7).map(([name, count]) => ({ name, count }))
+
     return {
       loaded: yearShipments.length, delivered: yearDelivered.length, avgDays,
       topRoute: topRoute ? { route: topRoute[0], count: topRoute[1] } : null,
       topCarrier: topCarrier ? { name: topCarrier[0], count: topCarrier[1] } : null,
-      size20, size40, topOrigins, topDests,
+      size20, size40, topOrigins, topDests, allCarriers, topClients,
     }
   }, [data, chartYear])
 
@@ -198,9 +208,8 @@ export default function ReportsPage() {
   }
 
   const tabs = [
-    { key: 'charts' as const, label: 'Графики', icon: BarChart3 },
+    { key: 'charts' as const, label: 'Годовой отчет', icon: BarChart3 },
     { key: 'compare' as const, label: 'Сравнение', icon: GitCompare },
-    { key: 'geo' as const, label: 'География', icon: Globe },
   ]
 
   return (
@@ -222,10 +231,18 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      {/* ── TAB: Charts ── */}
+      {/* ── TAB: Годовой отчет ── */}
       {activeTab === 'charts' && <>
 
-      {/* Yearly totals with % change */}
+      {/* ── 1. Year selector ── */}
+      <div className="flex items-center gap-3">
+        <h2 className="text-[16px] font-bold text-slate-900 font-heading">Годовая статистика</h2>
+        <select value={chartYear} onChange={e => setChartYear(e.target.value)} className={selCls}>
+          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+
+      {/* ── 2. Yearly bar charts ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-slate-100 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Загружено по годам</h3>
@@ -238,21 +255,10 @@ export default function ReportsPage() {
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
               <Bar dataKey="count" name="Загружено" fill="url(#gradYearLoad)" radius={[8, 8, 0, 0]}>
                 <LabelList dataKey="count" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
+                <LabelList dataKey="change" position="top" fontSize={10} fontWeight={600} formatter={(v: number | null) => v !== null ? `${v >= 0 ? '+' : ''}${v}%` : ''} fill="#64748b" />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          {/* % change badges */}
-          <div className="flex justify-around mt-2">
-            {yearlyLoaded.map(y => (
-              <div key={y.name} className="text-center">
-                {y.change !== null && (
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${y.change >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
-                    {y.change >= 0 ? '+' : ''}{y.change}%
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
         </div>
         <div className="bg-white rounded-xl border border-slate-100 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Доставлено по годам</h3>
@@ -265,19 +271,174 @@ export default function ReportsPage() {
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
               <Bar dataKey="count" name="Доставлено" fill="url(#gradYearDel)" radius={[8, 8, 0, 0]}>
                 <LabelList dataKey="count" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
+                <LabelList dataKey="change" position="top" fontSize={10} fontWeight={600} formatter={(v: number | null) => v !== null ? `${v >= 0 ? '+' : ''}${v}%` : ''} fill="#64748b" />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <div className="flex justify-around mt-2">
-            {yearlyDelivered.map(y => (
-              <div key={y.name} className="text-center">
-                {y.change !== null && (
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${y.change >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
-                    {y.change >= 0 ? '+' : ''}{y.change}%
-                  </span>
-                )}
-              </div>
-            ))}
+        </div>
+      </div>
+
+      {/* ── 3. Summary tiles ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="bg-white rounded-xl border border-slate-100 p-4">
+          <p className="text-[11px] text-slate-400 mb-1">Загружено</p>
+          <p className="text-[22px] font-bold text-slate-900">{yearData.loaded}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-100 p-4">
+          <p className="text-[11px] text-slate-400 mb-1">Доставлено</p>
+          <p className="text-[22px] font-bold text-emerald-600">{yearData.delivered}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-100 p-4">
+          <p className="text-[11px] text-slate-400 mb-1">Среднее время</p>
+          <p className="text-[22px] font-bold text-slate-900">{yearData.avgDays}<span className="text-[12px] text-slate-400 ml-1">дней</span></p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-100 p-4">
+          <p className="text-[11px] text-slate-400 mb-1">Топ маршрут</p>
+          <p className="text-[13px] font-bold text-slate-900 truncate">{yearData.topRoute?.route || '—'}</p>
+          <p className="text-[11px] text-slate-400">{yearData.topRoute?.count || 0} перевозок</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-100 p-4">
+          <p className="text-[11px] text-slate-400 mb-1">Топ перевозчик</p>
+          <p className="text-[13px] font-bold text-slate-900 truncate">{yearData.topCarrier?.name || '—'}</p>
+          <p className="text-[11px] text-slate-400">{yearData.topCarrier?.count || 0} перевозок</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-100 p-4">
+          <p className="text-[11px] text-slate-400 mb-1">Контейнеры</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-semibold">20ft: {yearData.size20}</span>
+            <span className="px-1.5 py-0.5 bg-violet-50 text-violet-600 rounded text-[10px] font-semibold">40ft: {yearData.size40}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4. Monthly charts ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Загружено по месяцам</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={loadedByMonth} barSize={24}>
+              <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={30} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+              <Bar dataKey="count" name="Загружено" radius={[6, 6, 0, 0]}>
+                {loadedByMonth.map((_, i) => <Cell key={i} fill="#6366f1" opacity={0.85} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Доставлено по месяцам</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={deliveredByMonth} barSize={24}>
+              <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={30} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+              <Bar dataKey="count" name="Доставлено" radius={[6, 6, 0, 0]}>
+                {deliveredByMonth.map((_, i) => <Cell key={i} fill="#10b981" opacity={0.85} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── 5. Geography: Pie Charts (clean, no labels) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ отправления</h3>
+          <div className="flex items-center">
+            <div className="w-[140px] h-[140px] shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={yearData.topOrigins} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={35} outerRadius={65} paddingAngle={2} label={false}>
+                    {yearData.topOrigins.map((_, i) => (
+                      <Cell key={i} fill={['#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#e0e7ff'][i] || '#e2e8f0'} stroke="none" />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex-1 space-y-1.5 ml-4">
+              {yearData.topOrigins.map((o, i) => (
+                <div key={o.name} className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: ['#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#e0e7ff'][i] || '#e2e8f0' }} />
+                  <span className="text-[12px] text-slate-700 flex-1">{o.name}</span>
+                  <span className="text-[12px] font-semibold text-slate-900">{o.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ назначения</h3>
+          <div className="flex items-center">
+            <div className="w-[140px] h-[140px] shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={yearData.topDests} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={35} outerRadius={65} paddingAngle={2} label={false}>
+                    {yearData.topDests.map((_, i) => (
+                      <Cell key={i} fill={['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0'][i] || '#e2e8f0'} stroke="none" />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex-1 space-y-1.5 ml-4">
+              {yearData.topDests.map((d, i) => (
+                <div key={d.name} className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0'][i] || '#e2e8f0' }} />
+                  <span className="text-[12px] text-slate-700 flex-1">{d.name}</span>
+                  <span className="text-[12px] font-semibold text-slate-900">{d.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 6. Top Carriers & Top Clients: Horizontal Bar Charts ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ перевозчики</h3>
+          <div className="space-y-2.5">
+            {yearData.allCarriers.map((c, i) => {
+              const max = yearData.allCarriers[0]?.count || 1
+              return (
+                <div key={c.name}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[12px] text-slate-700 truncate max-w-[200px]">{c.name}</span>
+                    <span className="text-[12px] font-semibold text-slate-900 ml-2 shrink-0">{c.count}</span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${(c.count / max) * 100}%`, backgroundColor: i === 0 ? '#f59e0b' : '#fbbf24' }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ клиенты</h3>
+          <div className="space-y-2.5">
+            {yearData.topClients.map((c, i) => {
+              const max = yearData.topClients[0]?.count || 1
+              return (
+                <div key={c.name}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[12px] text-slate-700 truncate max-w-[200px]">{c.name}</span>
+                    <span className="text-[12px] font-semibold text-slate-900 ml-2 shrink-0">{c.count}</span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${(c.count / max) * 100}%`, backgroundColor: i === 0 ? '#e11d48' : '#fb7185' }} />
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -383,132 +544,6 @@ export default function ReportsPage() {
 
       </>}
 
-      {/* ── TAB: Charts (continued) — monthly + summary ── */}
-      {activeTab === 'charts' && <>
-
-      {/* ── Year selector ── */}
-      <div className="flex items-center gap-3">
-        <h2 className="text-[16px] font-bold text-slate-900 font-heading">Годовая статистика</h2>
-        <select value={chartYear} onChange={e => setChartYear(e.target.value)} className={selCls}>
-          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
-      </div>
-
-      {/* ── Charts: Loaded + Delivered ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Loaded chart */}
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Загружено по месяцам</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={loadedByMonth} barSize={24}>
-              <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={30} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-              <Bar dataKey="count" name="Загружено" radius={[6, 6, 0, 0]}>
-                {loadedByMonth.map((_, i) => <Cell key={i} fill="#6366f1" opacity={0.85} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Delivered chart */}
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Доставлено по месяцам</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={deliveredByMonth} barSize={24}>
-              <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={30} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-              <Bar dataKey="count" name="Доставлено" radius={[6, 6, 0, 0]}>
-                {deliveredByMonth.map((_, i) => <Cell key={i} fill="#10b981" opacity={0.85} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* ── Year Summary Cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
-          <p className="text-[11px] text-slate-400 mb-1">Загружено</p>
-          <p className="text-[22px] font-bold text-slate-900">{yearData.loaded}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
-          <p className="text-[11px] text-slate-400 mb-1">Доставлено</p>
-          <p className="text-[22px] font-bold text-emerald-600">{yearData.delivered}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
-          <p className="text-[11px] text-slate-400 mb-1">Среднее время</p>
-          <p className="text-[22px] font-bold text-slate-900">{yearData.avgDays}<span className="text-[12px] text-slate-400 ml-1">дней</span></p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
-          <p className="text-[11px] text-slate-400 mb-1">Топ маршрут</p>
-          <p className="text-[13px] font-bold text-slate-900 truncate">{yearData.topRoute?.route || '—'}</p>
-          <p className="text-[11px] text-slate-400">{yearData.topRoute?.count || 0} перевозок</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
-          <p className="text-[11px] text-slate-400 mb-1">Топ перевозчик</p>
-          <p className="text-[13px] font-bold text-slate-900 truncate">{yearData.topCarrier?.name || '—'}</p>
-          <p className="text-[11px] text-slate-400">{yearData.topCarrier?.count || 0} перевозок</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
-          <p className="text-[11px] text-slate-400 mb-1">Контейнеры</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-semibold">20ft: {yearData.size20}</span>
-            <span className="px-1.5 py-0.5 bg-violet-50 text-violet-600 rounded text-[10px] font-semibold">40ft: {yearData.size40}</span>
-          </div>
-        </div>
-      </div>
-
-      </>}
-
-      {/* ── TAB: Geography ── */}
-      {activeTab === 'geo' && <>
-      {/* ── Geography: Origins + Destinations ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ отправления</h3>
-          <div className="space-y-2.5">
-            {yearData.topOrigins.map((o, i) => {
-              const max = yearData.topOrigins[0]?.count || 1
-              return (
-                <div key={o.name}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[12px] text-slate-700">{o.name}</span>
-                    <span className="text-[12px] font-semibold text-slate-900">{o.count}</span>
-                  </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(o.count / max) * 100}%` }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ назначения</h3>
-          <div className="space-y-2.5">
-            {yearData.topDests.map((d, i) => {
-              const max = yearData.topDests[0]?.count || 1
-              return (
-                <div key={d.name}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[12px] text-slate-700">{d.name}</span>
-                    <span className="text-[12px] font-semibold text-slate-900">{d.count}</span>
-                  </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(d.count / max) * 100}%` }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-      </>}
     </div>
   )
 }

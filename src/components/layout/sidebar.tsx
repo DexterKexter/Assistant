@@ -124,20 +124,6 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
             )
           })}
 
-          <div className="w-6 h-px bg-slate-300/40 my-2" />
-
-          {statusItems.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={onNavigate}
-              title={item.label}
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:bg-white/60 hover:text-slate-800"
-            >
-              <item.icon className="w-[18px] h-[18px]" strokeWidth={1.6} />
-            </Link>
-          ))}
-
           {hasRole('admin') && (
             <>
               <div className="w-6 h-px bg-slate-300/40 my-2" />
@@ -222,17 +208,6 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
               </Link>
             )
           })}
-        </div>
-
-        <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2 mt-6">Статусы</p>
-        <div className="space-y-0.5">
-          {statusItems.map((item) => (
-            <Link key={item.label} href={item.href} onClick={onNavigate}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold">
-              <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.6} />
-              {item.label}
-            </Link>
-          ))}
         </div>
 
         {hasRole('admin') && (
