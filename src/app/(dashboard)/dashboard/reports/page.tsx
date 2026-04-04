@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts'
 import { Ship, TrendingUp, TrendingDown, Clock, CheckCircle2, Truck, MapPin, Container } from 'lucide-react'
 
 const MONTHS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
 const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
-const YEARS = ['2024', '2025', '2026']
+const YEARS = ['2022', '2023', '2024', '2025', '2026']
 
 interface ShipmentRow {
   id: string
@@ -36,8 +36,8 @@ export default function ReportsPage() {
 
   // Period comparison
   const now = new Date()
-  const [periodA, setPeriodA] = useState({ year: String(now.getFullYear()), month: String(now.getMonth()) })
-  const [periodB, setPeriodB] = useState({ year: String(now.getFullYear()), month: String(Math.max(0, now.getMonth() - 1)) })
+  const [periodA, setPeriodA] = useState({ year: String(now.getFullYear()), monthFrom: '0', monthTo: String(now.getMonth()) })
+  const [periodB, setPeriodB] = useState({ year: String(now.getFullYear() - 1), monthFrom: '0', monthTo: String(now.getMonth()) })
 
   // Charts year
   const [chartYear, setChartYear] = useState(String(now.getFullYear()))
@@ -59,28 +59,27 @@ export default function ReportsPage() {
       })
   }, [])
 
-  // Period filter helper
-  function filterPeriod(year: string, month: string) {
+  // Period filter helper — supports month range
+  function filterPeriod(year: string, monthFrom: string, monthTo: string) {
     const y = parseInt(year)
-    const m = parseInt(month)
-    const start = new Date(y, m, 1)
-    const end = new Date(y, m + 1, 0)
+    const mFrom = parseInt(monthFrom)
+    const mTo = parseInt(monthTo)
+    const start = new Date(y, mFrom, 1)
+    const end = new Date(y, mTo + 1, 0)
     const startStr = start.toISOString().split('T')[0]
     const endStr = end.toISOString().split('T')[0]
 
     const loaded = data.filter(s => s.departure_date && s.departure_date >= startStr && s.departure_date <= endStr)
     const delivered = data.filter(s => s.delivery_date && s.delivery_date >= startStr && s.delivery_date <= endStr)
-    const inTransit = data.filter(s => s.departure_date && s.departure_date <= endStr && !s.arrival_date && !s.delivery_date && !s.is_completed)
-    const onBorder = data.filter(s => s.arrival_date && s.arrival_date <= endStr && !s.delivery_date && !s.is_completed)
 
     const russia = loaded.filter(s => s.is_russia)
     const kz = loaded.filter(s => !s.is_russia)
 
-    return { loaded: loaded.length, delivered: delivered.length, inTransit: inTransit.length, onBorder: onBorder.length, russia: russia.length, kz: kz.length }
+    return { loaded: loaded.length, delivered: delivered.length, russia: russia.length, kz: kz.length }
   }
 
-  const statsA = useMemo(() => filterPeriod(periodA.year, periodA.month), [data, periodA])
-  const statsB = useMemo(() => filterPeriod(periodB.year, periodB.month), [data, periodB])
+  const statsA = useMemo(() => filterPeriod(periodA.year, periodA.monthFrom, periodA.monthTo), [data, periodA])
+  const statsB = useMemo(() => filterPeriod(periodB.year, periodB.monthFrom, periodB.monthTo), [data, periodB])
 
   // Monthly chart data
   const loadedByMonth = useMemo(() => {
@@ -172,81 +171,89 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Отчёты</h1>
 
-      {/* ── Period Comparison ── */}
+      {/* ── Yearly totals chart ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Загружено по годам</h3>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={YEARS.map(y => ({
+              name: y,
+              count: data.filter(s => s.departure_date?.startsWith(y)).length,
+            }))} barSize={48}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+              <Bar dataKey="count" name="Загружено" fill="#6366f1" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Доставлено по годам</h3>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={YEARS.map(y => ({
+              name: y,
+              count: data.filter(s => s.delivery_date?.startsWith(y)).length,
+            }))} barSize={48}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+              <Bar dataKey="count" name="Доставлено" fill="#10b981" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── Period Comparison — bar chart ── */}
       <div className="bg-white rounded-xl border border-slate-100 p-5">
-        <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex flex-wrap items-center gap-3 mb-5">
           <h2 className="text-[14px] font-semibold text-slate-900">Сравнение периодов</h2>
           <div className="flex-1" />
-          <div className="flex items-center gap-2">
-            <span className="text-[12px] text-slate-400">Период A:</span>
-            <select value={periodA.month} onChange={e => setPeriodA(p => ({ ...p, month: e.target.value }))} className={selCls}>
-              {MONTH_NAMES.map((m, i) => <option key={i} value={i}>{m}</option>)}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50">
+            <div className="w-3 h-3 rounded-sm bg-indigo-500" />
+            <select value={periodA.monthFrom} onChange={e => setPeriodA(p => ({ ...p, monthFrom: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-indigo-700 border-0 focus:outline-none cursor-pointer">
+              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
-            <select value={periodA.year} onChange={e => setPeriodA(p => ({ ...p, year: e.target.value }))} className={selCls}>
+            <span className="text-[10px] text-indigo-400">—</span>
+            <select value={periodA.monthTo} onChange={e => setPeriodA(p => ({ ...p, monthTo: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-indigo-700 border-0 focus:outline-none cursor-pointer">
+              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+            </select>
+            <select value={periodA.year} onChange={e => setPeriodA(p => ({ ...p, year: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-indigo-700 border-0 focus:outline-none cursor-pointer">
               {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
-          <span className="text-[12px] text-slate-300">vs</span>
-          <div className="flex items-center gap-2">
-            <span className="text-[12px] text-slate-400">Период B:</span>
-            <select value={periodB.month} onChange={e => setPeriodB(p => ({ ...p, month: e.target.value }))} className={selCls}>
-              {MONTH_NAMES.map((m, i) => <option key={i} value={i}>{m}</option>)}
+          <span className="text-[12px] text-slate-300 font-medium">vs</span>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50">
+            <div className="w-3 h-3 rounded-sm bg-emerald-500" />
+            <select value={periodB.monthFrom} onChange={e => setPeriodB(p => ({ ...p, monthFrom: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-emerald-700 border-0 focus:outline-none cursor-pointer">
+              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
-            <select value={periodB.year} onChange={e => setPeriodB(p => ({ ...p, year: e.target.value }))} className={selCls}>
+            <span className="text-[10px] text-emerald-400">—</span>
+            <select value={periodB.monthTo} onChange={e => setPeriodB(p => ({ ...p, monthTo: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-emerald-700 border-0 focus:outline-none cursor-pointer">
+              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+            </select>
+            <select value={periodB.year} onChange={e => setPeriodB(p => ({ ...p, year: e.target.value }))} className="bg-transparent text-[12px] font-semibold text-emerald-700 border-0 focus:outline-none cursor-pointer">
               {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
         </div>
 
-        {/* Comparison cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          {[
-            { label: 'Загружено', a: statsA.loaded, b: statsB.loaded, icon: Ship, color: 'indigo' },
-            { label: 'Доставлено', a: statsA.delivered, b: statsB.delivered, icon: CheckCircle2, color: 'emerald' },
-            { label: 'В пути', a: statsA.inTransit, b: statsB.inTransit, icon: Truck, color: 'blue' },
-            { label: 'На границе', a: statsA.onBorder, b: statsB.onBorder, icon: Clock, color: 'amber' },
-          ].map(card => {
-            const change = pct(card.a, card.b)
-            return (
-              <div key={card.label} className="rounded-xl border border-slate-100 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <card.icon className="w-4 h-4 text-slate-400" strokeWidth={1.8} />
-                  <span className="text-[12px] text-slate-500">{card.label}</span>
-                </div>
-                <div className="flex items-end justify-between">
-                  <div>
-                    <p className="text-[24px] font-bold text-slate-900 leading-none">{card.a}</p>
-                    <p className="text-[11px] text-slate-400 mt-1">Период A</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[18px] font-bold text-slate-400 leading-none">{card.b}</p>
-                    <p className="text-[11px] text-slate-400 mt-1">Период B</p>
-                  </div>
-                </div>
-                <div className="mt-2 pt-2 border-t border-slate-50">
-                  <span className={`text-[12px] font-semibold flex items-center gap-1 ${change >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
-                    {change >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                    {change >= 0 ? '+' : ''}{change}%
-                  </span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Resident breakdown */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-blue-50/50 border border-blue-100/50 p-4">
-            <p className="text-[12px] text-blue-600 font-medium mb-1">🇷🇺 Резиденты РФ (Период A)</p>
-            <p className="text-[20px] font-bold text-slate-900">{statsA.russia}</p>
-            <p className="text-[11px] text-slate-400">из {statsA.loaded} загружено</p>
-          </div>
-          <div className="rounded-xl bg-emerald-50/50 border border-emerald-100/50 p-4">
-            <p className="text-[12px] text-emerald-600 font-medium mb-1">🇰🇿 Нерезиденты КЗ (Период A)</p>
-            <p className="text-[20px] font-bold text-slate-900">{statsA.kz}</p>
-            <p className="text-[11px] text-slate-400">из {statsA.loaded} загружено</p>
-          </div>
-        </div>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={[
+            { name: 'Загружено', a: statsA.loaded, b: statsB.loaded },
+            { name: 'Доставлено', a: statsA.delivered, b: statsB.delivered },
+            { name: 'РФ', a: statsA.russia, b: statsB.russia },
+            { name: 'КЗ', a: statsA.kz, b: statsB.kz },
+          ]} barGap={4} barSize={32}>
+            <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
+            <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+            <Bar dataKey="a" name={`${MONTHS[+periodA.monthFrom]}–${MONTHS[+periodA.monthTo]} ${periodA.year}`} fill="#6366f1" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="b" name={`${MONTHS[+periodB.monthFrom]}–${MONTHS[+periodB.monthTo]} ${periodB.year}`} fill="#10b981" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* ── Year selector ── */}
@@ -264,6 +271,7 @@ export default function ReportsPage() {
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Загружено по месяцам</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={loadedByMonth} barSize={24}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={30} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
@@ -279,6 +287,7 @@ export default function ReportsPage() {
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Доставлено по месяцам</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={deliveredByMonth} barSize={24}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={30} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
