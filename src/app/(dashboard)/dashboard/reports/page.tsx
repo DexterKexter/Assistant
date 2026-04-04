@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, LabelList } from 'recharts'
 import { Ship, TrendingUp, TrendingDown, Clock, CheckCircle2, Truck, MapPin, Container } from 'lucide-react'
 
 const MONTHS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
@@ -184,7 +184,9 @@ export default function ReportsPage() {
               <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-              <Bar dataKey="count" name="Загружено" fill="#6366f1" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="count" name="Загружено" fill="#6366f1" radius={[8, 8, 0, 0]}>
+                <LabelList dataKey="count" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -199,7 +201,9 @@ export default function ReportsPage() {
               <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-              <Bar dataKey="count" name="Доставлено" fill="#10b981" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="count" name="Доставлено" fill="#10b981" radius={[8, 8, 0, 0]}>
+                <LabelList dataKey="count" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
