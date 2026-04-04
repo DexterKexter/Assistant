@@ -150,9 +150,6 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
 
         {/* Bottom */}
         <div className="flex flex-col items-center gap-1 mt-2">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
-            {initials}
-          </div>
           <button onClick={handleLogout} title="Выйти"
             className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-white/60 hover:text-slate-600">
             <LogOut className="w-4 h-4" strokeWidth={1.6} />
@@ -235,15 +232,6 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
       </nav>
 
       <div className="px-4 pb-4 pt-3">
-        <div className="flex items-center gap-3 px-3 py-2.5 mb-2">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-sm">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-slate-800 truncate leading-tight">{profile?.full_name || '...'}</p>
-            <p className="text-[11px] text-slate-400 leading-tight">{profile ? ROLE_LABELS[profile.role] || profile.role : ''}</p>
-          </div>
-        </div>
         <button onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] w-full text-slate-400 hover:text-slate-600 hover:bg-white/60 font-medium">
           <LogOut className="h-[16px] w-[16px] shrink-0" strokeWidth={1.6} />

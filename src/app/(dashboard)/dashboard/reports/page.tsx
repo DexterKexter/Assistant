@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, LabelList, PieChart, Pie } from 'recharts'
-import { Ship, TrendingUp, TrendingDown, Clock, CheckCircle2, Truck, MapPin, Container, BarChart3, GitCompare, Globe } from 'lucide-react'
+import { Ship, TrendingUp, TrendingDown, Clock, CheckCircle2, Truck, MapPin, Container, BarChart3, GitCompare, Globe, CalendarDays } from 'lucide-react'
+import { fmtDate } from '@/lib/utils'
 
 const MONTHS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
 const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
@@ -11,6 +12,7 @@ const YEARS = ['2022', '2023', '2024', '2025', '2026']
 
 interface ShipmentRow {
   id: string
+  container_number: string | null
   departure_date: string | null
   arrival_date: string | null
   delivery_date: string | null
@@ -21,6 +23,7 @@ interface ShipmentRow {
   destination_city: string | null
   destination_station: string | null
   carrier_id: string | null
+  sender_name: string | null
   is_russia: boolean
   carrier_name: string | null
   client_name: string | null
@@ -34,10 +37,14 @@ function pct(a: number, b: number) {
 export default function ReportsPage() {
   const [data, setData] = useState<ShipmentRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'charts' | 'compare'>('charts')
+  const [activeTab, setActiveTab] = useState<'charts' | 'compare' | 'monthly'>('charts')
 
   // Period comparison
   const now = new Date()
+
+  // Monthly report
+  const [monthlyMonth, setMonthlyMonth] = useState(String(now.getMonth()))
+  const [monthlyYear, setMonthlyYear] = useState(String(now.getFullYear()))
   const [periodA, setPeriodA] = useState({ year: String(now.getFullYear()), monthFrom: '0', monthTo: String(now.getMonth()) })
   const [periodB, setPeriodB] = useState({ year: String(now.getFullYear() - 1), monthFrom: '0', monthTo: String(now.getMonth()) })
 
@@ -52,7 +59,7 @@ export default function ReportsPage() {
       const pageSize = 1000
       while (true) {
         const { data: rows } = await supabase.from('shipments')
-          .select('id, departure_date, arrival_date, delivery_date, is_completed, container_size, container_type, origin, destination_city, destination_station, carrier_id, client:clients(name, is_russia), carrier:carriers(name)')
+          .select('id, container_number, departure_date, arrival_date, delivery_date, is_completed, container_size, container_type, origin, destination_city, destination_station, carrier_id, sender_name, client:clients(name, is_russia), carrier:carriers(name)')
           .order('departure_date', { ascending: false })
           .range(from, from + pageSize - 1)
         if (!rows || rows.length === 0) break
@@ -77,10 +84,10 @@ export default function ReportsPage() {
     const y = parseInt(year)
     const mFrom = parseInt(monthFrom)
     const mTo = parseInt(monthTo)
-    const start = new Date(y, mFrom, 1)
-    const end = new Date(y, mTo + 1, 0)
-    const startStr = start.toISOString().split('T')[0]
-    const endStr = end.toISOString().split('T')[0]
+    // Build date strings without timezone conversion
+    const startStr = `${y}-${String(mFrom + 1).padStart(2, '0')}-01`
+    const lastDay = new Date(y, mTo + 1, 0).getDate()
+    const endStr = `${y}-${String(mTo + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
     const loaded = data.filter(s => s.departure_date && s.departure_date >= startStr && s.departure_date <= endStr)
     const delivered = data.filter(s => s.delivery_date && s.delivery_date >= startStr && s.delivery_date <= endStr)
@@ -195,6 +202,49 @@ export default function ReportsPage() {
     })
   }, [data])
 
+  // Monthly grid: years × months for comparison table (loaded + delivered)
+  const monthlyGrid = useMemo(() => {
+    const loaded: Record<string, number[]> = {}
+    const delivered: Record<string, number[]> = {}
+    let maxVal = 0
+    YEARS.forEach(y => {
+      loaded[y] = MONTHS.map((_, m) => {
+        const count = data.filter(s => {
+          if (!s.departure_date) return false
+          const d = new Date(s.departure_date)
+          return d.getFullYear() === parseInt(y) && d.getMonth() === m
+        }).length
+        if (count > maxVal) maxVal = count
+        return count
+      })
+      delivered[y] = MONTHS.map((_, m) => {
+        const count = data.filter(s => {
+          if (!s.delivery_date) return false
+          const d = new Date(s.delivery_date)
+          return d.getFullYear() === parseInt(y) && d.getMonth() === m
+        }).length
+        if (count > maxVal) maxVal = count
+        return count
+      })
+    })
+    return { loaded, delivered, maxVal }
+  }, [data])
+
+  // Monthly report data
+  const monthlyData = useMemo(() => {
+    const y = parseInt(monthlyYear)
+    const m = parseInt(monthlyMonth)
+    const filtered = data.filter(s => {
+      if (!s.departure_date) return false
+      const d = new Date(s.departure_date)
+      return d.getFullYear() === y && d.getMonth() === m
+    })
+    const delivered = filtered.filter(s => s.delivery_date || s.is_completed).length
+    const inTransit = filtered.filter(s => s.departure_date && !s.arrival_date && !s.delivery_date && !s.is_completed).length
+    const atBorder = filtered.filter(s => s.arrival_date && !s.delivery_date && !s.is_completed).length
+    return { rows: filtered, total: filtered.length, delivered, inTransit, atBorder }
+  }, [data, monthlyMonth, monthlyYear])
+
   const selCls = 'h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30'
 
   if (loading) {
@@ -209,6 +259,7 @@ export default function ReportsPage() {
 
   const tabs = [
     { key: 'charts' as const, label: 'Годовой отчет', icon: BarChart3 },
+    { key: 'monthly' as const, label: 'Месячный отчет', icon: CalendarDays },
     { key: 'compare' as const, label: 'Сравнение', icon: GitCompare },
   ]
 
@@ -445,6 +496,107 @@ export default function ReportsPage() {
 
       </>}
 
+      {/* ── TAB: Monthly Report ── */}
+      {activeTab === 'monthly' && <>
+
+      {/* Header: selectors + stats */}
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-[16px] font-bold text-slate-900 font-heading">Отчет за</h2>
+        <select value={monthlyMonth} onChange={e => setMonthlyMonth(e.target.value)} className={selCls}>
+          {MONTH_NAMES.map((m, i) => <option key={i} value={i}>{m}</option>)}
+        </select>
+        <select value={monthlyYear} onChange={e => setMonthlyYear(e.target.value)} className={selCls}>
+          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <div className="flex items-center gap-4 ml-auto">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-slate-900" />
+            <span className="text-[12px] text-slate-600">Всего: <strong>{monthlyData.total}</strong></span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-indigo-500" />
+            <span className="text-[12px] text-slate-600">В пути: <strong>{monthlyData.inTransit}</strong></span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-amber-500" />
+            <span className="text-[12px] text-slate-600">На границе: <strong>{monthlyData.atBorder}</strong></span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="text-[12px] text-slate-600">Доставлено: <strong>{monthlyData.delivered}</strong></span>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl border border-slate-100 overflow-x-auto">
+        {monthlyData.rows.length === 0 ? (
+          <div className="p-10 text-center text-slate-400 text-[13px]">Нет данных за {MONTH_NAMES[+monthlyMonth]} {monthlyYear}</div>
+        ) : (
+          <table className="w-full min-w-[900px]">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {['Контейнер', 'Откуда', 'Погранпереход', 'Город', 'Клиент', 'Перевозчик', 'Загрузка', 'Граница', 'Доставка', 'Статус'].map(h => (
+                  <th key={h} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-left px-3 py-3">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {monthlyData.rows.map(s => {
+                const status = (() => {
+                  if (s.delivery_date || s.is_completed) return { label: 'Доставлен', color: '#22c55e' }
+                  if (s.arrival_date) {
+                    if (s.is_russia) return { label: 'Транзит КЗ', color: '#f59e0b' }
+                    return { label: 'На границе', color: '#f59e0b' }
+                  }
+                  if (s.departure_date) return { label: 'В пути', color: '#6366f1' }
+                  return { label: 'Загрузка', color: '#94a3b8' }
+                })()
+                return (
+                  <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                    <td className="px-3 py-2.5">
+                      <span className="text-[12px] font-mono font-semibold text-slate-900">{s.container_number || '—'}</span>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {s.container_size && (
+                          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.container_size === 20 ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>
+                            {s.container_size}ft
+                          </span>
+                        )}
+                        {s.container_type && (
+                          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                            s.container_type === 'Выкупной' ? 'bg-amber-50 text-amber-600' :
+                            s.container_type === 'Возвратный' ? 'bg-emerald-50 text-emerald-600' :
+                            s.container_type === 'Собственный' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-500'
+                          }`}>
+                            {s.container_type}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-[12px] text-slate-600 max-w-[100px] truncate">{s.origin || '—'}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-slate-600 max-w-[100px] truncate">{s.destination_station || '—'}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-slate-600 max-w-[100px] truncate">{s.destination_city || '—'}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-slate-700 font-medium max-w-[120px] truncate">{s.client_name || '—'}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-slate-600 max-w-[100px] truncate">{s.carrier_name || '—'}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-slate-600 tabular-nums">{fmtDate(s.departure_date)}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-slate-600 tabular-nums">{fmtDate(s.arrival_date)}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-slate-600 tabular-nums">{fmtDate(s.delivery_date)}</td>
+                    <td className="px-3 py-2.5">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-full" style={{ backgroundColor: status.color + '18', color: status.color }}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: status.color }} />
+                        {status.label}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      </>}
+
       {/* ── TAB: Compare ── */}
       {activeTab === 'compare' && <>
       <div className="bg-white rounded-xl border border-slate-100 overflow-hidden flex flex-col lg:flex-row">
@@ -499,16 +651,23 @@ export default function ReportsPage() {
               { label: 'Доставлено', a: statsA.delivered, b: statsB.delivered },
               { label: 'РФ', a: statsA.russia, b: statsB.russia },
               { label: 'КЗ', a: statsA.kz, b: statsB.kz },
-            ].map(r => (
-              <div key={r.label} className="flex items-center justify-between text-[12px]">
-                <span className="text-slate-500">{r.label}</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-indigo-600">{r.a}</span>
-                  <span className="text-slate-300">/</span>
-                  <span className="font-bold text-emerald-600">{r.b}</span>
+            ].map(r => {
+              // Show % change of B relative to A: positive = B grew, negative = B shrank
+              const diff = r.a > 0 ? Math.round(((r.b - r.a) / r.a) * 100) : r.b > 0 ? 100 : 0
+              return (
+                <div key={r.label} className="flex items-center justify-between text-[12px]">
+                  <span className="text-slate-500">{r.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-indigo-600">{r.a}</span>
+                    <span className="text-slate-300">/</span>
+                    <span className="font-bold text-emerald-600">{r.b}</span>
+                    <span className={`text-[10px] font-semibold ${diff >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {diff >= 0 ? '+' : ''}{diff}%
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
@@ -535,11 +694,54 @@ export default function ReportsPage() {
               <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 500 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-              <Bar dataKey="a" name={`${MONTHS[+periodA.monthFrom]}–${MONTHS[+periodA.monthTo]} ${periodA.year}`} fill="url(#gradA)" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="b" name={`${MONTHS[+periodB.monthFrom]}–${MONTHS[+periodB.monthTo]} ${periodB.year}`} fill="url(#gradB)" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="a" name={`${MONTHS[+periodA.monthFrom]}–${MONTHS[+periodA.monthTo]} ${periodA.year}`} fill="url(#gradA)" radius={[8, 8, 0, 0]}>
+                <LabelList dataKey="a" position="top" fontSize={11} fontWeight={600} fill="#6366f1" />
+              </Bar>
+              <Bar dataKey="b" name={`${MONTHS[+periodB.monthFrom]}–${MONTHS[+periodB.monthTo]} ${periodB.year}`} fill="url(#gradB)" radius={[8, 8, 0, 0]}>
+                <LabelList dataKey="b" position="top" fontSize={11} fontWeight={600} fill="#059669" />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      {/* Monthly comparison table: years × months */}
+      <div className="bg-white rounded-xl border border-slate-100 p-5 overflow-x-auto">
+        <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Загрузки по месяцам / годам</h3>
+        <table className="w-full min-w-[700px]">
+          <thead>
+            <tr>
+              <th className="text-[11px] font-semibold text-slate-400 text-left pb-3 pr-3 w-[60px]">Год</th>
+              {MONTHS.map(m => (
+                <th key={m} className="text-[11px] font-medium text-slate-400 text-center pb-3 px-1">{m}</th>
+              ))}
+              <th className="text-[11px] font-semibold text-slate-400 text-center pb-3 pl-2">Итого</th>
+            </tr>
+          </thead>
+          <tbody>
+            {YEARS.map((y, yi) => {
+              const months = monthlyGrid.loaded[y] || Array(12).fill(0)
+              const total = months.reduce((a: number, b: number) => a + b, 0)
+              const colors = ['#94a3b8', '#818cf8', '#6366f1', '#4f46e5', '#6366f1']
+              return (
+                <tr key={y} className="border-t border-slate-50">
+                  <td className="text-[12px] font-semibold text-slate-700 py-2.5 pr-3">{y}</td>
+                  {months.map((count: number, mi: number) => (
+                    <td key={mi} className="py-2.5 px-1">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-[11px] font-semibold text-slate-700">{count || <span className="text-slate-300">—</span>}</span>
+                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: monthlyGrid.maxVal > 0 ? `${(count / monthlyGrid.maxVal) * 100}%` : '0%', backgroundColor: colors[yi] || '#94a3b8' }} />
+                        </div>
+                      </div>
+                    </td>
+                  ))}
+                  <td className="text-[12px] font-bold text-slate-900 text-center py-2.5 pl-2">{total}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
 
       </>}
