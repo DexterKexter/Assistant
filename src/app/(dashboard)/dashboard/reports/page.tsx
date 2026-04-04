@@ -166,19 +166,7 @@ export default function ReportsPage() {
     }
   }, [data, chartYear])
 
-  const selCls = 'h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30'
-
-  if (loading) {
-    return (
-      <div className="space-y-5">
-        <h1 className="text-[22px] font-bold text-slate-900 font-heading">Отчёты</h1>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <div key={i} className="skeleton h-24 rounded-xl" />)}</div>
-        <div className="skeleton h-64 rounded-xl" />
-      </div>
-    )
-  }
-
-  // Yearly data with % change
+  // Yearly data with % change — MUST be before any early return
   const yearlyLoaded = useMemo(() => {
     return YEARS.map((y, i) => {
       const count = data.filter(s => s.departure_date?.startsWith(y)).length
@@ -196,6 +184,18 @@ export default function ReportsPage() {
       return { name: y, count, change }
     })
   }, [data])
+
+  const selCls = 'h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30'
+
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <h1 className="text-[22px] font-bold text-slate-900 font-heading">Отчёты</h1>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <div key={i} className="skeleton h-24 rounded-xl" />)}</div>
+        <div className="skeleton h-64 rounded-xl" />
+      </div>
+    )
+  }
 
   const tabs = [
     { key: 'charts' as const, label: 'Графики', icon: BarChart3 },
