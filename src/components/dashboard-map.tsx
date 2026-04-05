@@ -189,12 +189,17 @@ export function DashboardMap({ shipments }: Props) {
   const activeRoutes = selectedOrigin ? (routesByOrigin.get(selectedOrigin) || []) : []
 
   const tooltipPos = useMemo(() => {
-    if (!activeOrigin || !svgRef.current) return null
-    const rect = svgRef.current.getBoundingClientRect()
-    return {
-      px: activeOrigin.svgPos.x / 198 * rect.width,
-      py: activeOrigin.svgPos.y / 100 * rect.height,
-    }
+    if (!activeOrigin || !svgRef.current || !containerRef.current) return null
+    const svgRect = svgRef.current.getBoundingClientRect()
+    const containerRect = containerRef.current.getBoundingClientRect()
+    const rawX = activeOrigin.svgPos.x / 198 * svgRect.width + (svgRect.left - containerRect.left)
+    const rawY = activeOrigin.svgPos.y / 100 * svgRect.height + (svgRect.top - containerRect.top)
+    // Clamp: keep tooltip within container bounds
+    const tooltipW = 140
+    const tooltipH = 80
+    const px = Math.max(tooltipW / 2 + 8, Math.min(rawX, containerRect.width - tooltipW / 2 - 8))
+    const showBelow = rawY < tooltipH + 16
+    return { px, py: rawY, showBelow }
   }, [activeOrigin])
 
   return (
@@ -288,35 +293,36 @@ export function DashboardMap({ shipments }: Props) {
             })}
           </svg>
 
-          {/* Tooltip */}
+          {/* Tooltip — compact, clamped to container */}
           {activeOrigin && tooltipPos && (
             <div
-              className="absolute z-20 pointer-events-none animate-fade-up"
-              style={{ left: tooltipPos.px, top: tooltipPos.py - 8, transform: 'translate(-50%, -100%)' }}
+              className="absolute z-20 pointer-events-none"
+              style={{
+                left: tooltipPos.px,
+                top: tooltipPos.showBelow ? tooltipPos.py + 12 : tooltipPos.py - 8,
+                transform: tooltipPos.showBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+              }}
             >
-              <div className="bg-white/95 backdrop-blur-xl rounded-xl px-3.5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-slate-200/60 whitespace-nowrap">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ background: activeOrigin.color }} />
-                  <span className="text-[13px] font-bold text-slate-800">{activeOrigin.name}</span>
-                  <span className="text-[11px] font-semibold text-slate-400 ml-2">{activeOrigin.count}</span>
+              <div className="bg-white/95 backdrop-blur-md rounded-lg px-2.5 py-1.5 shadow-lg border border-slate-200/60 whitespace-nowrap">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{ background: activeOrigin.color }} />
+                  <span className="text-[11px] font-bold text-slate-800">{activeOrigin.name}</span>
+                  <span className="text-[10px] font-semibold text-slate-400">{activeOrigin.count}</span>
                 </div>
                 {activeRoutes.length > 0 && (
-                  <div className="border-t border-slate-100 pt-1 mt-1 space-y-0.5">
-                    {activeRoutes.slice(0, 5).map(r => (
-                      <div key={r.dest} className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                  <div className="mt-1 space-y-px">
+                    {activeRoutes.slice(0, 3).map(r => (
+                      <div key={r.dest} className="flex items-center gap-1 text-[9px] text-slate-500">
                         <span className="text-slate-300">→</span>
                         <span>{r.dest}</span>
                         <span className="ml-auto font-semibold text-slate-400">{r.count}</span>
                       </div>
                     ))}
-                    {activeRoutes.length > 5 && (
-                      <div className="text-[9px] text-slate-400 pt-0.5">+{activeRoutes.length - 5} ещё</div>
+                    {activeRoutes.length > 3 && (
+                      <div className="text-[8px] text-slate-400">+{activeRoutes.length - 3} ещё</div>
                     )}
                   </div>
                 )}
-              </div>
-              <div className="flex justify-center -mt-px">
-                <div className="w-2 h-2 bg-white/95 border-b border-r border-slate-200/60 rotate-45 -translate-y-1" />
               </div>
             </div>
           )}
