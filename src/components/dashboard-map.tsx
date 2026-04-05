@@ -214,18 +214,12 @@ export function DashboardMap({ shipments }: Props) {
         {/* SVG Map */}
         <div ref={containerRef} className="relative flex-1 min-w-0 overflow-hidden pt-8 px-4 pb-4">
           <svg ref={svgRef} viewBox="0 0 198 100" className="w-full h-auto block" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              {COLORS.map((c, i) => (
-                <filter key={i} id={`glow-${i}`} x="-100%" y="-100%" width="300%" height="300%">
-                  <feDropShadow dx="0" dy="0" stdDeviation="1" floodColor={c} floodOpacity="0.5" />
-                </filter>
+            {/* Base dots — single path for performance */}
+            <g opacity={selectedOrigin ? 0.35 : 0.6}>
+              {mapDots.map((d, i) => (
+                <circle key={i} cx={d.x} cy={d.y} r={0.38} fill="#b0b8c8" />
               ))}
-            </defs>
-
-            {/* Base dots */}
-            {mapDots.map((d, i) => (
-              <circle key={i} cx={d.x} cy={d.y} r={0.38} fill="#b0b8c8" opacity={selectedOrigin ? 0.35 : 0.6} style={{ transition: 'opacity 0.4s' }} />
-            ))}
+            </g>
 
             {/* Route curves — only when hovered */}
             {activeOrigin && activeRoutes.map((r, i) => (
@@ -264,7 +258,7 @@ export function DashboardMap({ shipments }: Props) {
               </g>
             ))}
 
-            {/* Origin pins */}
+            {/* Origin pins — no glow filters for performance */}
             {origins.slice(0, 12).map((o) => {
               const isActive = selectedOrigin === o.name
               const isDimmed = selectedOrigin !== null && !isActive
@@ -274,24 +268,19 @@ export function DashboardMap({ shipments }: Props) {
                   onClick={() => setSelectedOrigin(prev => prev === o.name ? null : o.name)}
                   cursor="pointer"
                 >
-                  {/* Pulse ring */}
+                  {/* Pulse ring — simple, no animate */}
                   {isActive && (
-                    <circle cx={o.svgPos.x} cy={o.svgPos.y} r={r * 2} fill={o.color} opacity={0.15}>
-                      <animate attributeName="r" values={`${r * 1.5};${r * 3.5};${r * 1.5}`} dur="1.5s" repeatCount="indefinite" />
-                      <animate attributeName="opacity" values="0.2;0;0.2" dur="1.5s" repeatCount="indefinite" />
-                    </circle>
+                    <circle cx={o.svgPos.x} cy={o.svgPos.y} r={r * 2.5} fill={o.color} opacity={0.12} />
                   )}
                   {/* Main dot */}
                   <circle
                     cx={o.svgPos.x} cy={o.svgPos.y}
                     r={isActive ? r * 1.4 : r}
                     fill={o.color}
-                    filter={`url(#glow-${o.idx % COLORS.length})`}
                     opacity={isDimmed ? 0.25 : 0.9}
-                    style={{ transition: 'opacity 0.3s' }}
                   />
                   {/* Inner white */}
-                  <circle cx={o.svgPos.x} cy={o.svgPos.y} r={r * 0.3} fill="white" opacity={isDimmed ? 0.15 : 0.85} style={{ transition: 'opacity 0.3s' }} />
+                  <circle cx={o.svgPos.x} cy={o.svgPos.y} r={r * 0.3} fill="white" opacity={isDimmed ? 0.15 : 0.85} />
                   {/* Hit area */}
                   <circle cx={o.svgPos.x} cy={o.svgPos.y} r={4} fill="transparent" />
                 </g>
