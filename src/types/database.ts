@@ -196,3 +196,48 @@ export interface Conversation {
   last_message?: Message
   unread_count?: number
 }
+
+/* ── Tasks ── */
+export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done'
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
+
+export interface Task {
+  id: string
+  title: string
+  description: string | null
+  status: TaskStatus
+  priority: TaskPriority
+  assigned_to: string | null
+  created_by: string
+  shipment_id: string | null
+  due_date: string | null
+  created_at: string
+  updated_at: string
+  assignee?: Profile
+  creator?: Profile
+  shipment?: Shipment
+  comment_count?: number
+}
+
+export interface TaskComment {
+  id: string
+  task_id: string
+  author_id: string
+  content: string
+  created_at: string
+  author?: Profile
+}
+
+export const TASK_STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; bg: string }> = {
+  todo: { label: 'К выполнению', color: '#64748b', bg: '#f1f5f9' },
+  in_progress: { label: 'В работе', color: '#6366f1', bg: '#eef2ff' },
+  review: { label: 'На проверке', color: '#f59e0b', bg: '#fffbeb' },
+  done: { label: 'Готово', color: '#22c55e', bg: '#f0fdf4' },
+}
+
+export const TASK_PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string }> = {
+  low: { label: 'Низкий', color: '#94a3b8' },
+  medium: { label: 'Средний', color: '#6366f1' },
+  high: { label: 'Высокий', color: '#f59e0b' },
+  urgent: { label: 'Срочный', color: '#ef4444' },
+}

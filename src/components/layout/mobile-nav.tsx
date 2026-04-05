@@ -2,21 +2,23 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutGrid, Ship, Users, Wallet, MessageSquare } from 'lucide-react'
+import { LayoutGrid, Ship, Users, CheckSquare, MessageSquare } from 'lucide-react'
 import { useUnreadCount } from '@/lib/useMessages'
+import { useMyTaskCount } from '@/lib/useTasks'
 import { cn } from '@/lib/utils'
 
 const items = [
   { href: '/dashboard', label: 'Обзор', icon: LayoutGrid },
   { href: '/dashboard/shipments', label: 'Перевозки', icon: Ship },
+  { href: '/dashboard/tasks', label: 'Задачи', icon: CheckSquare },
   { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
-  { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
   { href: '/dashboard/messages', label: 'Чат', icon: MessageSquare },
 ]
 
 export function MobileNav() {
   const pathname = usePathname()
   const unreadCount = useUnreadCount()
+  const taskCount = useMyTaskCount()
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
@@ -48,6 +50,9 @@ export function MobileNav() {
                 <item.icon className={cn('w-[18px] h-[18px]', active && 'text-indigo-600')} strokeWidth={active ? 2.2 : 1.6} />
                 {item.href === '/dashboard/messages' && unreadCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-indigo-500 text-white text-[8px] font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                )}
+                {item.href === '/dashboard/tasks' && taskCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-white text-[8px] font-bold flex items-center justify-center">{taskCount > 9 ? '9+' : taskCount}</span>
                 )}
               </div>
               <span className={cn(

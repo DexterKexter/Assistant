@@ -6,6 +6,8 @@ import { Header } from '@/components/layout/header'
 import { MobileNav } from '@/components/layout/mobile-nav'
 import { ShipmentModalProvider } from '@/lib/shipment-modal'
 import { ShipmentModalGlobal } from '@/components/shipment-modal-global'
+import { TaskModalProvider } from '@/lib/task-modal'
+import { TaskDetailGlobal } from '@/components/task-detail-global'
 
 export default function DashboardLayout({
   children,
@@ -16,6 +18,7 @@ export default function DashboardLayout({
 
   return (
     <ShipmentModalProvider>
+    <TaskModalProvider>
       <div className="relative flex h-screen overflow-hidden">
         {/* Desktop sidebar */}
         <div className="hidden md:block shrink-0">
@@ -36,6 +39,8 @@ export default function DashboardLayout({
         <MobileNav />
       </div>
       <ShipmentModalGlobal />
+      <TaskDetailGlobal />
+    </TaskModalProvider>
     </ShipmentModalProvider>
   )
 }

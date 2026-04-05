@@ -20,9 +20,11 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
+  CheckSquare,
 } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 import { useUnreadCount } from '@/lib/useMessages'
+import { useMyTaskCount } from '@/lib/useTasks'
 
 const coreItems = [
   { href: '/dashboard', label: 'Обзор', icon: LayoutGrid },
@@ -31,6 +33,7 @@ const coreItems = [
   { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
   { href: '/dashboard/documents', label: 'Документы', icon: FileText },
   { href: '/dashboard/messages', label: 'Сообщения', icon: MessageSquare },
+  { href: '/dashboard/tasks', label: 'Задачи', icon: CheckSquare },
   { href: '/dashboard/reports', label: 'Отчёты', icon: BarChart3 },
 ]
 
@@ -72,6 +75,7 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
   }
 
   const unreadCount = useUnreadCount()
+  const taskCount = useMyTaskCount()
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -118,6 +122,11 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
                 {item.href === '/dashboard/messages' && unreadCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-indigo-500 text-white text-[8px] font-bold flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+                {item.href === '/dashboard/tasks' && taskCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-white text-[8px] font-bold flex items-center justify-center">
+                    {taskCount > 9 ? '9+' : taskCount}
                   </span>
                 )}
               </Link>
@@ -200,6 +209,11 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
                 {item.href === '/dashboard/messages' && unreadCount > 0 && (
                   <span className="w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                     {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+                {item.href === '/dashboard/tasks' && taskCount > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                    {taskCount > 9 ? '9+' : taskCount}
                   </span>
                 )}
               </Link>
