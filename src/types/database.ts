@@ -241,3 +241,19 @@ export const TASK_PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: 
   high: { label: 'Высокий', color: '#f59e0b' },
   urgent: { label: 'Срочный', color: '#ef4444' },
 }
+
+/* ── Notifications ── */
+export type NotificationType = 'task_assigned' | 'task_comment'
+
+export interface Notification {
+  id: string
+  user_id: string
+  type: NotificationType
+  task_id: string | null
+  actor_id: string | null
+  message: string
+  is_read: boolean
+  created_at: string
+  actor?: Profile
+  task?: Task
+}

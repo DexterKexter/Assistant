@@ -15,23 +15,15 @@ export function TaskDetailGlobal() {
 
   return (
     <div
-      className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm flex justify-end"
+      className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm flex items-end md:items-center justify-center md:p-4"
       onClick={closeTask}
     >
       <div
-        className="bg-white w-full h-full md:w-[480px] md:max-w-[90vw] shadow-2xl overflow-hidden flex flex-col animate-[slideIn_0.25s_ease-out]"
+        className="bg-white w-full h-full md:rounded-2xl md:w-[560px] md:max-w-[95vw] md:h-[85vh] shadow-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
-        style={{ '--tw-enter-translate-x': '100%' } as React.CSSProperties}
       >
         <TaskDetailSheet />
       </div>
-
-      <style jsx>{`
-        @keyframes slideIn {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-      `}</style>
     </div>
   )
 }

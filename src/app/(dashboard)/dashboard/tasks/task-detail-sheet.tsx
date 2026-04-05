@@ -6,7 +6,7 @@ import { useTaskModal } from '@/lib/task-modal'
 import { useTaskComments } from '@/lib/useTasks'
 import { useProfile } from '@/lib/useProfile'
 import { type Task, type TaskStatus, type TaskPriority, TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG, type Profile } from '@/types/database'
-import { X, Trash2, Send, ArrowDown, Minus, ArrowUp, AlertTriangle, Link } from 'lucide-react'
+import { X, Trash2, Send, ArrowDown, Minus, ArrowUp, AlertTriangle, Link, User, CheckCircle, Calendar } from 'lucide-react'
 
 const STATUS_ORDER: TaskStatus[] = ['todo', 'in_progress', 'review', 'done']
 const PRIORITY_ORDER: TaskPriority[] = ['low', 'medium', 'high', 'urgent']
@@ -30,6 +30,12 @@ export default function TaskDetailSheet() {
   const { comments, addComment } = useTaskComments(selectedTaskId)
   const [commentText, setCommentText] = useState('')
   const commentsEndRef = useRef<HTMLDivElement>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // Permission: only creator can edit/delete
+  const isCreator = profile && task ? task.created_by === profile.id : false
+  const isAdmin = profile ? profile.role === 'admin' : false
+  const canEdit = isCreator || isAdmin
 
   useEffect(() => {
     if (!selectedTaskId && !isCreating) return
@@ -58,10 +64,27 @@ export default function TaskDetailSheet() {
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [comments])
 
+  const isAssignee = profile && task ? task.assigned_to === profile.id : false
+  const canChangeStatus = canEdit || isAssignee
+
   const updateField = async (field: string, value: string | null) => {
-    if (!selectedTaskId) return
+    if (!selectedTaskId || !profile) return
+    // Status can be changed by assignee too, other fields only by creator/admin
+    if (field === 'status' ? !canChangeStatus : !canEdit) return
     const supabase = createClient()
     await supabase.from('tasks').update({ [field]: value || null }).eq('id', selectedTaskId)
+
+    // Notify assignee when task is assigned to them
+    if (field === 'assigned_to' && value && value !== profile.id) {
+      await supabase.from('notifications').insert({
+        user_id: value,
+        type: 'task_assigned',
+        task_id: selectedTaskId,
+        actor_id: profile.id,
+        message: `${profile.full_name} назначил вам задачу «${task?.title}»`,
+      })
+    }
+
     setTask(prev => prev ? { ...prev, [field]: value || null } as Task : null)
   }
 
@@ -80,15 +103,34 @@ export default function TaskDetailSheet() {
   }
 
   const handleDelete = async () => {
-    if (!selectedTaskId) return
+    if (!selectedTaskId || !canEdit) return
+    if (!confirmDelete) { setConfirmDelete(true); return }
     const supabase = createClient()
     await supabase.from('tasks').delete().eq('id', selectedTaskId)
+    setConfirmDelete(false)
     closeTask()
   }
 
   const handleSendComment = async () => {
-    if (!commentText.trim()) return
+    if (!commentText.trim() || !profile || !task) return
     await addComment(commentText.trim())
+
+    // Notify task participants (creator + assignee, except self)
+    const supabase = createClient()
+    const recipients = new Set<string>()
+    if (task.created_by && task.created_by !== profile.id) recipients.add(task.created_by)
+    if (task.assigned_to && task.assigned_to !== profile.id) recipients.add(task.assigned_to)
+
+    for (const userId of recipients) {
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        type: 'task_comment',
+        task_id: task.id,
+        actor_id: profile.id,
+        message: `${profile.full_name} оставил комментарий к задаче «${task.title}»`,
+      })
+    }
+
     setCommentText('')
   }
 
@@ -161,74 +203,113 @@ export default function TaskDetailSheet() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-        <input
-          defaultValue={task.title}
-          onBlur={e => { if (e.target.value !== task.title) updateField('title', e.target.value) }}
-          className="text-[15px] font-bold text-slate-900 bg-transparent border-none outline-none focus:ring-0 flex-1 mr-2"
-        />
+        {canEdit ? (
+          <input
+            defaultValue={task.title}
+            onBlur={e => { if (e.target.value !== task.title) updateField('title', e.target.value) }}
+            className="text-[15px] font-bold text-slate-900 bg-transparent border-none outline-none focus:ring-0 flex-1 mr-2"
+          />
+        ) : (
+          <h2 className="text-[15px] font-bold text-slate-900 flex-1 mr-2">{task.title}</h2>
+        )}
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={handleDelete} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors">
-            <Trash2 className="w-4 h-4" />
-          </button>
-          <button onClick={closeTask} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-400">
+          {canEdit && (
+            <button onClick={handleDelete} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${confirmDelete ? 'bg-red-500 text-white hover:bg-red-600' : 'hover:bg-red-50 text-slate-300 hover:text-red-500'}`} title={confirmDelete ? 'Нажмите ещё раз для подтверждения' : 'Удалить'}>
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+          <button onClick={() => { setConfirmDelete(false); closeTask() }} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-400">
             <X className="w-4 h-4" />
           </button>
         </div>
       </div>
-
-      <div className="flex-1 overflow-y-auto">
-        {/* Status pills */}
-        <div className="px-5 pt-4 pb-3">
-          <div className="flex gap-1.5">
-            {STATUS_ORDER.map(s => {
-              const cfg = TASK_STATUS_CONFIG[s]
-              const active = task.status === s
-              return (
-                <button
-                  key={s}
-                  onClick={() => updateField('status', s)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${active ? 'shadow-sm' : 'hover:opacity-80'}`}
-                  style={{ backgroundColor: active ? cfg.bg : 'transparent', color: active ? cfg.color : '#94a3b8', border: active ? `1px solid ${cfg.color}30` : '1px solid transparent' }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: active ? cfg.color : '#cbd5e1' }} />
-                  {cfg.label}
-                </button>
-              )
-            })}
+      {confirmDelete && (
+        <div className="px-5 py-2.5 bg-red-50 border-b border-red-100 flex items-center justify-between">
+          <span className="text-[12px] text-red-600 font-medium">Удалить задачу? Это действие необратимо.</span>
+          <div className="flex gap-2">
+            <button onClick={() => setConfirmDelete(false)} className="text-[11px] text-slate-500 hover:text-slate-700 font-medium px-2 py-1">Отмена</button>
+            <button onClick={handleDelete} className="text-[11px] bg-red-500 text-white font-semibold px-3 py-1 rounded-lg hover:bg-red-600">Удалить</button>
           </div>
         </div>
+      )}
 
-        {/* Metadata */}
-        <div className="px-5 pb-4 grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 block">Приоритет</label>
-            <select value={task.priority} onChange={e => updateField('priority', e.target.value)} className={inputCls + ' text-[12px]'}>
-              {PRIORITY_ORDER.map(p => <option key={p} value={p}>{TASK_PRIORITY_CONFIG[p].label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 block">Срок</label>
-            <input type="date" value={task.due_date || ''} onChange={e => updateField('due_date', e.target.value)} className={inputCls + ' text-[12px]'} />
-          </div>
-          <div className="col-span-2">
-            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 block">Исполнитель</label>
-            <select value={task.assigned_to || ''} onChange={e => updateField('assigned_to', e.target.value)} className={inputCls + ' text-[12px]'}>
-              <option value="">Не назначен</option>
-              {profiles.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-            </select>
+      <div className="flex-1 overflow-y-auto">
+        {/* Properties — horizontal label:value rows */}
+        <div className="px-5 pt-4 pb-2">
+          <div className="divide-y divide-slate-100">
+            {/* Status */}
+            <div className="flex items-center py-2.5">
+              <div className="flex items-center gap-2 w-[120px] shrink-0">
+                <CheckCircle className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.8} />
+                <span className="text-[12px] text-slate-500">Статус</span>
+              </div>
+              <div className="flex gap-1 flex-1">
+                {STATUS_ORDER.map(s => {
+                  const cfg = TASK_STATUS_CONFIG[s]
+                  const active = task.status === s
+                  return (
+                    <button key={s} onClick={() => updateField('status', s)}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${active ? '' : 'text-slate-400 hover:bg-slate-50'}`}
+                      style={active ? { backgroundColor: cfg.bg, color: cfg.color } : {}}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: active ? cfg.color : '#d1d5db' }} />
+                      {cfg.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Priority */}
+            <div className="flex items-center py-2.5">
+              <div className="flex items-center gap-2 w-[120px] shrink-0">
+                <AlertTriangle className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.8} />
+                <span className="text-[12px] text-slate-500">Приоритет</span>
+              </div>
+              <select value={task.priority} onChange={e => updateField('priority', e.target.value)} disabled={!canEdit}
+                className={`text-[12px] text-slate-700 bg-transparent border-none outline-none font-medium py-1 -ml-1 pr-6 ${canEdit ? 'cursor-pointer hover:text-slate-900' : 'opacity-70 cursor-default'}`}>
+                {PRIORITY_ORDER.map(p => <option key={p} value={p}>{TASK_PRIORITY_CONFIG[p].label}</option>)}
+              </select>
+            </div>
+
+            {/* Assignee */}
+            <div className="flex items-center py-2.5">
+              <div className="flex items-center gap-2 w-[120px] shrink-0">
+                <User className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.8} />
+                <span className="text-[12px] text-slate-500">Исполнитель</span>
+              </div>
+              <select value={task.assigned_to || ''} onChange={e => updateField('assigned_to', e.target.value)} disabled={!canEdit}
+                className={`text-[12px] text-slate-700 bg-transparent border-none outline-none font-medium py-1 -ml-1 pr-6 ${canEdit ? 'cursor-pointer hover:text-slate-900' : 'opacity-70 cursor-default'}`}>
+                <option value="">Не назначен</option>
+                {profiles.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+              </select>
+            </div>
+
+            {/* Due date */}
+            <div className="flex items-center py-2.5">
+              <div className="flex items-center gap-2 w-[120px] shrink-0">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.8} />
+                <span className="text-[12px] text-slate-500">Дедлайн</span>
+              </div>
+              <input type="date" value={task.due_date || ''} onChange={e => updateField('due_date', e.target.value)} disabled={!canEdit}
+                className={`text-[12px] text-slate-700 bg-transparent border-none outline-none font-medium py-1 -ml-1 ${canEdit ? 'cursor-pointer hover:text-slate-900' : 'opacity-70 cursor-default'}`} />
+            </div>
           </div>
         </div>
 
         {/* Description */}
         <div className="px-5 pb-4">
-          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 block">Описание</label>
-          <textarea
-            defaultValue={task.description || ''}
-            onBlur={e => { if (e.target.value !== (task.description || '')) updateField('description', e.target.value) }}
-            placeholder="Добавить описание..."
-            rows={3}
-            className={inputCls + ' h-auto py-2 resize-none text-[12px]'}
-          />
+          {canEdit ? (
+            <textarea
+              defaultValue={task.description || ''}
+              onBlur={e => { if (e.target.value !== (task.description || '')) updateField('description', e.target.value) }}
+              placeholder="Добавить описание..."
+              rows={3}
+              className={inputCls + ' h-auto py-2 resize-none text-[12px]'}
+            />
+          ) : task.description ? (
+            <p className="text-[12px] text-slate-600 leading-relaxed">{task.description}</p>
+          ) : null}
         </div>
 
         {/* Comments */}
