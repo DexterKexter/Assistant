@@ -8,6 +8,7 @@ import { ShipmentModalProvider } from '@/lib/shipment-modal'
 import { ShipmentModalGlobal } from '@/components/shipment-modal-global'
 import { TaskModalProvider } from '@/lib/task-modal'
 import { TaskDetailGlobal } from '@/components/task-detail-global'
+import { OnboardingModal } from '@/components/onboarding-modal'
 
 export default function DashboardLayout({
   children,
@@ -36,6 +37,7 @@ export default function DashboardLayout({
         </div>
         <ShipmentModalGlobal />
         <TaskDetailGlobal />
+        <OnboardingModal />
       </TaskModalProvider>
     </ShipmentModalProvider>
   )

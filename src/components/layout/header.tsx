@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useProfile } from '@/lib/useProfile'
 import { useNotifications } from '@/lib/useNotifications'
 import { useTaskModal } from '@/lib/task-modal'
-import { Search, Bell, CheckCheck, UserPlus, MessageSquare, X } from 'lucide-react'
+import { Search, Bell, CheckCheck, UserPlus, MessageSquare, X, HelpCircle } from 'lucide-react'
+import Link from 'next/link'
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Администратор',
@@ -56,6 +57,13 @@ export function Header() {
 
         {/* Right side */}
         <div className="flex items-center gap-2 md:gap-3 shrink-0">
+          <Link
+            href="/dashboard/help"
+            className="w-9 h-9 rounded-lg border border-slate-200/60 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors"
+            title="Справочник"
+          >
+            <HelpCircle className="h-4 w-4 text-slate-400" strokeWidth={1.8} />
+          </Link>
           <button
             onClick={() => setShowNotifs(!showNotifs)}
             className="relative w-9 h-9 rounded-lg border border-slate-200/60 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors"
