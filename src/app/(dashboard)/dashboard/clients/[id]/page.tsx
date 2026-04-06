@@ -78,15 +78,11 @@ export default function ClientDetailPage() {
     const monthlyActivity: { month: string; count: number }[] = []
 
     if (activityYear === 'all') {
-      // Last 12 months
-      const now = new Date()
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-        const label = d.toLocaleDateString('ru-RU', { month: 'short' })
-        const count = shipments.filter(s => s.departure_date?.startsWith(key)).length
-        monthlyActivity.push({ month: label, count })
-      }
+      // By year totals
+      availableYears.forEach(y => {
+        const count = shipments.filter(s => s.departure_date?.startsWith(y)).length
+        monthlyActivity.push({ month: y, count })
+      })
     } else {
       // Specific year — all 12 months
       for (let m = 0; m < 12; m++) {
