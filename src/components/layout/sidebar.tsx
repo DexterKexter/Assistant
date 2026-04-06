@@ -26,16 +26,25 @@ import { useProfile } from '@/lib/useProfile'
 import { useUnreadCount } from '@/lib/useMessages'
 import { useMyTaskCount } from '@/lib/useTasks'
 
-const coreItems = [
+const mainItems = [
   { href: '/dashboard', label: 'Обзор', icon: LayoutGrid },
   { href: '/dashboard/shipments', label: 'Перевозки', icon: Ship },
-  { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
-  { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
-  { href: '/dashboard/documents', label: 'Документы', icon: FileText },
-  { href: '/dashboard/messages', label: 'Сообщения', icon: MessageSquare },
-  { href: '/dashboard/tasks', label: 'Задачи', icon: CheckSquare },
   { href: '/dashboard/reports', label: 'Отчёты', icon: BarChart3 },
 ]
+
+const businessItems = [
+  { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
+  { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
+]
+
+const otherItems = [
+  { href: '/dashboard/messages', label: 'Сообщения', icon: MessageSquare },
+  { href: '/dashboard/documents', label: 'Документы', icon: FileText },
+  { href: '/dashboard/tasks', label: 'Задачи', icon: CheckSquare },
+]
+
+// Combined for collapsed view
+const coreItems = [...mainItems, ...businessItems, ...otherItems]
 
 const statusItems = [
   { href: '/dashboard/shipments?status=in_transit', label: 'В пути', icon: Truck },
@@ -192,34 +201,42 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
       </div>
 
       <nav className="flex-1 pl-4 pr-16 pt-2 overflow-y-auto">
-        <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2">Основное</p>
-        <div className="space-y-0.5">
-          {coreItems.map((item) => {
-            const active = isActive(item.href)
-            return (
-              <Link key={item.href} href={item.href} onClick={onNavigate}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px]',
-                  active
-                    ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-indigo-200/50'
-                    : 'text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold'
-                )}>
-                <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={active ? 2.2 : 1.6} />
-                <span className="flex-1">{item.label}</span>
-                {item.href === '/dashboard/messages' && unreadCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-                {item.href === '/dashboard/tasks' && taskCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                    {taskCount > 9 ? '9+' : taskCount}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
-        </div>
+        {[
+          { label: 'Основное', items: mainItems },
+          { label: 'Бизнес', items: businessItems },
+          { label: 'Другое', items: otherItems },
+        ].map((section, si) => (
+          <div key={section.label}>
+            <p className={`text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2 ${si > 0 ? 'mt-5' : ''}`}>{section.label}</p>
+            <div className="space-y-0.5">
+              {section.items.map((item) => {
+                const active = isActive(item.href)
+                return (
+                  <Link key={item.href} href={item.href} onClick={onNavigate}
+                    className={cn(
+                      'flex items-center gap-3 px-4 py-2 rounded-xl text-[13px]',
+                      active
+                        ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-indigo-200/50'
+                        : 'text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold'
+                    )}>
+                    <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={active ? 2.2 : 1.6} />
+                    <span className="flex-1">{item.label}</span>
+                    {item.href === '/dashboard/messages' && unreadCount > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                    {item.href === '/dashboard/tasks' && taskCount > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                        {taskCount > 9 ? '9+' : taskCount}
+                      </span>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
 
         {hasRole('admin') && (
           <>
@@ -227,7 +244,7 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
             <div className="space-y-0.5">
               <Link href="/dashboard/admin" onClick={onNavigate}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px]',
+                  'flex items-center gap-3 px-4 py-2 rounded-xl text-[13px]',
                   isActive('/dashboard/admin')
                     ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-indigo-200/50'
                     : 'text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold'
@@ -236,7 +253,7 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
                 Админка
               </Link>
               <Link href="/dashboard/admin" onClick={onNavigate}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold">
+                className="flex items-center gap-3 px-4 py-2 rounded-xl text-[13px] text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold">
                 <Settings className="h-[18px] w-[18px] shrink-0" strokeWidth={1.6} />
                 Настройки
               </Link>

@@ -175,11 +175,41 @@ export default function ReportsPage() {
     yearShipments.forEach(s => { if (s.client_name) clientCounts[s.client_name] = (clientCounts[s.client_name] || 0) + 1 })
     const topClients = Object.entries(clientCounts).sort(([, a], [, b]) => b - a).slice(0, 7).map(([name, count]) => ({ name, count }))
 
+    // Monthly breakdown for insights
+    const monthlyLoaded = MONTHS.map((m, i) => ({
+      name: m, fullName: MONTH_NAMES[i],
+      count: yearShipments.filter(s => { const d = new Date(s.departure_date!); return d.getMonth() === i }).length,
+    }))
+    const monthlyDelivered = MONTHS.map((m, i) => ({
+      name: m, fullName: MONTH_NAMES[i],
+      count: yearDelivered.filter(s => { const d = new Date(s.delivery_date!); return d.getMonth() === i }).length,
+    }))
+    const activeMonths = monthlyLoaded.filter(m => m.count > 0)
+    const bestMonth = activeMonths.length > 0 ? activeMonths.reduce((a, b) => a.count > b.count ? a : b) : null
+    const worstMonth = activeMonths.length > 0 ? activeMonths.reduce((a, b) => a.count < b.count ? a : b) : null
+    const avgPerMonth = activeMonths.length > 0 ? Math.round(yearShipments.length / activeMonths.length) : 0
+
+    // Russia vs KZ
+    const russiaCount = yearShipments.filter(s => s.is_russia).length
+    const kzCount = yearShipments.filter(s => !s.is_russia).length
+
+    // Unique clients, carriers, origins, destinations
+    const uniqueClients = new Set(yearShipments.map(s => s.client_name).filter(Boolean)).size
+    const uniqueCarriers = new Set(yearShipments.map(s => s.carrier_name).filter(Boolean)).size
+    const uniqueOrigins = new Set(yearShipments.map(s => s.origin).filter(Boolean)).size
+    const uniqueDests = new Set(yearShipments.map(s => s.destination_city || s.destination_station).filter(Boolean)).size
+
+    // Best delivery month
+    const activeDeliveryMonths = monthlyDelivered.filter(m => m.count > 0)
+    const bestDeliveryMonth = activeDeliveryMonths.length > 0 ? activeDeliveryMonths.reduce((a, b) => a.count > b.count ? a : b) : null
+
     return {
       loaded: yearShipments.length, delivered: yearDelivered.length, avgDays,
       topRoute: topRoute ? { route: topRoute[0], count: topRoute[1] } : null,
       topCarrier: topCarrier ? { name: topCarrier[0], count: topCarrier[1] } : null,
       size20, size40, topOrigins, topDests, allCarriers, topClients,
+      bestMonth, worstMonth, avgPerMonth, russiaCount, kzCount,
+      uniqueClients, uniqueCarriers, uniqueOrigins, uniqueDests, bestDeliveryMonth,
     }
   }, [data, chartYear])
 
@@ -359,6 +389,35 @@ export default function ReportsPage() {
             <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-semibold">20ft: {yearData.size20}</span>
             <span className="px-1.5 py-0.5 bg-violet-50 text-violet-600 rounded text-[10px] font-semibold">40ft: {yearData.size40}</span>
           </div>
+        </div>
+      </div>
+
+      {/* ── 3.5 Year Insights ── */}
+      <div className="bg-white rounded-xl border border-slate-100 p-5">
+        <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Аналитика за {chartYear}</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
+          {[
+            { label: 'Лучший месяц', value: yearData.bestMonth ? `${yearData.bestMonth.fullName}` : '—', sub: yearData.bestMonth ? `${yearData.bestMonth.count} загрузок` : '', color: 'text-emerald-600' },
+            { label: 'Слабый месяц', value: yearData.worstMonth ? `${yearData.worstMonth.fullName}` : '—', sub: yearData.worstMonth ? `${yearData.worstMonth.count} загрузок` : '', color: 'text-red-500' },
+            { label: 'В среднем / мес', value: `${yearData.avgPerMonth}`, sub: 'загрузок', color: 'text-indigo-600' },
+            { label: 'Среднее время доставки', value: `${yearData.avgDays}`, sub: 'дней', color: 'text-slate-900' },
+            { label: 'Направление РФ', value: `${yearData.russiaCount}`, sub: `${yearData.loaded > 0 ? Math.round(yearData.russiaCount / yearData.loaded * 100) : 0}% от всех`, color: 'text-slate-900' },
+            { label: 'Направление КЗ', value: `${yearData.kzCount}`, sub: `${yearData.loaded > 0 ? Math.round(yearData.kzCount / yearData.loaded * 100) : 0}% от всех`, color: 'text-slate-900' },
+            { label: 'Уникальных клиентов', value: `${yearData.uniqueClients}`, sub: '', color: 'text-slate-900' },
+            { label: 'Перевозчиков', value: `${yearData.uniqueCarriers}`, sub: '', color: 'text-slate-900' },
+            { label: 'Пунктов отправки', value: `${yearData.uniqueOrigins}`, sub: '', color: 'text-slate-900' },
+            { label: 'Городов назначения', value: `${yearData.uniqueDests}`, sub: '', color: 'text-slate-900' },
+            { label: 'Лучший месяц доставок', value: yearData.bestDeliveryMonth ? `${yearData.bestDeliveryMonth.fullName}` : '—', sub: yearData.bestDeliveryMonth ? `${yearData.bestDeliveryMonth.count} доставок` : '', color: 'text-emerald-600' },
+            { label: 'Контейнеры 20/40', value: `${yearData.size20} / ${yearData.size40}`, sub: '', color: 'text-slate-900' },
+          ].map(item => (
+            <div key={item.label} className="flex items-start gap-3 py-2 border-b border-slate-50">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">{item.label}</p>
+                <p className={`text-[15px] font-bold ${item.color} leading-tight mt-0.5`}>{item.value}</p>
+                {item.sub && <p className="text-[10px] text-slate-400 mt-0.5">{item.sub}</p>}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

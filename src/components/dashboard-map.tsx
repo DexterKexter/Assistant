@@ -303,26 +303,11 @@ export function DashboardMap({ shipments }: Props) {
                 transform: tooltipPos.showBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
               }}
             >
-              <div className="bg-white/95 backdrop-blur-md rounded-lg px-2.5 py-1.5 shadow-lg border border-slate-200/60 whitespace-nowrap">
+              <div className="bg-white/95 backdrop-blur-md rounded-lg px-2.5 py-1 shadow-lg border border-slate-200/60 whitespace-nowrap">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full" style={{ background: activeOrigin.color }} />
                   <span className="text-[11px] font-bold text-slate-800">{activeOrigin.name}</span>
-                  <span className="text-[10px] font-semibold text-slate-400">{activeOrigin.count}</span>
                 </div>
-                {activeRoutes.length > 0 && (
-                  <div className="mt-1 space-y-px">
-                    {activeRoutes.slice(0, 3).map(r => (
-                      <div key={r.dest} className="flex items-center gap-1 text-[9px] text-slate-500">
-                        <span className="text-slate-300">→</span>
-                        <span>{r.dest}</span>
-                        <span className="ml-auto font-semibold text-slate-400">{r.count}</span>
-                      </div>
-                    ))}
-                    {activeRoutes.length > 3 && (
-                      <div className="text-[8px] text-slate-400">+{activeRoutes.length - 3} ещё</div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           )}
