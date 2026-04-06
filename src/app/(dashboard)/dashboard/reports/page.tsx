@@ -325,7 +325,7 @@ export default function ReportsPage() {
 
       {/* ── 2. Yearly bar charts ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Загружено по годам</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={yearlyLoaded} barSize={44}>
@@ -341,7 +341,7 @@ export default function ReportsPage() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Доставлено по годам</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={yearlyDelivered} barSize={44}>
@@ -423,7 +423,7 @@ export default function ReportsPage() {
 
       {/* ── 4. Monthly charts ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Загружено по месяцам</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={loadedByMonth} barSize={24}>
@@ -441,7 +441,7 @@ export default function ReportsPage() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Доставлено по месяцам</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={deliveredByMonth} barSize={24}>
@@ -463,7 +463,7 @@ export default function ReportsPage() {
 
       {/* ── 5. Geography: Horizontal bars with percentages ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ отправления</h3>
           <div className="space-y-3">
             {yearData.topOrigins.map((o, i) => {
@@ -488,7 +488,7 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ назначения</h3>
           <div className="space-y-3">
             {yearData.topDests.map((d, i) => {
@@ -516,7 +516,7 @@ export default function ReportsPage() {
 
       {/* ── 6. Top Carriers & Top Clients: Horizontal Bar Charts ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ перевозчики</h3>
           <div className="space-y-2.5">
             {yearData.allCarriers.map((c, i) => {
@@ -536,7 +536,7 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ клиенты</h3>
           <div className="space-y-2.5">
             {yearData.topClients.map((c, i) => {
@@ -769,7 +769,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Monthly comparison table: years × months */}
-      <div className="bg-white rounded-xl border border-slate-100 p-5 overflow-x-auto">
+      <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5 overflow-x-auto">
         <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Загрузки по месяцам / годам</h3>
         <table className="w-full min-w-[700px]">
           <thead>
