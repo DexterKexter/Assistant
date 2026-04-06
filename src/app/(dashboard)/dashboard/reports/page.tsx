@@ -361,39 +361,39 @@ export default function ReportsPage() {
 
       {/* ── 3. Summary tiles ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-4">
           <p className="text-[11px] text-slate-400 mb-1">Загружено</p>
           <p className="text-[22px] font-bold text-slate-900">{yearData.loaded}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-4">
           <p className="text-[11px] text-slate-400 mb-1">Доставлено</p>
           <p className="text-[22px] font-bold text-emerald-600">{yearData.delivered}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-4">
           <p className="text-[11px] text-slate-400 mb-1">Среднее время</p>
           <p className="text-[22px] font-bold text-slate-900">{yearData.avgDays}<span className="text-[12px] text-slate-400 ml-1">дней</span></p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-4">
           <p className="text-[11px] text-slate-400 mb-1">Топ маршрут</p>
           <p className="text-[13px] font-bold text-slate-900 truncate">{yearData.topRoute?.route || '—'}</p>
           <p className="text-[11px] text-slate-400">{yearData.topRoute?.count || 0} перевозок</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-4">
           <p className="text-[11px] text-slate-400 mb-1">Топ перевозчик</p>
           <p className="text-[13px] font-bold text-slate-900 truncate">{yearData.topCarrier?.name || '—'}</p>
           <p className="text-[11px] text-slate-400">{yearData.topCarrier?.count || 0} перевозок</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-4">
           <p className="text-[11px] text-slate-400 mb-1">Контейнеры</p>
           <div className="flex items-center gap-2 mt-1">
-            <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-semibold">20ft: {yearData.size20}</span>
-            <span className="px-1.5 py-0.5 bg-violet-50 text-violet-600 rounded text-[10px] font-semibold">40ft: {yearData.size40}</span>
+            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-[10px] font-semibold">20ft: {yearData.size20}</span>
+            <span className="px-1.5 py-0.5 bg-violet-100 text-violet-600 rounded text-[10px] font-semibold">40ft: {yearData.size40}</span>
           </div>
         </div>
       </div>
 
       {/* ── 3.5 Year Insights ── */}
-      <div className="bg-white rounded-xl border border-slate-100 p-5">
+      <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
         <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Аналитика за {chartYear}</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
           {[
