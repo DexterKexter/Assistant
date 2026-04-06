@@ -742,7 +742,7 @@ export default function ReportsPage() {
               { name: 'Доставлено', a: statsA.delivered, b: statsB.delivered },
               { name: 'РФ', a: statsA.russia, b: statsB.russia },
               { name: 'КЗ', a: statsA.kz, b: statsB.kz },
-            ]} barGap={2} barSize={36}>
+            ]} barGap={4} barSize={44}>
               <defs>
                 <linearGradient id="gradA" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#818cf8" />
@@ -754,14 +754,14 @@ export default function ReportsPage() {
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.8} vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 500 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={35} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
               <Bar dataKey="a" name={`${MONTHS[+periodA.monthFrom]}–${MONTHS[+periodA.monthTo]} ${periodA.year}`} fill="url(#gradA)" radius={[8, 8, 0, 0]}>
-                <LabelList dataKey="a" position="top" fontSize={11} fontWeight={600} fill="#6366f1" />
+                <LabelList dataKey="a" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
               </Bar>
               <Bar dataKey="b" name={`${MONTHS[+periodB.monthFrom]}–${MONTHS[+periodB.monthTo]} ${periodB.year}`} fill="url(#gradB)" radius={[8, 8, 0, 0]}>
-                <LabelList dataKey="b" position="top" fontSize={11} fontWeight={600} fill="#059669" />
+                <LabelList dataKey="b" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
