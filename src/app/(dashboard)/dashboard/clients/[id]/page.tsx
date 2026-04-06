@@ -1,133 +1,326 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useEffect, useState, useMemo } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowLeft } from 'lucide-react'
-import { DOC_TYPE_LABELS, type Client, type Shipment, type Transaction, type Document } from '@/types/database'
+import { useShipmentModal } from '@/lib/shipment-modal'
+import { type Client, type Shipment, type Transaction, getShipmentStatus } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
+import {
+  ArrowLeft, Phone, MapPin, Globe, Ship, Package, TrendingUp, Calendar,
+  DollarSign, Clock, ChevronRight, Container, Truck, CheckCircle2
+} from 'lucide-react'
 
 export default function ClientDetailPage() {
   const { id } = useParams()
+  const router = useRouter()
+  const { openShipment } = useShipmentModal()
   const [client, setClient] = useState<Client | null>(null)
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const supabase = createClient()
-    const fetch = async () => {
-      const [{ data: c }, { data: cont }, { data: trans }, { data: docs }] = await Promise.all([
+    const load = async () => {
+      const [{ data: c }, { data: sh }, { data: tr }] = await Promise.all([
         supabase.from('clients').select('*').eq('id', id).single(),
-        supabase.from('shipments').select('*').eq('client_id', id).order('created_at', { ascending: false }),
+        supabase.from('shipments').select('*, carrier:carriers(name)').eq('client_id', id).order('departure_date', { ascending: false }),
         supabase.from('transactions').select('*').eq('client_id', id).order('date', { ascending: false }),
-        supabase.from('documents').select('*').eq('client_id', id).order('created_at', { ascending: false }),
       ])
       setClient(c)
-      setShipments(cont || [])
-      setTransactions(trans || [])
-      setDocuments(docs || [])
+      setShipments((sh || []) as any)
+      setTransactions(tr || [])
+      setLoading(false)
     }
-    fetch()
+    load()
   }, [id])
 
-  if (!client) return <p className="text-muted-foreground">Загрузка...</p>
+  // ── Analytics ──
+  const analytics = useMemo(() => {
+    if (!shipments.length) return null
+
+    const total = shipments.length
+    const delivered = shipments.filter(s => s.delivery_date || s.is_completed).length
+    const inTransit = shipments.filter(s => s.departure_date && !s.arrival_date && !s.delivery_date && !s.is_completed).length
+    const atBorder = shipments.filter(s => s.arrival_date && !s.delivery_date && !s.is_completed).length
+
+    // Avg delivery time
+    const withBoth = shipments.filter(s => s.departure_date && s.delivery_date)
+    const avgDays = withBoth.length > 0
+      ? Math.round(withBoth.reduce((sum, s) => sum + (new Date(s.delivery_date!).getTime() - new Date(s.departure_date!).getTime()) / 86400000, 0) / withBoth.length)
+      : 0
+
+    // Top origin
+    const origins: Record<string, number> = {}
+    shipments.forEach(s => { if (s.origin) origins[s.origin] = (origins[s.origin] || 0) + 1 })
+    const topOrigin = Object.entries(origins).sort(([, a], [, b]) => b - a)[0]
+
+    // Top carrier
+    const carriers: Record<string, number> = {}
+    shipments.forEach(s => { const name = (s as any).carrier?.name; if (name) carriers[name] = (carriers[name] || 0) + 1 })
+    const topCarrier = Object.entries(carriers).sort(([, a], [, b]) => b - a)[0]
+
+    // Container sizes
+    const size20 = shipments.filter(s => s.container_size === 20).length
+    const size40 = shipments.filter(s => s.container_size === 40).length
+
+    // Monthly activity (last 12 months)
+    const monthlyActivity: { month: string; count: number }[] = []
+    const now = new Date()
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = d.toLocaleDateString('ru-RU', { month: 'short' })
+      const count = shipments.filter(s => s.departure_date?.startsWith(key)).length
+      monthlyActivity.push({ month: label, count })
+    }
+    const maxMonthly = Math.max(...monthlyActivity.map(m => m.count), 1)
+
+    // First & last shipment
+    const dates = shipments.filter(s => s.departure_date).map(s => new Date(s.departure_date!).getTime())
+    const firstShipment = dates.length ? new Date(Math.min(...dates)) : null
+    const lastShipment = dates.length ? new Date(Math.max(...dates)) : null
+
+    // Finance
+    const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0)
+    const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0)
+
+    return {
+      total, delivered, inTransit, atBorder, avgDays,
+      topOrigin, topCarrier, size20, size40,
+      monthlyActivity, maxMonthly,
+      firstShipment, lastShipment,
+      totalIncome, totalExpense,
+    }
+  }, [shipments, transactions])
+
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="skeleton w-8 h-8 rounded-lg" />
+          <div className="skeleton h-7 w-48 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-24 rounded-xl" />)}
+        </div>
+        <div className="skeleton h-64 rounded-xl" />
+      </div>
+    )
+  }
+
+  if (!client) return <p className="text-[13px] text-slate-400 py-10 text-center">Клиент не найден</p>
+
+  const initials = client.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* ── Header ── */}
       <div className="flex items-center gap-4">
-        <Link href="/dashboard/clients"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
-        <h1 className="text-2xl font-bold">{client.name}</h1>
+        <button onClick={() => router.back()} className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors shrink-0">
+          <ArrowLeft className="w-4 h-4 text-slate-600" strokeWidth={2} />
+        </button>
+        <div className="flex items-center gap-3.5 flex-1 min-w-0">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[15px] font-bold shadow-lg shadow-indigo-500/20 shrink-0">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-[20px] font-bold text-slate-900 tracking-tight font-heading truncate">{client.name}</h1>
+            <div className="flex items-center gap-3 mt-0.5">
+              <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${client.is_russia ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                <Globe className="w-3 h-3" strokeWidth={2} />
+                {client.is_russia ? 'Россия' : 'Казахстан'}
+              </span>
+              {client.phone && (
+                <span className="flex items-center gap-1 text-[11px] text-slate-400">
+                  <Phone className="w-3 h-3" strokeWidth={1.8} />
+                  {client.phone}
+                </span>
+              )}
+              {client.address && (
+                <span className="flex items-center gap-1 text-[11px] text-slate-400 hidden md:flex">
+                  <MapPin className="w-3 h-3" strokeWidth={1.8} />
+                  {client.address}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            <div><span className="text-muted-foreground">Телефон:</span> {client.phone || '—'}</div>
-            <div><span className="text-muted-foreground">Адрес:</span> {client.address || '—'}</div>
-            <div><span className="text-muted-foreground">Россия:</span> {client.is_russia ? 'Да 🇷🇺' : 'Нет'}</div>
+      {/* ── Stats Cards ── */}
+      {analytics && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: 'Всего перевозок', value: analytics.total, icon: Ship, color: '#6366f1', bg: '#eef2ff' },
+            { label: 'Доставлено', value: analytics.delivered, icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4' },
+            { label: 'В пути', value: analytics.inTransit, icon: Truck, color: '#f59e0b', bg: '#fffbeb' },
+            { label: 'Среднее время', value: `${analytics.avgDays} д`, icon: Clock, color: '#8b5cf6', bg: '#f5f3ff' },
+          ].map(stat => (
+            <div key={stat.label} className="bg-slate-50 rounded-xl border border-slate-200/60 p-4">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: stat.bg }}>
+                  <stat.icon className="w-4 h-4" style={{ color: stat.color }} strokeWidth={1.8} />
+                </div>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wide font-medium">{stat.label}</span>
+              </div>
+              <p className="text-[22px] font-bold text-slate-900 leading-none">{stat.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Two-column layout ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Left: Activity chart + details */}
+        <div className="lg:col-span-2 space-y-4">
+
+          {/* Monthly activity sparkline */}
+          {analytics && (
+            <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
+              <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Активность за 12 месяцев</h3>
+              <div className="flex items-end gap-1.5 h-[80px]">
+                {analytics.monthlyActivity.map((m, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                    <div className="w-full relative" style={{ height: 60 }}>
+                      <div
+                        className="absolute bottom-0 w-full rounded-t-sm transition-all"
+                        style={{
+                          height: `${Math.max(2, (m.count / analytics.maxMonthly) * 60)}px`,
+                          backgroundColor: m.count > 0 ? '#6366f1' : '#e2e8f0',
+                          opacity: m.count > 0 ? 0.8 : 0.4,
+                        }}
+                      />
+                      {m.count > 0 && (
+                        <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[8px] font-bold text-slate-500">{m.count}</span>
+                      )}
+                    </div>
+                    <span className="text-[8px] text-slate-400">{m.month}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Shipments list */}
+          <div className="bg-slate-50 rounded-xl border border-slate-200/60 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200/60">
+              <h3 className="text-[13px] font-semibold text-slate-900">Перевозки ({shipments.length})</h3>
+            </div>
+            {shipments.length === 0 ? (
+              <div className="py-10 text-center text-[12px] text-slate-400">Нет перевозок</div>
+            ) : (
+              <div className="max-h-[400px] overflow-y-auto">
+                {shipments.map(s => {
+                  const status = getShipmentStatus(s, client.is_russia)
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => openShipment(s.id)}
+                      className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-white/60 transition-colors border-b border-slate-100 last:border-b-0"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[12px] font-mono font-semibold text-slate-800">{s.container_number || '—'}</span>
+                          {s.container_size && (
+                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${s.container_size === 20 ? 'bg-blue-100 text-blue-600' : 'bg-violet-100 text-violet-600'}`}>
+                              {s.container_size}ft
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{s.origin || '?'} → {s.destination_city || s.destination_station || '?'}</p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-[11px] text-slate-400 tabular-nums hidden sm:block">{fmtDate(s.departure_date)}</span>
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
+                          style={{ backgroundColor: status.color + '18', color: status.color }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: status.color }} />
+                          {status.label}
+                        </span>
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-300" strokeWidth={2} />
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      <Tabs defaultValue="shipments">
-        <TabsList>
-          <TabsTrigger value="shipments">Контейнеры ({shipments.length})</TabsTrigger>
-          <TabsTrigger value="finance">Финансы ({transactions.length})</TabsTrigger>
-          <TabsTrigger value="documents">Документы ({documents.length})</TabsTrigger>
-        </TabsList>
+        {/* Right: Info panel */}
+        <div className="space-y-4">
+          {/* Client details */}
+          <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
+            <h3 className="text-[13px] font-semibold text-slate-900 mb-3">Информация</h3>
+            <div className="space-y-3">
+              {[
+                { icon: Globe, label: 'Направление', value: client.is_russia ? 'Россия' : 'Казахстан' },
+                { icon: Phone, label: 'Телефон', value: client.phone || '—' },
+                { icon: MapPin, label: 'Адрес', value: client.address || '—' },
+                { icon: Calendar, label: 'Первая перевозка', value: analytics?.firstShipment ? analytics.firstShipment.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }) : '—' },
+                { icon: Calendar, label: 'Последняя перевозка', value: analytics?.lastShipment ? analytics.lastShipment.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }) : '—' },
+              ].map(item => (
+                <div key={item.label} className="flex items-center gap-2.5">
+                  <item.icon className="w-3.5 h-3.5 text-slate-400 shrink-0" strokeWidth={1.8} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-slate-400">{item.label}</p>
+                    <p className="text-[12px] text-slate-700 font-medium truncate">{item.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-        <TabsContent value="shipments">
-          <Card>
-            <CardContent className="pt-6">
-              {shipments.length === 0 ? <p className="text-sm text-muted-foreground">Нет контейнеров</p> : (
-                <Table>
-                  <TableHeader><TableRow><TableHead>Номер</TableHead><TableHead>Статус</TableHead><TableHead>Маршрут</TableHead><TableHead>Дата</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {shipments.map((c) => (
-                      <TableRow key={c.id}>
-                        <TableCell className="font-medium">{c.container_number}</TableCell>
-                        <TableCell><Badge>{'—'}</Badge></TableCell>
-                        <TableCell>{c.origin} → {c.destination_city}</TableCell>
-                        <TableCell>{fmtDate(c.departure_date)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="finance">
-          <Card>
-            <CardContent className="pt-6">
-              {transactions.length === 0 ? <p className="text-sm text-muted-foreground">Нет транзакций</p> : (
-                <Table>
-                  <TableHeader><TableRow><TableHead>Дата</TableHead><TableHead>Тип</TableHead><TableHead>Сумма</TableHead><TableHead>Описание</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {transactions.map((t) => (
-                      <TableRow key={t.id}>
-                        <TableCell>{t.date}</TableCell>
-                        <TableCell><Badge variant={t.type === 'income' ? 'default' : 'destructive'}>{t.type === 'income' ? 'Доход' : 'Расход'}</Badge></TableCell>
-                        <TableCell className={t.type === 'income' ? 'text-green-600' : 'text-red-500'}>${t.amount}</TableCell>
-                        <TableCell>{t.description || '—'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="documents">
-          <Card>
-            <CardContent className="pt-6">
-              {documents.length === 0 ? <p className="text-sm text-muted-foreground">Нет документов</p> : (
-                <Table>
-                  <TableHeader><TableRow><TableHead>Название</TableHead><TableHead>Тип</TableHead><TableHead>Дата</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {documents.map((d) => (
-                      <TableRow key={d.id}>
-                        <TableCell className="font-medium">{d.title}</TableCell>
-                        <TableCell><Badge variant="secondary">{d.type}</Badge></TableCell>
-                        <TableCell>{new Date(d.created_at).toLocaleDateString('ru-RU')}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          {/* Analytics breakdown */}
+          {analytics && (
+            <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
+              <h3 className="text-[13px] font-semibold text-slate-900 mb-3">Аналитика</h3>
+              <div className="space-y-3">
+                {analytics.topOrigin && (
+                  <div>
+                    <p className="text-[10px] text-slate-400 mb-0.5">Основной пункт отправки</p>
+                    <p className="text-[13px] font-bold text-slate-800">{analytics.topOrigin[0]}</p>
+                    <p className="text-[10px] text-slate-400">{analytics.topOrigin[1]} перевозок</p>
+                  </div>
+                )}
+                {analytics.topCarrier && (
+                  <div>
+                    <p className="text-[10px] text-slate-400 mb-0.5">Основной перевозчик</p>
+                    <p className="text-[13px] font-bold text-slate-800">{analytics.topCarrier[0]}</p>
+                    <p className="text-[10px] text-slate-400">{analytics.topCarrier[1]} перевозок</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-[10px] text-slate-400 mb-1">Контейнеры</p>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-[10px] font-semibold">20ft: {analytics.size20}</span>
+                    <span className="px-2 py-0.5 bg-violet-100 text-violet-600 rounded text-[10px] font-semibold">40ft: {analytics.size40}</span>
+                  </div>
+                </div>
+                {(analytics.totalIncome > 0 || analytics.totalExpense > 0) && (
+                  <div>
+                    <p className="text-[10px] text-slate-400 mb-1">Финансы</p>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="text-slate-500">Доход</span>
+                        <span className="font-bold text-emerald-600">${analytics.totalIncome.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="text-slate-500">Расход</span>
+                        <span className="font-bold text-red-500">${analytics.totalExpense.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
