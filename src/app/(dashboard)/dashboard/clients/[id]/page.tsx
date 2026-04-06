@@ -9,7 +9,7 @@ import { type Client, type Shipment, type Transaction, getShipmentStatus } from 
 import { fmtDate } from '@/lib/utils'
 import {
   ArrowLeft, Phone, MapPin, Globe, Ship, Package, TrendingUp, Calendar,
-  DollarSign, Clock, ChevronRight, Container, Truck, CheckCircle2
+  DollarSign, Clock, ChevronRight, Container, Truck, CheckCircle2, Search
 } from 'lucide-react'
 
 export default function ClientDetailPage() {
@@ -20,6 +20,8 @@ export default function ClientDetailPage() {
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [activityYear, setActivityYear] = useState<string>('all')
+  const [shipmentSearch, setShipmentSearch] = useState('')
 
   useEffect(() => {
     const supabase = createClient()
@@ -66,15 +68,32 @@ export default function ClientDetailPage() {
     const size20 = shipments.filter(s => s.container_size === 20).length
     const size40 = shipments.filter(s => s.container_size === 40).length
 
-    // Monthly activity (last 12 months)
+    // Available years
+    const yearsSet = new Set<string>()
+    shipments.forEach(s => { if (s.departure_date) yearsSet.add(s.departure_date.slice(0, 4)) })
+    const availableYears = Array.from(yearsSet).sort()
+
+    // Monthly activity by selected year
+    const MONTH_LABELS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
     const monthlyActivity: { month: string; count: number }[] = []
-    const now = new Date()
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const label = d.toLocaleDateString('ru-RU', { month: 'short' })
-      const count = shipments.filter(s => s.departure_date?.startsWith(key)).length
-      monthlyActivity.push({ month: label, count })
+
+    if (activityYear === 'all') {
+      // Last 12 months
+      const now = new Date()
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        const label = d.toLocaleDateString('ru-RU', { month: 'short' })
+        const count = shipments.filter(s => s.departure_date?.startsWith(key)).length
+        monthlyActivity.push({ month: label, count })
+      }
+    } else {
+      // Specific year — all 12 months
+      for (let m = 0; m < 12; m++) {
+        const key = `${activityYear}-${String(m + 1).padStart(2, '0')}`
+        const count = shipments.filter(s => s.departure_date?.startsWith(key)).length
+        monthlyActivity.push({ month: MONTH_LABELS[m], count })
+      }
     }
     const maxMonthly = Math.max(...monthlyActivity.map(m => m.count), 1)
 
@@ -90,11 +109,11 @@ export default function ClientDetailPage() {
     return {
       total, delivered, inTransit, atBorder, avgDays,
       topOrigin, topCarrier, size20, size40,
-      monthlyActivity, maxMonthly,
+      monthlyActivity, maxMonthly, availableYears,
       firstShipment, lastShipment,
       totalIncome, totalExpense,
     }
-  }, [shipments, transactions])
+  }, [shipments, transactions, activityYear])
 
   if (loading) {
     return (
@@ -180,7 +199,20 @@ export default function ClientDetailPage() {
           {/* Monthly activity sparkline */}
           {analytics && (
             <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
-              <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Активность за 12 месяцев</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[13px] font-semibold text-slate-900">Активность</h3>
+                <div className="flex items-center gap-1">
+                  {['all', ...analytics.availableYears].map(y => (
+                    <button
+                      key={y}
+                      onClick={() => setActivityYear(y)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${activityYear === y ? 'bg-slate-900 text-white' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      {y === 'all' ? 'Все' : y}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="flex items-end gap-1.5 h-[80px]">
                 {analytics.monthlyActivity.map((m, i) => (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -206,14 +238,30 @@ export default function ClientDetailPage() {
 
           {/* Shipments list */}
           <div className="bg-slate-50 rounded-xl border border-slate-200/60 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200/60">
-              <h3 className="text-[13px] font-semibold text-slate-900">Перевозки ({shipments.length})</h3>
+            <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-200/60">
+              <h3 className="text-[13px] font-semibold text-slate-900 shrink-0">Перевозки ({shipments.length})</h3>
+              <div className="relative flex-1 max-w-[220px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" strokeWidth={2} />
+                <input
+                  value={shipmentSearch}
+                  onChange={e => setShipmentSearch(e.target.value)}
+                  placeholder="Контейнер, маршрут..."
+                  className="w-full h-7 pl-7 pr-2 rounded-md bg-white border border-slate-200/60 text-[11px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/20"
+                />
+              </div>
             </div>
             {shipments.length === 0 ? (
               <div className="py-10 text-center text-[12px] text-slate-400">Нет перевозок</div>
             ) : (
               <div className="max-h-[400px] overflow-y-auto">
-                {shipments.map(s => {
+                {shipments.filter(s => {
+                  if (!shipmentSearch) return true
+                  const q = shipmentSearch.toLowerCase()
+                  return (s.container_number?.toLowerCase().includes(q)) ||
+                    (s.origin?.toLowerCase().includes(q)) ||
+                    (s.destination_city?.toLowerCase().includes(q)) ||
+                    (s.destination_station?.toLowerCase().includes(q))
+                }).map(s => {
                   const status = getShipmentStatus(s, client.is_russia)
                   return (
                     <button

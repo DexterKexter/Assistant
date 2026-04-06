@@ -1,127 +1,216 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Users } from 'lucide-react'
+import { Search, Users, Clock } from 'lucide-react'
 import type { Client } from '@/types/database'
 
+type ActivityTab = 'all' | 'active' | 'moderate' | 'inactive'
+
+interface ClientWithActivity extends Client {
+  lastShipmentDate: string | null
+  daysSince: number | null
+  shipmentCount: number
+}
+
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([])
+  const [clients, setClients] = useState<ClientWithActivity[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<ActivityTab>('all')
   const router = useRouter()
 
   useEffect(() => {
     const supabase = createClient()
-    const fetchClients = async () => {
-      let query = supabase.from('clients').select('*').order('name')
-      if (search) query = query.ilike('name', `%${search}%`)
-      const { data } = await query.limit(100)
-      setClients(data || [])
+    const load = async () => {
+      // Fetch clients and their latest shipment dates
+      const { data: clientsData } = await supabase.from('clients').select('*').order('name')
+      const { data: shipmentsData } = await supabase.from('shipments').select('client_id, departure_date').order('departure_date', { ascending: false })
+
+      if (!clientsData) { setLoading(false); return }
+
+      const now = new Date()
+      const enriched: ClientWithActivity[] = clientsData.map(c => {
+        const clientShipments = (shipmentsData || []).filter(s => s.client_id === c.id && s.departure_date)
+        const latest = clientShipments[0]?.departure_date || null
+        const daysSince = latest ? Math.floor((now.getTime() - new Date(latest).getTime()) / 86400000) : null
+        return { ...c, lastShipmentDate: latest, daysSince, shipmentCount: clientShipments.length }
+      })
+
+      setClients(enriched)
       setLoading(false)
     }
-    fetchClients()
-  }, [search])
+    load()
+  }, [])
+
+  const filtered = useMemo(() => {
+    let result = clients
+
+    // Search
+    if (search) {
+      const q = search.toLowerCase()
+      result = result.filter(c => c.name.toLowerCase().includes(q))
+    }
+
+    // Tab filter
+    // Active: last shipment < 90 days ago
+    // Moderate: 90-365 days
+    // Inactive: > 365 days or no shipments
+    if (tab === 'active') result = result.filter(c => c.daysSince !== null && c.daysSince < 90)
+    if (tab === 'moderate') result = result.filter(c => c.daysSince !== null && c.daysSince >= 90 && c.daysSince <= 365)
+    if (tab === 'inactive') result = result.filter(c => c.daysSince === null || c.daysSince > 365)
+
+    return result
+  }, [clients, search, tab])
+
+  const tabs: { key: ActivityTab; label: string; count: number }[] = useMemo(() => [
+    { key: 'all', label: 'Все', count: clients.length },
+    { key: 'active', label: 'Активные', count: clients.filter(c => c.daysSince !== null && c.daysSince < 90).length },
+    { key: 'moderate', label: 'Умеренные', count: clients.filter(c => c.daysSince !== null && c.daysSince >= 90 && c.daysSince <= 365).length },
+    { key: 'inactive', label: 'Неактивные', count: clients.filter(c => c.daysSince === null || c.daysSince > 365).length },
+  ], [clients])
+
+  function getDaysLabel(days: number | null): { text: string; color: string } {
+    if (days === null) return { text: 'нет загрузок', color: 'text-slate-300' }
+    if (days === 0) return { text: 'сегодня', color: 'text-emerald-500' }
+    if (days <= 30) return { text: `${days} д назад`, color: 'text-emerald-500' }
+    if (days <= 90) return { text: `${days} д назад`, color: 'text-indigo-500' }
+    if (days <= 365) return { text: `${days} д назад`, color: 'text-amber-500' }
+    return { text: `${days} д назад`, color: 'text-red-400' }
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Клиенты</h1>
-        <p className="text-sm text-slate-500 mt-1">{clients.length} контактов</p>
+        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Клиенты</h1>
+        <p className="text-[12px] text-slate-400 mt-0.5">{clients.length} контактов</p>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Поиск по имени..."
-          className="w-full h-10 rounded-xl bg-white border border-slate-200 pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      {/* Tabs */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex gap-1 border-b border-slate-200 flex-1">
+          {tabs.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 px-3 pb-2.5 text-[12px] font-medium border-b-2 -mb-px transition-all ${
+                tab === t.key ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              {t.label}
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === t.key ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                {t.count}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="relative w-full max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" strokeWidth={2} />
+          <input
+            type="text"
+            placeholder="Поиск по имени..."
+            className="w-full h-9 rounded-lg bg-white border border-slate-200 pl-9 pr-3 text-[12px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/20 transition-all"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-slate-400">Загрузка...</div>
-      ) : clients.length === 0 ? (
-        <div className="text-center py-20">
-          <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-400">Клиенты не найдены</p>
+        <div className="space-y-2">{[...Array(8)].map((_, i) => <div key={i} className="skeleton h-14 rounded-xl" />)}</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <Users className="w-10 h-10 text-slate-200 mx-auto mb-2" strokeWidth={1.5} />
+          <p className="text-[13px] text-slate-400">Клиенты не найдены</p>
         </div>
       ) : (
         <>
         {/* Desktop table */}
-        <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden hidden md:block">
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 overflow-hidden hidden md:block">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-slate-100">
-                <th className="text-left px-6 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Имя</th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Телефон</th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Адрес</th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Регион</th>
+              <tr className="border-b border-slate-200/60">
+                <th className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Клиент</th>
+                <th className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Последняя загрузка</th>
+                <th className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Перевозок</th>
+                <th className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Телефон</th>
+                <th className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Регион</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-              {clients.map((c, i) => (
-                <tr
-                  key={c.id}
-                  className="hover:bg-slate-50/50 cursor-pointer transition-colors animate-fade-up"
-                  style={{ animationDelay: `${i * 20}ms` }}
-                  onClick={() => router.push(`/dashboard/clients/${c.id}`)}
-                >
-                  <td className="px-6 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-500">
-                        {c.name.charAt(0).toUpperCase()}
+            <tbody>
+              {filtered.map((c) => {
+                const daysInfo = getDaysLabel(c.daysSince)
+                return (
+                  <tr
+                    key={c.id}
+                    className="border-b border-slate-100 hover:bg-white/60 cursor-pointer transition-colors"
+                    onClick={() => router.push(`/dashboard/clients/${c.id}`)}
+                  >
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                          {c.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-[13px] font-medium text-slate-800">{c.name}</span>
                       </div>
-                      <span className="text-sm font-medium text-slate-800">{c.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-3 text-sm text-slate-500">{c.phone || '—'}</td>
-                  <td className="px-6 py-3 text-sm text-slate-500 max-w-[200px] truncate">{c.address || '—'}</td>
-                  <td className="px-6 py-3">
-                    {c.is_russia ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700">🇷🇺 Россия</span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-50 text-slate-500">🇰🇿 Казахстан</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3 h-3 text-slate-300" strokeWidth={1.8} />
+                        <span className={`text-[11px] font-medium ${daysInfo.color}`}>{daysInfo.text}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="text-[12px] font-semibold text-slate-700">{c.shipmentCount}</span>
+                    </td>
+                    <td className="px-5 py-3 text-[12px] text-slate-500">{c.phone || '—'}</td>
+                    <td className="px-5 py-3">
+                      {c.is_russia ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-600">РФ</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-600">КЗ</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
 
-        {/* Mobile card view */}
+        {/* Mobile cards */}
         <div className="md:hidden space-y-2">
-          {clients.map((c, i) => (
-            <div
-              key={c.id}
-              className="bg-white rounded-xl border border-slate-100 p-3.5 cursor-pointer active:bg-slate-50 transition-colors animate-fade-up"
-              style={{ animationDelay: `${i * 20}ms` }}
-              onClick={() => router.push(`/dashboard/clients/${c.id}`)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-500 shrink-0">
-                  {c.name.charAt(0).toUpperCase()}
+          {filtered.map((c) => {
+            const daysInfo = getDaysLabel(c.daysSince)
+            return (
+              <div
+                key={c.id}
+                className="bg-slate-50 rounded-xl border border-slate-200/60 p-3.5 cursor-pointer active:scale-[0.99] transition-transform"
+                onClick={() => router.push(`/dashboard/clients/${c.id}`)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0">
+                    {c.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-semibold text-slate-800 truncate">{c.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={`text-[10px] font-medium ${daysInfo.color}`}>{daysInfo.text}</span>
+                      <span className="text-[10px] text-slate-300">·</span>
+                      <span className="text-[10px] text-slate-400">{c.shipmentCount} перевозок</span>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-semibold shrink-0 ${c.is_russia ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {c.is_russia ? 'РФ' : 'КЗ'}
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-semibold text-slate-800 truncate">{c.name}</p>
-                  <p className="text-[12px] text-slate-400">{c.phone || 'Нет телефона'}</p>
-                </div>
-                {c.is_russia ? (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 text-blue-700 shrink-0">🇷🇺</span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-50 text-slate-500 shrink-0">🇰🇿</span>
-                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
         </>
       )}
-
     </div>
   )
 }
