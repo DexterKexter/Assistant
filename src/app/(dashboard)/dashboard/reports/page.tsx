@@ -336,7 +336,7 @@ export default function ReportsPage() {
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
               <Bar dataKey="count" name="Загружено" fill="url(#gradYearLoad)" radius={[8, 8, 0, 0]}>
                 <LabelList dataKey="count" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
-                <LabelList dataKey="change" position="top" fontSize={10} fontWeight={600} formatter={(v: number | null) => v !== null ? `${v >= 0 ? '+' : ''}${v}%` : ''} fill="#64748b" />
+                <LabelList dataKey="change" position="top" fontSize={10} fontWeight={600} formatter={(v: any) => v != null ? `${v >= 0 ? '+' : ''}${v}%` : ''} fill="#64748b" />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -352,7 +352,7 @@ export default function ReportsPage() {
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
               <Bar dataKey="count" name="Доставлено" fill="url(#gradYearDel)" radius={[8, 8, 0, 0]}>
                 <LabelList dataKey="count" position="inside" fill="#fff" fontSize={12} fontWeight={700} />
-                <LabelList dataKey="change" position="top" fontSize={10} fontWeight={600} formatter={(v: number | null) => v !== null ? `${v >= 0 ? '+' : ''}${v}%` : ''} fill="#64748b" />
+                <LabelList dataKey="change" position="top" fontSize={10} fontWeight={600} formatter={(v: any) => v != null ? `${v >= 0 ? '+' : ''}${v}%` : ''} fill="#64748b" />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
