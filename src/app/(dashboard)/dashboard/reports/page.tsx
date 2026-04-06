@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, LabelList, PieChart, Pie } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, LabelList } from 'recharts'
 import { Ship, TrendingUp, TrendingDown, Clock, CheckCircle2, Truck, MapPin, Container, BarChart3, GitCompare, Globe, CalendarDays } from 'lucide-react'
 import { fmtDate } from '@/lib/utils'
 
@@ -432,7 +432,11 @@ export default function ReportsPage() {
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={30} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
               <Bar dataKey="count" name="Загружено" radius={[6, 6, 0, 0]}>
-                {loadedByMonth.map((_, i) => <Cell key={i} fill="#6366f1" opacity={0.85} />)}
+                {loadedByMonth.map((entry, i) => {
+                  const isBest = yearData.bestMonth && entry.name === yearData.bestMonth.name
+                  return <Cell key={i} fill={isBest ? '#4f46e5' : '#6366f1'} opacity={isBest ? 1 : 0.65} />
+                })}
+                <LabelList dataKey="count" position="top" fontSize={10} fontWeight={600} fill="#64748b" formatter={(v: any) => v > 0 ? v : ''} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -446,66 +450,66 @@ export default function ReportsPage() {
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={30} />
               <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
               <Bar dataKey="count" name="Доставлено" radius={[6, 6, 0, 0]}>
-                {deliveredByMonth.map((_, i) => <Cell key={i} fill="#10b981" opacity={0.85} />)}
+                {deliveredByMonth.map((entry, i) => {
+                  const isBest = yearData.bestDeliveryMonth && entry.name === yearData.bestDeliveryMonth.name
+                  return <Cell key={i} fill={isBest ? '#059669' : '#10b981'} opacity={isBest ? 1 : 0.65} />
+                })}
+                <LabelList dataKey="count" position="top" fontSize={10} fontWeight={600} fill="#64748b" formatter={(v: any) => v > 0 ? v : ''} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* ── 5. Geography: Pie Charts (clean, no labels) ── */}
+      {/* ── 5. Geography: Horizontal bars with percentages ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-slate-100 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ отправления</h3>
-          <div className="flex items-center">
-            <div className="w-[140px] h-[140px] shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={yearData.topOrigins} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={35} outerRadius={65} paddingAngle={2} label={false}>
-                    {yearData.topOrigins.map((_, i) => (
-                      <Cell key={i} fill={['#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#e0e7ff'][i] || '#e2e8f0'} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 11 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex-1 space-y-1.5 ml-4">
-              {yearData.topOrigins.map((o, i) => (
-                <div key={o.name} className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: ['#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#e0e7ff'][i] || '#e2e8f0' }} />
-                  <span className="text-[12px] text-slate-700 flex-1">{o.name}</span>
-                  <span className="text-[12px] font-semibold text-slate-900">{o.count}</span>
+          <div className="space-y-3">
+            {yearData.topOrigins.map((o, i) => {
+              const max = yearData.topOrigins[0]?.count || 1
+              const pct = yearData.loaded > 0 ? Math.round(o.count / yearData.loaded * 100) : 0
+              const colors = ['#4f46e5', '#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe']
+              return (
+                <div key={o.name}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[12px] font-medium text-slate-700">{o.name}</span>
+                      <span className="text-[10px] text-slate-400">{pct}%</span>
+                    </div>
+                    <span className="text-[13px] font-bold text-slate-900">{o.count}</span>
+                  </div>
+                  <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${(o.count / max) * 100}%`, backgroundColor: colors[i] || '#c7d2fe' }} />
+                  </div>
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </div>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-100 p-5">
           <h3 className="text-[13px] font-semibold text-slate-900 mb-4">Топ назначения</h3>
-          <div className="flex items-center">
-            <div className="w-[140px] h-[140px] shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={yearData.topDests} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={35} outerRadius={65} paddingAngle={2} label={false}>
-                    {yearData.topDests.map((_, i) => (
-                      <Cell key={i} fill={['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0'][i] || '#e2e8f0'} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 11 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex-1 space-y-1.5 ml-4">
-              {yearData.topDests.map((d, i) => (
-                <div key={d.name} className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0'][i] || '#e2e8f0' }} />
-                  <span className="text-[12px] text-slate-700 flex-1">{d.name}</span>
-                  <span className="text-[12px] font-semibold text-slate-900">{d.count}</span>
+          <div className="space-y-3">
+            {yearData.topDests.map((d, i) => {
+              const max = yearData.topDests[0]?.count || 1
+              const pct = yearData.loaded > 0 ? Math.round(d.count / yearData.loaded * 100) : 0
+              const colors = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0']
+              return (
+                <div key={d.name}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[12px] font-medium text-slate-700">{d.name}</span>
+                      <span className="text-[10px] text-slate-400">{pct}%</span>
+                    </div>
+                    <span className="text-[13px] font-bold text-slate-900">{d.count}</span>
+                  </div>
+                  <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${(d.count / max) * 100}%`, backgroundColor: colors[i] || '#a7f3d0' }} />
+                  </div>
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </div>
         </div>
       </div>
