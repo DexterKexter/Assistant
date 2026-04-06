@@ -34,6 +34,7 @@ const mainItems = [
 
 const businessItems = [
   { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
+  { href: '/dashboard/carriers', label: 'Перевозчики', icon: Truck },
   { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
 ]
 
