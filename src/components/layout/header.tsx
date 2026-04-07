@@ -102,8 +102,8 @@ export function Header() {
               </button>
               {showRoleSwitcher && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowRoleSwitcher(false)} />
-                  <div className="absolute right-0 top-11 z-50 w-48 bg-white rounded-xl border border-slate-100 shadow-lg py-1.5">
+                  <div className="fixed inset-0 z-[998]" onClick={() => setShowRoleSwitcher(false)} />
+                  <div className="absolute right-0 top-11 z-[999] w-48 bg-white rounded-xl border border-slate-100 shadow-2xl py-1.5">
                     <p className="px-3 py-1.5 text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Смотреть как:</p>
                     {[
                       { role: 'admin', label: 'Администратор', icon: Shield },
