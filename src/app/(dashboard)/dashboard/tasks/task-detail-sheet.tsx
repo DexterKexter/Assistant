@@ -323,12 +323,22 @@ export default function TaskDetailSheet() {
                   : '??'
                 const timeAgo = getTimeAgo(c.created_at)
                 return (
-                  <div key={c.id} className="flex gap-2.5">
+                  <div key={c.id} className="flex gap-2.5 group/comment">
                     <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-white text-[8px] font-bold shrink-0">{initials}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-[11px] font-semibold text-slate-700">{c.author?.full_name || '...'}</span>
                         <span className="text-[10px] text-slate-300">{timeAgo}</span>
+                        {(profile?.id === c.author_id || profile?.role === 'admin') && (
+                          <button onClick={async () => {
+                            const supabase = createClient()
+                            await supabase.from('task_comments').delete().eq('id', c.id)
+                            const { data } = await supabase.from('task_comments').select('*, author:profiles(id, full_name)').eq('task_id', selectedTaskId!).order('created_at')
+                            setComments((data || []) as any)
+                          }} className="opacity-0 group-hover/comment:opacity-100 w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                       <p className="text-[12px] text-slate-600 leading-relaxed">{c.content}</p>
                     </div>
