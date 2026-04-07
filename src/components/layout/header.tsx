@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useProfile } from '@/lib/useProfile'
 import { useNotifications } from '@/lib/useNotifications'
 import { useTaskModal } from '@/lib/task-modal'
@@ -34,21 +34,14 @@ export function Header() {
   const [switching, setSwitching] = useState(false)
 
   // Track original admin role so eye button stays visible after switching
-  const [isOriginalAdmin] = useState(() => {
-    if (typeof window === 'undefined') return false
+  const [showEye, setShowEye] = useState(false)
+  useEffect(() => {
     const stored = localStorage.getItem('original_role')
-    if (stored === 'admin') return true
-    if (profile?.role === 'admin') {
-      localStorage.setItem('original_role', 'admin')
-      return true
+    if (stored === 'admin' || profile?.role === 'admin') {
+      if (profile?.role === 'admin') localStorage.setItem('original_role', 'admin')
+      setShowEye(true)
     }
-    return false
-  })
-  // Update localStorage when profile loads as admin
-  if (profile?.role === 'admin' && typeof window !== 'undefined') {
-    localStorage.setItem('original_role', 'admin')
-  }
-  const showEye = isOriginalAdmin || profile?.role === 'admin'
+  }, [profile?.role])
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
