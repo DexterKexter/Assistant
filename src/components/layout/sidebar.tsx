@@ -113,7 +113,12 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
 
         {/* Nav icons */}
         <div className="flex-1 flex flex-col items-center gap-1 w-full px-2">
-          {coreItems.map((item) => {
+          {(() => {
+            const role = profile?.role || 'client'
+            if (role === 'accountant') return [...businessItems.filter(i => ['/dashboard/finance', '/dashboard/documents'].includes(i.href)), ...otherItems]
+            if (role === 'client') return otherItems
+            return coreItems
+          })().map((item) => {
             const active = isActive(item.href)
             return (
               <Link
@@ -202,11 +207,23 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
       </div>
 
       <nav className="flex-1 pl-4 pr-16 pt-2 overflow-y-auto">
-        {[
-          { label: 'Основное', items: mainItems },
-          { label: 'Бизнес', items: businessItems },
-          { label: 'Другое', items: otherItems },
-        ].map((section, si) => (
+        {(() => {
+          const role = profile?.role || 'client'
+          const isAccountant = role === 'accountant'
+          const isClient = role === 'client'
+          const sections = []
+
+          if (!isAccountant && !isClient) {
+            sections.push({ label: 'Основное', items: mainItems })
+            sections.push({ label: 'Бизнес', items: businessItems })
+          }
+          if (isAccountant) {
+            sections.push({ label: 'Бизнес', items: businessItems.filter(i => ['/dashboard/finance', '/dashboard/documents'].includes(i.href)) })
+          }
+          sections.push({ label: isAccountant || isClient ? 'Меню' : 'Другое', items: otherItems })
+
+          return sections
+        })().map((section, si) => (
           <div key={section.label}>
             <p className={`text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2 ${si > 0 ? 'mt-5' : ''}`}>{section.label}</p>
             <div className="space-y-0.5">
