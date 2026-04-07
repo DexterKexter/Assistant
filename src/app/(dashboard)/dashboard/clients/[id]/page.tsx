@@ -132,15 +132,18 @@ export default function ClientDetailPage() {
 
   return (
     <div className="space-y-5">
+      {/* Breadcrumbs */}
+      <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <a href="/dashboard/clients" className="hover:text-slate-600 transition-colors">Клиенты</a>
+        <span>/</span>
+        <span className="text-slate-700 font-medium">{client.name}</span>
+      </div>
+
       {/* ── Header ── */}
-      <div className="flex items-center gap-4">
-        <button onClick={() => router.back()} className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors shrink-0">
-          <ArrowLeft className="w-4 h-4 text-slate-600" strokeWidth={2} />
-        </button>
-        <div className="flex items-center gap-3.5 flex-1 min-w-0">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[15px] font-bold shadow-lg shadow-indigo-500/20 shrink-0">
-            {initials}
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[12px] font-bold shrink-0">
+          {initials}
+        </div>
           <div className="min-w-0">
             <h1 className="text-[20px] font-bold text-slate-900 tracking-tight font-heading truncate">{client.name}</h1>
             <div className="flex items-center gap-3 mt-0.5">
@@ -164,7 +167,6 @@ export default function ClientDetailPage() {
           </div>
         </div>
       </div>
-
       {/* ── Stats Cards ── */}
       {analytics && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

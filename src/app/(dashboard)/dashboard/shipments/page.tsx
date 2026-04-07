@@ -306,14 +306,15 @@ export default function ShipmentsPage() {
               <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Откуда</th>
               <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Погранпереход</th>
               <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Город</th>
+              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500 w-[6%]">Дней</th>
               <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500 w-[9%]">Статус</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="px-5 py-3"><div className="space-y-2">{[...Array(6)].map((_, i) => <div key={i} className="skeleton h-10 w-full" />)}</div></td></tr>
+              <tr><td colSpan={9} className="px-5 py-3"><div className="space-y-2">{[...Array(6)].map((_, i) => <div key={i} className="skeleton h-10 w-full" />)}</div></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="px-5 py-16 text-center">
+              <tr><td colSpan={9} className="px-5 py-16 text-center">
                 <Ship className="w-10 h-10 text-slate-200 mx-auto mb-3" strokeWidth={1.5} />
                 <p className="text-[14px] text-slate-400 font-medium">Не найдено</p>
               </td></tr>
@@ -344,6 +345,15 @@ export default function ShipmentsPage() {
                       <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{s.origin || '—'}</td>
                       <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{s.destination_station || '—'}</td>
                       <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{s.destination_city || '—'}</td>
+                      <td className="px-2 py-2.5">
+                        {(() => {
+                          if (status.key === 'delivered') return <span className="text-[11px] text-emerald-500 font-medium">✓</span>
+                          if (!s.departure_date) return <span className="text-[11px] text-slate-300">—</span>
+                          const days = Math.floor((Date.now() - new Date(s.departure_date).getTime()) / 86400000)
+                          const isLong = days > 45
+                          return <span className={`text-[11px] font-semibold tabular-nums ${isLong ? 'text-red-500' : 'text-slate-600'}`}>{days}д</span>
+                        })()}
+                      </td>
                       <td className="px-3 py-2">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap" style={{ background: status.color + '15', color: status.color }}>
                           <span className={`w-1.5 h-1.5 rounded-full ${status.key === 'in_transit' ? 'dot-pulse' : ''}`} style={{ background: status.color }} />

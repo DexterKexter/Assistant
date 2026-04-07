@@ -124,19 +124,21 @@ export default function CarrierDetailPage() {
 
   return (
     <div className="space-y-5">
+      {/* Breadcrumbs */}
+      <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <a href="/dashboard/carriers" className="hover:text-slate-600 transition-colors">Перевозчики</a>
+        <span>/</span>
+        <span className="text-slate-700 font-medium">{carrier.name}</span>
+      </div>
+
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button onClick={() => router.back()} className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors shrink-0">
-          <ArrowLeft className="w-4 h-4 text-slate-600" strokeWidth={2} />
-        </button>
-        <div className="flex items-center gap-3.5 flex-1 min-w-0">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20 shrink-0">
-            <Truck className="w-6 h-6" strokeWidth={2} />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-[20px] font-bold text-slate-900 tracking-tight font-heading truncate">{carrier.name}</h1>
-            <p className="text-[12px] text-slate-400 mt-0.5">{shipments.length} перевозок за всё время</p>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-white shrink-0">
+          <Truck className="w-4.5 h-4.5" strokeWidth={2} />
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-[20px] font-bold text-slate-900 tracking-tight font-heading truncate">{carrier.name}</h1>
+          <p className="text-[12px] text-slate-400 mt-0.5">{shipments.length} перевозок за всё время</p>
         </div>
       </div>
 
