@@ -32,7 +32,23 @@ export function Header() {
   const [showNotifs, setShowNotifs] = useState(false)
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false)
   const [switching, setSwitching] = useState(false)
-  const isAdmin = profile?.role === 'admin'
+
+  // Track original admin role so eye button stays visible after switching
+  const [isOriginalAdmin] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const stored = localStorage.getItem('original_role')
+    if (stored === 'admin') return true
+    if (profile?.role === 'admin') {
+      localStorage.setItem('original_role', 'admin')
+      return true
+    }
+    return false
+  })
+  // Update localStorage when profile loads as admin
+  if (profile?.role === 'admin' && typeof window !== 'undefined') {
+    localStorage.setItem('original_role', 'admin')
+  }
+  const showEye = isOriginalAdmin || profile?.role === 'admin'
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -91,7 +107,7 @@ export function Header() {
           </button>
 
           {/* Role switcher — admin only */}
-          {isAdmin && (
+          {showEye && (
             <div className="relative">
               <button
                 onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
