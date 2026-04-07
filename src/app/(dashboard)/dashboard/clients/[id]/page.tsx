@@ -209,14 +209,14 @@ export default function ClientDetailPage() {
                   ))}
                 </div>
               </div>
-              <div className="flex items-end gap-1.5 h-[80px]">
+              <div className="flex items-end gap-1.5 h-[140px]">
                 {analytics.monthlyActivity.map((m, i) => (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="w-full relative" style={{ height: 60 }}>
+                    <div className="w-full relative" style={{ height: 110 }}>
                       <div
                         className="absolute bottom-0 w-full rounded-t-sm transition-all"
                         style={{
-                          height: `${Math.max(2, (m.count / analytics.maxMonthly) * 60)}px`,
+                          height: `${Math.max(2, (m.count / analytics.maxMonthly) * 110)}px`,
                           backgroundColor: m.count > 0 ? '#6366f1' : '#e2e8f0',
                           opacity: m.count > 0 ? 0.8 : 0.4,
                         }}
