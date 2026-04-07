@@ -44,43 +44,47 @@ function TaskCard({ task, onDragStart }: { task: Task; onDragStart: (e: React.Dr
       draggable
       onDragStart={(e) => onDragStart(e, task.id)}
       onClick={() => openTask(task.id)}
-      className={`${CARD_BG_COLORS[task.status]} rounded-xl border border-slate-100 border-l-[3px] ${CARD_BORDER_COLORS[task.status]} p-3.5 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-slate-200 transition-all group`}
+      className="bg-white rounded-2xl p-4 cursor-grab active:cursor-grabbing hover:shadow-lg shadow-sm transition-all group border border-slate-100/80"
     >
-      <div className="flex items-start justify-between gap-2 mb-1.5">
-        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          <GripVertical className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={2} />
-          <h4 className="text-[13px] font-semibold text-slate-800 leading-snug line-clamp-2">{task.title}</h4>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <PIcon className="w-3.5 h-3.5" style={{ color: pCfg.color }} strokeWidth={2} />
-          <StatusDropdown task={task} />
-        </div>
+      {/* Priority badge */}
+      <div className="mb-3">
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg" style={{ backgroundColor: pCfg.color + '15', color: pCfg.color }}>
+          <PIcon className="w-3 h-3" strokeWidth={2.5} />
+          {pCfg.label}
+        </span>
       </div>
 
+      {/* Title */}
+      <h4 className="text-[14px] font-semibold text-slate-800 leading-snug line-clamp-2 mb-1">{task.title}</h4>
+
       {task.description && (
-        <p className="text-[11px] text-slate-400 line-clamp-2 mb-2.5 leading-relaxed">{task.description}</p>
+        <p className="text-[12px] text-slate-400 line-clamp-2 mb-3 leading-relaxed">{task.description}</p>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {/* Bottom: avatars + meta */}
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100/80">
+        <div className="flex items-center gap-1.5">
           {initials && (
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[8px] font-bold" title={task.assignee?.full_name || ''}>
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white" title={task.assignee?.full_name || ''}>
               {initials}
             </div>
           )}
           {task.due_date && (
-            <span className={`flex items-center gap-1 text-[10px] font-medium ${isOverdue ? 'text-red-500' : 'text-slate-400'}`}>
+            <span className={`flex items-center gap-1 text-[10px] font-medium ml-1 ${isOverdue ? 'text-red-500' : 'text-slate-400'}`}>
               <Calendar className="w-3 h-3" strokeWidth={1.8} />
               {new Date(task.due_date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
             </span>
           )}
         </div>
-        {(task.comment_count ?? 0) > 0 && (
-          <span className="flex items-center gap-1 text-[10px] text-slate-400">
-            <MessageSquare className="w-3 h-3" strokeWidth={1.8} />
-            {task.comment_count}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {(task.comment_count ?? 0) > 0 && (
+            <span className="flex items-center gap-1 text-[11px] text-slate-400 font-medium">
+              <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.8} />
+              {task.comment_count}
+            </span>
+          )}
+          <StatusDropdown task={task} />
+        </div>
       </div>
     </div>
   )
@@ -126,20 +130,25 @@ function StatusDropdown({ task }: { task: Task }) {
 
 export function KanbanView({ tasks, loading }: { tasks: Task[]; loading: boolean }) {
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null)
+  const [localOverrides, setLocalOverrides] = useState<Record<string, TaskStatus>>({})
   const draggedTaskId = useRef<string | null>(null)
+
+  // Apply local optimistic overrides to tasks
+  const displayTasks = tasks.map(t => localOverrides[t.id] ? { ...t, status: localOverrides[t.id] } : t)
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     draggedTaskId.current = taskId
     e.dataTransfer.effectAllowed = 'move'
-    // Make the drag ghost semi-transparent
     if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = '0.5'
+      e.currentTarget.style.opacity = '0.4'
+      e.currentTarget.style.transform = 'scale(0.95)'
     }
   }
 
   const handleDragEnd = (e: React.DragEvent) => {
     if (e.currentTarget instanceof HTMLElement) {
       e.currentTarget.style.opacity = '1'
+      e.currentTarget.style.transform = 'scale(1)'
     }
     setDragOverColumn(null)
     draggedTaskId.current = null
@@ -164,9 +173,16 @@ export function KanbanView({ tasks, loading }: { tasks: Task[]; loading: boolean
     const task = tasks.find(t => t.id === taskId)
     if (!task || task.status === targetStatus) return
 
+    // Optimistic: instantly move card
+    setLocalOverrides(prev => ({ ...prev, [taskId]: targetStatus }))
+    draggedTaskId.current = null
+
+    // Persist to DB
     const supabase = createClient()
     await supabase.from('tasks').update({ status: targetStatus }).eq('id', taskId)
-    draggedTaskId.current = null
+
+    // Clear override after real data arrives (via real-time)
+    setTimeout(() => setLocalOverrides(prev => { const n = { ...prev }; delete n[taskId]; return n }), 2000)
   }
 
   if (loading) {
@@ -188,7 +204,7 @@ export function KanbanView({ tasks, loading }: { tasks: Task[]; loading: boolean
     <div className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory md:snap-none -mx-1 px-1">
       {STATUS_ORDER.map(status => {
         const cfg = TASK_STATUS_CONFIG[status]
-        const columnTasks = tasks.filter(t => t.status === status)
+        const columnTasks = displayTasks.filter(t => t.status === status)
         const isDropTarget = dragOverColumn === status
 
         return (
