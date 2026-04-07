@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Search, FileText, Image as ImageIcon, ExternalLink, X } from 'lucide-react'
+import { Search, FileText, Image as ImageIcon, ExternalLink, X, Clock } from 'lucide-react'
 import type { Shipment } from '@/types/database'
 import { useShipmentModal } from '@/lib/shipment-modal'
 
@@ -122,6 +122,56 @@ export default function DocumentsPage() {
               </div>
             </div>
           </div>
+
+          {/* Recently added documents */}
+          {(() => {
+            const sevenDaysAgo = new Date()
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 30)
+            const recentStr = sevenDaysAgo.toISOString().split('T')[0]
+            const recent = allShipments.filter(s => {
+              const hasNewDoc = (s.contract_pdf && s.updated_at > recentStr) || (s.photos?.length && s.updated_at > recentStr)
+              return hasNewDoc
+            }).slice(0, 8)
+
+            if (recent.length === 0) return null
+
+            return (
+              <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
+                  <Clock className="w-4 h-4 text-indigo-500" />
+                  <h2 className="text-[13px] font-semibold text-slate-900">Последние добавленные</h2>
+                  <span className="text-[11px] text-slate-400 ml-1">за 30 дней</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0">
+                  {recent.map(s => {
+                    const hasContract = !!s.contract_pdf
+                    const photoCount = s.photos?.length || 0
+                    const clientName = (s.client as unknown as { name: string })?.name || '—'
+                    return (
+                      <div key={s.id} onClick={() => openShipment(s.id)}
+                        className="flex items-center gap-3 px-4 py-3 border-b sm:border-r border-slate-100 last:border-b-0 hover:bg-slate-50/50 cursor-pointer transition-colors">
+                        {photoCount > 0 ? (
+                          <img src={s.photos![0]} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                            <FileText className="w-4 h-4 text-slate-400" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12px] font-mono font-semibold text-slate-800 truncate">{s.container_number}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{clientName}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {hasContract && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-500 text-[8px] font-semibold rounded">PDF</span>}
+                          {photoCount > 0 && <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-500 text-[8px] font-semibold rounded">{photoCount} фото</span>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Status table — full width */}
           <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
