@@ -13,6 +13,7 @@ export function useUnreadCount() {
     const channelName = `unread-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
     async function fetchUnread() {
+      try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user || !mountedRef.current) return
 
@@ -34,6 +35,7 @@ export function useUnreadCount() {
         total += c || 0
       }
       if (mountedRef.current) setCount(total)
+      } catch { /* auth lock contention */ }
     }
 
     fetchUnread()

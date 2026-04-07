@@ -107,14 +107,16 @@ export function useMyTaskCount() {
     const channelName = `my-tasks-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
     async function fetchCount() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user || !mountedRef.current) return
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user || !mountedRef.current) return
       const { count: c } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('assigned_to', user.id)
         .neq('status', 'done')
       if (mountedRef.current) setCount(c || 0)
+      } catch { /* auth lock contention — ignore */ }
     }
 
     fetchCount()

@@ -10,6 +10,7 @@ export function useNotifications() {
   const mountedRef = useRef(true)
 
   const fetchNotifications = useCallback(async () => {
+    try {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || !mountedRef.current) return
@@ -25,6 +26,7 @@ export function useNotifications() {
       setNotifications(data as unknown as Notification[])
       setLoading(false)
     }
+    } catch { /* auth lock contention */ }
   }, [])
 
   useEffect(() => {
@@ -55,11 +57,13 @@ export function useNotifications() {
   }
 
   const markAllAsRead = async () => {
+    try {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false)
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+    } catch { /* auth lock */ }
   }
 
   return { notifications, loading, unreadCount, markAsRead, markAllAsRead, refetch: fetchNotifications }
