@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useProfile } from '@/lib/useProfile'
 import { useNotifications } from '@/lib/useNotifications'
 import { useTaskModal } from '@/lib/task-modal'
-import { Search, Bell, CheckCheck, UserPlus, MessageSquare, X, HelpCircle } from 'lucide-react'
+import { Search, Bell, CheckCheck, UserPlus, MessageSquare, X, HelpCircle, Eye, Shield, Users, Wallet } from 'lucide-react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Администратор',
@@ -29,10 +30,23 @@ export function Header() {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
   const { openTask } = useTaskModal()
   const [showNotifs, setShowNotifs] = useState(false)
+  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false)
+  const [switching, setSwitching] = useState(false)
+  const isAdmin = profile?.role === 'admin'
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : '??'
+
+  const switchRole = async (newRole: string) => {
+    if (!profile || switching) return
+    setSwitching(true)
+    const supabase = createClient()
+    await supabase.from('profiles').update({ role: newRole }).eq('id', profile.id)
+    setShowRoleSwitcher(false)
+    setSwitching(false)
+    window.location.reload()
+  }
 
   const handleNotifClick = (notif: typeof notifications[0]) => {
     markAsRead(notif.id)
@@ -75,6 +89,43 @@ export function Header() {
               </span>
             )}
           </button>
+
+          {/* Role switcher — admin only */}
+          {isAdmin && (
+            <div className="relative">
+              <button
+                onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
+                className="w-9 h-9 rounded-lg border border-amber-200 bg-amber-50 flex items-center justify-center hover:bg-amber-100 transition-colors"
+                title="Переключить роль (для тестирования)"
+              >
+                <Eye className="h-4 w-4 text-amber-600" strokeWidth={1.8} />
+              </button>
+              {showRoleSwitcher && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowRoleSwitcher(false)} />
+                  <div className="absolute right-0 top-11 z-50 w-48 bg-white rounded-xl border border-slate-100 shadow-lg py-1.5">
+                    <p className="px-3 py-1.5 text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Смотреть как:</p>
+                    {[
+                      { role: 'admin', label: 'Администратор', icon: Shield },
+                      { role: 'manager', label: 'Менеджер', icon: Users },
+                      { role: 'accountant', label: 'Бухгалтер', icon: Wallet },
+                    ].map(r => (
+                      <button
+                        key={r.role}
+                        onClick={() => switchRole(r.role)}
+                        disabled={switching}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-[12px] hover:bg-slate-50 transition-colors ${profile?.role === r.role ? 'text-indigo-600 font-semibold' : 'text-slate-600'}`}
+                      >
+                        <r.icon className="w-3.5 h-3.5" strokeWidth={1.8} />
+                        {r.label}
+                        {profile?.role === r.role && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="hidden md:block h-8 w-px bg-slate-100" />
 
