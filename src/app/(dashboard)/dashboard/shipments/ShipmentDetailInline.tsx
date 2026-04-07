@@ -8,6 +8,10 @@ import { getShipmentStatus, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
 import { DetailIcon } from '@/components/detail-icon'
 import { useProfile } from '@/lib/useProfile'
+
+function safeName(name: string) {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_')
+}
 import { SearchableSelect } from '@/components/searchable-select'
 
 const ShipmentMap = dynamic(() => import('@/components/shipment-map').then(m => ({ default: m.ShipmentMap })), { ssr: false })
@@ -507,7 +511,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                         const supabase = createClient()
                         const newPhotos = [...(shipment.photos || [])]
                         for (const file of Array.from(files)) {
-                          const path = `${shipment.id}/photos/${Date.now()}_${file.name}`
+                          const path = `${shipment.id}/photos/${Date.now()}_${safeName(file.name)}`
                           await supabase.storage.from('shipment-docs').upload(path, file)
                           const { data: { publicUrl } } = supabase.storage.from('shipment-docs').getPublicUrl(path)
                           newPhotos.push(publicUrl)
@@ -535,7 +539,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                       const supabase = createClient()
                       const newPhotos = [...(shipment.photos || [])]
                       for (const file of Array.from(files)) {
-                        const path = `${shipment.id}/photos/${Date.now()}_${file.name}`
+                        const path = `${shipment.id}/photos/${Date.now()}_${safeName(file.name)}`
                         await supabase.storage.from('shipment-docs').upload(path, file)
                         const { data: { publicUrl } } = supabase.storage.from('shipment-docs').getPublicUrl(path)
                         newPhotos.push(publicUrl)
@@ -599,7 +603,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                             if (!file || !shipment) return
                             setUploading(true)
                             const supabase = createClient()
-                            const path = `${shipment.id}/files/${Date.now()}_${file.name}`
+                            const path = `${shipment.id}/files/${Date.now()}_${safeName(file.name)}`
                             await supabase.storage.from('shipment-docs').upload(path, file)
                             const { data: { publicUrl } } = supabase.storage.from('shipment-docs').getPublicUrl(path)
 

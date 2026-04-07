@@ -546,7 +546,8 @@ function MessageInput({ conversationId, profileId, onSent, onOptimisticSend, sen
     setSending(true)
     const attachments: MessageAttachment[] = []
     for (const file of msgFiles) {
-      const path = `${conversationId}/${Date.now()}_${file.name}`
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${conversationId}/${Date.now()}_${safeName}`
       const { error } = await supabase.storage.from('message-attachments').upload(path, file)
       if (!error) {
         const { data: { publicUrl } } = supabase.storage.from('message-attachments').getPublicUrl(path)
