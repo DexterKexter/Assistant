@@ -435,12 +435,20 @@ function renderContentWithMentions(text: string, mentions: MessageMention[], onM
 
 /* ── Attachment Item ── */
 function AttachmentItem({ att, isMine }: { att: MessageAttachment; isMine: boolean }) {
+  const [showModal, setShowModal] = useState(false)
   const isImage = att.type?.startsWith('image/')
   if (isImage) {
     return (
-      <a href={att.url} target="_blank" rel="noopener" className="block">
-        <img src={att.url} alt={att.name} className="rounded-lg max-w-[200px] max-h-[150px] object-cover" />
-      </a>
+      <>
+        <button onClick={() => setShowModal(true)} className="block cursor-zoom-in">
+          <img src={att.url} alt={att.name} className="rounded-lg max-w-[200px] max-h-[150px] object-cover" />
+        </button>
+        {showModal && (
+          <div className="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+            <img src={att.url} alt={att.name} className="max-w-[90vw] max-h-[85vh] object-contain rounded-xl shadow-2xl" onClick={e => e.stopPropagation()} />
+          </div>
+        )}
+      </>
     )
   }
   return (
