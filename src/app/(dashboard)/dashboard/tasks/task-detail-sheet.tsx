@@ -27,7 +27,7 @@ export default function TaskDetailSheet() {
   const [createDue, setCreateDue] = useState('')
 
   // Comment
-  const { comments, addComment } = useTaskComments(selectedTaskId)
+  const { comments, addComment, refetch: refetchComments } = useTaskComments(selectedTaskId)
   const [commentText, setCommentText] = useState('')
   const commentsEndRef = useRef<HTMLDivElement>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -333,8 +333,7 @@ export default function TaskDetailSheet() {
                           <button onClick={async () => {
                             const supabase = createClient()
                             await supabase.from('task_comments').delete().eq('id', c.id)
-                            const { data } = await supabase.from('task_comments').select('*, author:profiles(id, full_name)').eq('task_id', selectedTaskId!).order('created_at')
-                            setComments((data || []) as any)
+                            refetchComments()
                           }} className="opacity-0 group-hover/comment:opacity-100 w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all">
                             <Trash2 className="w-3 h-3" />
                           </button>

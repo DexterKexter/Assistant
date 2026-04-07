@@ -94,7 +94,7 @@ export function useTaskComments(taskId: string | null) {
     await supabase.from('task_comments').insert({ task_id: taskId, author_id: user.id, content })
   }
 
-  return { comments, loading, addComment }
+  return { comments, loading, addComment, refetch: fetchComments }
 }
 
 export function useMyTaskCount() {
