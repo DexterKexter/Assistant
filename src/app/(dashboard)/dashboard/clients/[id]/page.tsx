@@ -165,7 +165,6 @@ export default function ClientDetailPage() {
               )}
             </div>
           </div>
-        </div>
       </div>
       {/* ── Stats Cards ── */}
       {analytics && (
