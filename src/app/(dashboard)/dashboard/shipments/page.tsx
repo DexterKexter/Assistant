@@ -284,6 +284,10 @@ export default function ShipmentsPage() {
                 <p className="text-[12px] text-slate-500 font-medium mb-1">Город назначения</p>
                 <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.destination_city || ''} onChange={v => setNew('destination_city', v)} placeholder="Выберите..." />
               </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Стоимость доставки</p>
+                <input type="number" placeholder="0" className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300 w-full" value={newRow.delivery_cost || ''} onChange={e => setNew('delivery_cost', e.target.value ? Number(e.target.value) : null)} />
+              </div>
             </div>
           </div>
         </>
