@@ -496,10 +496,24 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                 </div>
                 <div className="flex gap-1.5 p-2 border-t border-slate-100 bg-white overflow-x-auto shrink-0">
                   {photos.map((url, i) => (
-                    <button key={i} onClick={() => setPhotoIdx(i)}
-                      className={`w-14 h-14 rounded-md overflow-hidden shrink-0 border-2 transition-all ${i === photoIdx ? 'border-slate-700' : 'border-transparent opacity-50 hover:opacity-100'}`}>
-                      <img src={url} alt="" className="w-full h-full object-cover" />
-                    </button>
+                    <div key={i} className="relative shrink-0">
+                      <button onClick={() => setPhotoIdx(i)}
+                        className={`w-14 h-14 rounded-md overflow-hidden border-2 transition-all ${i === photoIdx ? 'border-slate-700' : 'border-transparent opacity-50 hover:opacity-100'}`}>
+                        <img src={url} alt="" className="w-full h-full object-cover" />
+                      </button>
+                      {canEdit && editing && (
+                        <button onClick={async () => {
+                          if (!shipment) return
+                          const supabase = createClient()
+                          const newPhotos = photos.filter((_, j) => j !== i)
+                          await supabase.from('shipments').update({ photos: newPhotos.length ? newPhotos : null }).eq('id', shipment.id)
+                          setShipment({ ...shipment, photos: newPhotos.length ? newPhotos : null })
+                          if (photoIdx >= newPhotos.length) setPhotoIdx(Math.max(0, newPhotos.length - 1))
+                        }} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 shadow-sm">
+                          <X className="w-2.5 h-2.5" strokeWidth={3} />
+                        </button>
+                      )}
+                    </div>
                   ))}
                   {canEdit && (
                     <label className="w-14 h-14 rounded-md border-2 border-dashed border-slate-200 flex items-center justify-center shrink-0 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/50 transition-all">
@@ -556,28 +570,49 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
             <div className="flex-1 flex flex-col bg-white rounded-xl border border-slate-100 p-3 overflow-y-auto">
               <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Файлы</p>
               {shipment.contract_pdf && (
-                <a href={shipment.contract_pdf} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 border border-slate-100 mb-2">
-                  <div className="w-7 h-6 rounded-md bg-gradient-to-b from-slate-100 to-slate-200 flex items-center justify-center shrink-0">
-                    <FileText className="w-3 h-3 text-slate-500" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-medium text-slate-800 truncate">Договор</p>
-                    <p className="text-[10px] text-slate-400">PDF</p>
-                  </div>
-                </a>
+                <div className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 border border-slate-100 mb-2">
+                  <a href={shipment.contract_pdf} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <div className="w-7 h-6 rounded-md bg-gradient-to-b from-slate-100 to-slate-200 flex items-center justify-center shrink-0">
+                      <FileText className="w-3 h-3 text-slate-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-medium text-slate-800 truncate">Договор</p>
+                      <p className="text-[10px] text-slate-400">PDF</p>
+                    </div>
+                  </a>
+                  {canEdit && editing && (
+                    <button onClick={async () => {
+                      const supabase = createClient()
+                      await supabase.from('shipments').update({ contract_pdf: null }).eq('id', shipment.id)
+                      setShipment({ ...shipment, contract_pdf: null })
+                    }} className="w-6 h-6 rounded-md flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0 transition-colors">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               )}
               {excelFiles.map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 border border-slate-100 mb-2">
-                  <div className="w-7 h-6 rounded-md bg-gradient-to-b from-slate-100 to-slate-200 flex items-center justify-center shrink-0">
-                    <FileText className="w-3 h-3 text-slate-500" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-medium text-slate-800 truncate">Упаковочный лист {i + 1}</p>
-                    <p className="text-[10px] text-slate-400">Excel</p>
-                  </div>
-                </a>
+                <div key={i} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 border border-slate-100 mb-2">
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <div className="w-7 h-6 rounded-md bg-gradient-to-b from-slate-100 to-slate-200 flex items-center justify-center shrink-0">
+                      <FileText className="w-3 h-3 text-slate-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-medium text-slate-800 truncate">Документ {i + 1}</p>
+                      <p className="text-[10px] text-slate-400">Файл</p>
+                    </div>
+                  </a>
+                  {canEdit && editing && (
+                    <button onClick={async () => {
+                      const supabase = createClient()
+                      const newFiles = excelFiles.filter((_, j) => j !== i)
+                      await supabase.from('shipments').update({ excel_files: newFiles.length ? newFiles : null }).eq('id', shipment.id)
+                      setShipment({ ...shipment, excel_files: newFiles.length ? newFiles : null })
+                    }} className="w-6 h-6 rounded-md flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0 transition-colors">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               ))}
               {!hasFiles && <p className="text-[12px] text-slate-400 text-center py-4">Нет файлов</p>}
 
