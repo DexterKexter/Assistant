@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Building2, Truck, Pencil, Check, Save, Trash2 } from 'lucide-react'
+import { Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Building2, Truck, Pencil, Check, Save, Trash2, Upload, Image, Plus } from 'lucide-react'
 import { getShipmentStatus, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
 import { DetailIcon } from '@/components/detail-icon'
@@ -28,6 +28,9 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   const [tab, setTab] = useState<'shipment' | 'documents' | 'finance'>('shipment')
   const [photoIdx, setPhotoIdx] = useState(0)
   const [lightbox, setLightbox] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [fileDocName, setFileDocName] = useState('')
+  const [showFileUpload, setShowFileUpload] = useState(false)
 
   // Edit mode
   const { hasRole } = useProfile()
@@ -487,20 +490,63 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                 <div className="flex-1 relative overflow-hidden cursor-zoom-in bg-slate-50" onClick={() => setLightbox(true)}>
                   <img src={curPhoto!} alt="" className="w-full h-full object-contain" />
                 </div>
-                {photos.length > 1 && (
-                  <div className="flex gap-1.5 p-2 border-t border-slate-100 bg-white overflow-x-auto shrink-0">
-                    {photos.map((url, i) => (
-                      <button key={i} onClick={() => setPhotoIdx(i)}
-                        className={`w-14 h-14 rounded-md overflow-hidden shrink-0 border-2 transition-all ${i === photoIdx ? 'border-slate-700' : 'border-transparent opacity-50 hover:opacity-100'}`}>
-                        <img src={url} alt="" className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <div className="flex gap-1.5 p-2 border-t border-slate-100 bg-white overflow-x-auto shrink-0">
+                  {photos.map((url, i) => (
+                    <button key={i} onClick={() => setPhotoIdx(i)}
+                      className={`w-14 h-14 rounded-md overflow-hidden shrink-0 border-2 transition-all ${i === photoIdx ? 'border-slate-700' : 'border-transparent opacity-50 hover:opacity-100'}`}>
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                  {canEdit && (
+                    <label className="w-14 h-14 rounded-md border-2 border-dashed border-slate-200 flex items-center justify-center shrink-0 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/50 transition-all">
+                      <Plus className="w-4 h-4 text-slate-300" />
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                        const files = e.target.files
+                        if (!files?.length || !shipment) return
+                        setUploading(true)
+                        const supabase = createClient()
+                        const newPhotos = [...(shipment.photos || [])]
+                        for (const file of Array.from(files)) {
+                          const path = `${shipment.id}/photos/${Date.now()}_${file.name}`
+                          await supabase.storage.from('shipment-docs').upload(path, file)
+                          const { data: { publicUrl } } = supabase.storage.from('shipment-docs').getPublicUrl(path)
+                          newPhotos.push(publicUrl)
+                        }
+                        await supabase.from('shipments').update({ photos: newPhotos }).eq('id', shipment.id)
+                        setShipment({ ...shipment, photos: newPhotos })
+                        setPhotoIdx(newPhotos.length - 1)
+                        setUploading(false)
+                      }} />
+                    </label>
+                  )}
+                </div>
               </div>
             ) : (
-              <div className="flex-[4] flex items-center justify-center bg-white rounded-xl border border-slate-100">
+              <div className="flex-[4] flex flex-col items-center justify-center bg-white rounded-xl border border-slate-100 gap-3">
+                <Image className="w-8 h-8 text-slate-200" strokeWidth={1.5} />
                 <p className="text-[13px] text-slate-400">Нет фотографий</p>
+                {canEdit && (
+                  <label className={`flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 rounded-lg text-[12px] font-medium text-indigo-600 hover:bg-indigo-100 transition-colors cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <Upload className="w-3.5 h-3.5" /> {uploading ? 'Загрузка...' : 'Загрузить фото'}
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                      const files = e.target.files
+                      if (!files?.length || !shipment) return
+                      setUploading(true)
+                      const supabase = createClient()
+                      const newPhotos = [...(shipment.photos || [])]
+                      for (const file of Array.from(files)) {
+                        const path = `${shipment.id}/photos/${Date.now()}_${file.name}`
+                        await supabase.storage.from('shipment-docs').upload(path, file)
+                        const { data: { publicUrl } } = supabase.storage.from('shipment-docs').getPublicUrl(path)
+                        newPhotos.push(publicUrl)
+                      }
+                      await supabase.from('shipments').update({ photos: newPhotos }).eq('id', shipment.id)
+                      setShipment({ ...shipment, photos: newPhotos })
+                      setPhotoIdx(newPhotos.length - 1)
+                      setUploading(false)
+                    }} />
+                  </label>
+                )}
               </div>
             )}
             <div className="flex-1 flex flex-col bg-white rounded-xl border border-slate-100 p-3 overflow-y-auto">
@@ -530,6 +576,56 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                 </a>
               ))}
               {!hasFiles && <p className="text-[12px] text-slate-400 text-center py-4">Нет файлов</p>}
+
+              {/* Upload file */}
+              {canEdit && (
+                <div className="mt-auto pt-2 border-t border-slate-100">
+                  {showFileUpload ? (
+                    <div className="space-y-2">
+                      <select value={fileDocName} onChange={e => setFileDocName(e.target.value)}
+                        className="w-full h-8 rounded-lg border border-slate-200 bg-white px-2 text-[11px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30">
+                        <option value="">Тип документа...</option>
+                        <option value="contract_pdf">Договор (PDF)</option>
+                        <option value="excel">Упаковочный лист</option>
+                        <option value="invoice">Инвойс</option>
+                        <option value="customs">Таможенная декларация</option>
+                        <option value="other">Другой документ</option>
+                      </select>
+                      {fileDocName && (
+                        <label className={`flex items-center justify-center gap-1.5 w-full h-8 bg-indigo-50 rounded-lg text-[11px] font-medium text-indigo-600 hover:bg-indigo-100 transition-colors cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                          <Upload className="w-3 h-3" /> {uploading ? 'Загрузка...' : 'Выбрать файл'}
+                          <input type="file" className="hidden" onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            if (!file || !shipment) return
+                            setUploading(true)
+                            const supabase = createClient()
+                            const path = `${shipment.id}/files/${Date.now()}_${file.name}`
+                            await supabase.storage.from('shipment-docs').upload(path, file)
+                            const { data: { publicUrl } } = supabase.storage.from('shipment-docs').getPublicUrl(path)
+
+                            if (fileDocName === 'contract_pdf') {
+                              await supabase.from('shipments').update({ contract_pdf: publicUrl }).eq('id', shipment.id)
+                              setShipment({ ...shipment, contract_pdf: publicUrl })
+                            } else {
+                              const newFiles = [...(shipment.excel_files || []), publicUrl]
+                              await supabase.from('shipments').update({ excel_files: newFiles }).eq('id', shipment.id)
+                              setShipment({ ...shipment, excel_files: newFiles })
+                            }
+                            setUploading(false)
+                            setShowFileUpload(false)
+                            setFileDocName('')
+                          }} />
+                        </label>
+                      )}
+                      <button onClick={() => { setShowFileUpload(false); setFileDocName('') }} className="w-full text-[10px] text-slate-400 hover:text-slate-600">Отмена</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setShowFileUpload(true)} className="flex items-center gap-1.5 w-full justify-center py-1.5 text-[11px] text-slate-400 hover:text-indigo-500 transition-colors">
+                      <Plus className="w-3 h-3" /> Добавить файл
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )
