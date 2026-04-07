@@ -189,7 +189,7 @@ export function KanbanView({ tasks, loading }: { tasks: Task[]; loading: boolean
     return (
       <div className="flex gap-3 overflow-x-auto pb-4">
         {STATUS_ORDER.map(s => (
-          <div key={s} className="min-w-[280px] md:min-w-0 md:flex-1">
+          <div key={s} className="min-w-[320px] md:min-w-0 md:flex-1">
             <div className="skeleton h-10 rounded-xl mb-3" />
             <div className="space-y-2">
               {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-24 rounded-xl" />)}
@@ -210,7 +210,7 @@ export function KanbanView({ tasks, loading }: { tasks: Task[]; loading: boolean
         return (
           <div
             key={status}
-            className="min-w-[280px] md:min-w-0 md:flex-1 snap-center flex flex-col"
+            className="min-w-[320px] md:min-w-0 md:flex-1 snap-center flex flex-col"
             onDragOver={(e) => handleDragOver(e, status)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, status)}
@@ -224,7 +224,7 @@ export function KanbanView({ tasks, loading }: { tasks: Task[]; loading: boolean
 
             {/* Drop zone */}
             <div
-              className={`space-y-2 flex-1 md:max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5 rounded-xl transition-all ${isDropTarget ? 'bg-indigo-50/50 ring-2 ring-indigo-200 ring-dashed p-2' : 'p-0'}`}
+              className={`space-y-2 flex-1 overflow-visible pr-0.5 rounded-xl transition-all ${isDropTarget ? 'bg-indigo-50/50 ring-2 ring-indigo-200 ring-dashed p-2' : 'p-0'}`}
             >
               {columnTasks.length === 0 && !isDropTarget && (
                 <div className="text-center py-8 text-[11px] text-slate-300">Нет задач</div>
