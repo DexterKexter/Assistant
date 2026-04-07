@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Building2, Truck, Pencil, Check, Save, Trash2, Upload, Image, Plus } from 'lucide-react'
+import { Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Building2, Truck, Pencil, Check, Save, Trash2, Upload, Image, Plus, Send, MessageSquare } from 'lucide-react'
 import { getShipmentStatus, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
 import { DetailIcon } from '@/components/detail-icon'
@@ -36,8 +36,12 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   const [fileDocName, setFileDocName] = useState('')
   const [showFileUpload, setShowFileUpload] = useState(false)
 
+  // Comments
+  const [comments, setComments] = useState<any[]>([])
+  const [commentText, setCommentText] = useState('')
+
   // Edit mode
-  const { hasRole } = useProfile()
+  const { hasRole, profile: currentProfile } = useProfile()
   const canEdit = hasRole('admin', 'manager')
   const [editing, setEditing] = useState(isCreateMode)
   const [draft, setDraft] = useState<Record<string, unknown>>(isCreateMode ? { container_size: '40', container_type: 'Выкупной', is_completed: false } : {})
@@ -58,6 +62,11 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       .eq('id', id)
       .single()
       .then(({ data }) => setShipment(data as unknown as Shipment))
+
+    // Fetch comments
+    supabase.from('shipment_comments').select('*, author:profiles(id, full_name)')
+      .eq('shipment_id', id).order('created_at', { ascending: true })
+      .then(({ data }) => setComments(data || []))
   }, [id])
 
   // Fetch lookups on create mode mount
@@ -669,6 +678,86 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
           </div>
         )
       })()}
+
+      {/* Comments section — visible on documents tab */}
+      {tab === 'documents' && !isCreateMode && (
+        <div className="bg-white rounded-xl border border-slate-100 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <MessageSquare className="w-4 h-4 text-slate-400" strokeWidth={1.8} />
+            <h3 className="text-[13px] font-semibold text-slate-700">Комментарии ({comments.length})</h3>
+          </div>
+
+          {/* Comment list */}
+          {comments.length > 0 && (
+            <div className="space-y-3 mb-3 max-h-[250px] overflow-y-auto">
+              {comments.map((c: any) => {
+                const initials = c.author?.full_name
+                  ? c.author.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+                  : '??'
+                const timeAgo = (() => {
+                  const diff = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 1000)
+                  if (diff < 60) return 'только что'
+                  if (diff < 3600) return `${Math.floor(diff / 60)} мин`
+                  if (diff < 86400) return `${Math.floor(diff / 3600)} ч`
+                  return `${Math.floor(diff / 86400)} д`
+                })()
+                return (
+                  <div key={c.id} className="flex gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-white text-[8px] font-bold shrink-0">{initials}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[11px] font-semibold text-slate-700">{c.author?.full_name || '...'}</span>
+                        <span className="text-[10px] text-slate-300">{timeAgo}</span>
+                      </div>
+                      <p className="text-[12px] text-slate-600 leading-relaxed">{c.content}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Comment input */}
+          <div className="flex gap-2">
+            <input
+              value={commentText}
+              onChange={e => setCommentText(e.target.value)}
+              onKeyDown={async e => {
+                if (e.key === 'Enter' && !e.shiftKey && commentText.trim() && currentProfile) {
+                  e.preventDefault()
+                  const text = commentText.trim()
+                  setCommentText('')
+                  await supabase.from('shipment_comments').insert({
+                    shipment_id: id, author_id: currentProfile.id, content: text
+                  })
+                  const { data } = await supabase.from('shipment_comments').select('*, author:profiles(id, full_name)')
+                    .eq('shipment_id', id).order('created_at', { ascending: true })
+                  setComments(data || [])
+                }
+              }}
+              placeholder="Написать комментарий..."
+              className="flex-1 h-9 rounded-lg border border-slate-200 bg-white px-3 text-[12px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+            />
+            <button
+              onClick={async () => {
+                if (!commentText.trim() || !currentProfile) return
+                const text = commentText.trim()
+                setCommentText('')
+                await supabase.from('shipment_comments').insert({
+                  shipment_id: id, author_id: currentProfile.id, content: text
+                })
+                const { data } = await supabase.from('shipment_comments').select('*, author:profiles(id, full_name)')
+                  .eq('shipment_id', id).order('created_at', { ascending: true })
+                setComments(data || [])
+              }}
+              disabled={!commentText.trim()}
+              className="w-9 h-9 rounded-lg bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 disabled:opacity-40 transition-colors shrink-0"
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Lightbox */}
       {lightbox && shipment.photos?.length && (
