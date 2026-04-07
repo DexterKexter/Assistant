@@ -161,18 +161,24 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
     }
 
     const map = L.map(mapRef.current, {
-      zoomControl: false,
+      zoomControl: true,
       attributionControl: false,
-      dragging: false,
-      touchZoom: false,
-      doubleClickZoom: false,
-      scrollWheelZoom: false,
+      dragging: true,
+      touchZoom: true,
+      doubleClickZoom: true,
+      scrollWheelZoom: true,
       boxZoom: false,
-      keyboard: false,
+      keyboard: true,
+      minZoom: 2,
+      maxZoom: 12,
+      maxBounds: [[-85, -180], [85, 180]],
+      maxBoundsViscosity: 1.0,
     }).setView(points[0].coord, 4)
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
+      maxZoom: 12,
+      noWrap: true,
+      bounds: [[-85, -180], [85, 180]],
     }).addTo(map)
 
     // Add markers

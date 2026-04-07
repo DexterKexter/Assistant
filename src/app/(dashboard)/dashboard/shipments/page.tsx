@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, Fragment } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
@@ -319,52 +319,40 @@ export default function ShipmentsPage() {
               </td></tr>
             ) : (
               <>
-                {(() => {
-                  let lastMonth = ''
-                  return filtered.map((s) => {
+                {filtered.map((s, idx) => {
                   const isRussia = (s.client as unknown as { is_russia?: boolean })?.is_russia || false
                   const status = getShipmentStatus(s, isRussia)
-                  const curMonth = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : ''
-                  const showMonthHeader = curMonth && curMonth !== lastMonth
-                  if (showMonthHeader) lastMonth = curMonth
-                  const statusBg = status.key === 'delivered' ? '#f0fdf4' : status.key === 'in_transit' ? '#eef2ff' : '#fffbeb'
 
-                  return (<Fragment key={s.id}>
-                    {showMonthHeader && (
-                      <tr key={`month-${curMonth}`}><td colSpan={8} className="px-5 py-2 bg-slate-50/80 border-b border-slate-100">
-                        <span className="text-[12px] font-semibold text-slate-500 capitalize">{curMonth}</span>
-                      </td></tr>
-                    )}
-                    <tr key={s.id} className="border-b border-slate-100 last:border-0 cursor-pointer hover:bg-slate-50/60 transition-colors"
+                  return (
+                    <tr key={s.id} className={`border-b border-slate-50 cursor-pointer hover:bg-indigo-50/30 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
                       onClick={() => openShipment(s.id)}>
-                      <td className="pl-4 pr-1 py-2">
-                        <p className="text-[14px] font-bold text-slate-900"><Hl text={s.container_number || '—'} q={search} /></p>
-                        <p className="text-[11px] text-slate-400">
-                          {s.container_size ? <span className={`inline-block rounded px-1.5 py-px mr-1 text-[10px] font-medium ${s.container_size === 20 ? 'bg-blue-100 text-blue-600' : 'bg-violet-100 text-violet-600'}`}>{s.container_size}ft</span> : ''}
-                          {s.container_type ? <span className={`inline-block rounded px-1.5 py-px text-[10px] font-medium ${
-                            s.container_type === 'Выкупной' ? 'bg-amber-100 text-amber-700' :
-                            s.container_type === 'Возвратный' ? 'bg-emerald-100 text-emerald-700' :
-                            s.container_type === 'Собственный' ? 'bg-indigo-100 text-indigo-700' :
-                            'bg-slate-200/80 text-slate-600'
-                          }`}>{s.container_type}</span> : ''}
-                        </p>
+                      <td className="pl-4 pr-1 py-2.5">
+                        <p className="text-[13px] font-semibold text-slate-800 font-mono"><Hl text={s.container_number || '—'} q={search} /></p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {s.container_size ? <span className={`inline-block rounded px-1.5 py-px text-[9px] font-semibold ${s.container_size === 20 ? 'bg-blue-50 text-blue-500' : 'bg-violet-50 text-violet-500'}`}>{s.container_size}ft</span> : null}
+                          {s.container_type ? <span className={`inline-block rounded px-1.5 py-px text-[9px] font-semibold ${
+                            s.container_type === 'Выкупной' ? 'bg-amber-50 text-amber-600' :
+                            s.container_type === 'Возвратный' ? 'bg-emerald-50 text-emerald-600' :
+                            s.container_type === 'Собственный' ? 'bg-indigo-50 text-indigo-600' :
+                            'bg-slate-100 text-slate-500'
+                          }`}>{s.container_type}</span> : null}
+                        </div>
                       </td>
-                      <td className="px-1 py-2.5 text-[13px] font-medium text-slate-800 whitespace-nowrap">{fmtDate(s.departure_date)}</td>
-                      <td className="px-3 py-2.5 text-[14px] font-medium text-slate-900 max-w-[140px] truncate"><Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} /></td>
-                      <td className="px-3 py-2.5 text-[13px] text-slate-800 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} /></td>
-                      <td className="px-3 py-2.5 text-[13px] text-slate-700 truncate max-w-[110px]">{s.origin || '—'}</td>
-                      <td className="px-3 py-2.5 text-[13px] text-slate-700 truncate max-w-[110px]">{s.destination_station || '—'}</td>
-                      <td className="px-3 py-2.5 text-[13px] text-slate-700 truncate max-w-[110px]">{s.destination_city || '—'}</td>
+                      <td className="px-1 py-2.5 text-[12px] text-slate-500 tabular-nums whitespace-nowrap">{fmtDate(s.departure_date)}</td>
+                      <td className="px-3 py-2.5 text-[12px] font-medium text-slate-700 max-w-[140px] truncate"><Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} /></td>
+                      <td className="px-3 py-2.5 text-[12px] text-slate-600 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} /></td>
+                      <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{s.origin || '—'}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{s.destination_station || '—'}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{s.destination_city || '—'}</td>
                       <td className="px-3 py-2">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap" style={{ background: statusBg, color: status.color }}>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap" style={{ background: status.color + '15', color: status.color }}>
                           <span className={`w-1.5 h-1.5 rounded-full ${status.key === 'in_transit' ? 'dot-pulse' : ''}`} style={{ background: status.color }} />
                           {status.label}
                         </span>
                       </td>
                     </tr>
-                  </Fragment>)
-                })
-                })()}
+                  )
+                })}
               </>
             )}
           </tbody>

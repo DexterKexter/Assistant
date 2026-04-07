@@ -367,16 +367,28 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
           <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
             <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Участники</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-              <EditField icon={<User className="w-3.5 h-3.5" />} label="Клиент" field="client_id" type="select"
-                options={lookups?.clients.map(c => ({ value: c.id, label: c.name })) || []}
-                displayValue={`${client?.name || '—'}${client?.is_russia ? ' 🇷🇺' : ''}`} />
+              {!editing && shipment.client_id ? (
+                <a href={`/dashboard/clients/${shipment.client_id}`} onClick={e => { e.stopPropagation(); onClose() }} className="hover:bg-indigo-50/50 rounded-lg transition-colors -m-1 p-1">
+                  <DetailIcon icon={<User className="w-3.5 h-3.5" />} label="Клиент" value={`${client?.name || '—'}${client?.is_russia ? ' 🇷🇺' : ''}`} />
+                </a>
+              ) : (
+                <EditField icon={<User className="w-3.5 h-3.5" />} label="Клиент" field="client_id" type="select"
+                  options={lookups?.clients.map(c => ({ value: c.id, label: c.name })) || []}
+                  displayValue={`${client?.name || '—'}${client?.is_russia ? ' 🇷🇺' : ''}`} />
+              )}
               <EditField icon={<Building2 className="w-3.5 h-3.5" />} label="Получатель" field="recipient_id" type="select"
                 options={lookups?.recipients.map(r => ({ value: r.id, label: r.name })) || []}
                 displayValue={recipient?.name || '—'} />
               <EditField icon={<User className="w-3.5 h-3.5" />} label="Отправитель" field="sender_name" type="ref" refCategory="sender" />
-              <EditField icon={<Truck className="w-3.5 h-3.5" />} label="Перевозчик" field="carrier_id" type="select"
-                options={lookups?.carriers.map(c => ({ value: c.id, label: c.name })) || []}
-                displayValue={carrier?.name || '—'} />
+              {!editing && shipment.carrier_id ? (
+                <a href={`/dashboard/carriers/${shipment.carrier_id}`} onClick={e => { e.stopPropagation(); onClose() }} className="hover:bg-amber-50/50 rounded-lg transition-colors -m-1 p-1">
+                  <DetailIcon icon={<Truck className="w-3.5 h-3.5" />} label="Перевозчик" value={carrier?.name || '—'} />
+                </a>
+              ) : (
+                <EditField icon={<Truck className="w-3.5 h-3.5" />} label="Перевозчик" field="carrier_id" type="select"
+                  options={lookups?.carriers.map(c => ({ value: c.id, label: c.name })) || []}
+                  displayValue={carrier?.name || '—'} />
+              )}
             </div>
           </div>
         </div>
