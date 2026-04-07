@@ -284,28 +284,56 @@ export default function CarrierDetailPage() {
 
           {analytics && analytics.topClients.length > 0 && (
             <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
-              <h3 className="text-[13px] font-semibold text-slate-900 mb-3">Топ клиенты</h3>
-              <div className="space-y-2">
-                {analytics.topClients.map(([name, count]) => (
-                  <div key={name} className="flex items-center justify-between">
-                    <span className="text-[12px] text-slate-700 truncate max-w-[140px]">{name}</span>
-                    <span className="text-[12px] font-semibold text-slate-900">{count}</span>
-                  </div>
-                ))}
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="w-4 h-4 text-indigo-500" strokeWidth={1.8} />
+                <h3 className="text-[13px] font-semibold text-slate-900">Топ клиенты</h3>
+              </div>
+              <div className="space-y-2.5">
+                {analytics.topClients.map(([name, count], i) => {
+                  const max = Number(analytics.topClients[0][1])
+                  return (
+                    <div key={name}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-md bg-indigo-100 text-indigo-600 text-[9px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                          <span className="text-[12px] text-slate-700 font-medium">{name}</span>
+                        </div>
+                        <span className="text-[12px] font-bold text-slate-900">{count}</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-200/60 rounded-full overflow-hidden ml-7">
+                        <div className="h-full rounded-full bg-indigo-400" style={{ width: `${(Number(count) / max) * 100}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
 
           {analytics && analytics.topRoutes.length > 0 && (
             <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
-              <h3 className="text-[13px] font-semibold text-slate-900 mb-3">Топ маршруты</h3>
-              <div className="space-y-2">
-                {analytics.topRoutes.map(([route, count]) => (
-                  <div key={route} className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-slate-600 truncate">{route}</span>
-                    <span className="text-[11px] font-semibold text-slate-900 shrink-0">{count}</span>
-                  </div>
-                ))}
+              <div className="flex items-center gap-2 mb-3">
+                <MapPin className="w-4 h-4 text-emerald-500" strokeWidth={1.8} />
+                <h3 className="text-[13px] font-semibold text-slate-900">Топ маршруты</h3>
+              </div>
+              <div className="space-y-2.5">
+                {analytics.topRoutes.map(([route, count], i) => {
+                  const max = Number(analytics.topRoutes[0][1])
+                  return (
+                    <div key={route}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-600 text-[9px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                          <span className="text-[12px] text-slate-700 font-medium">{route}</span>
+                        </div>
+                        <span className="text-[12px] font-bold text-slate-900 shrink-0 ml-2">{count}</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-200/60 rounded-full overflow-hidden ml-7">
+                        <div className="h-full rounded-full bg-emerald-400" style={{ width: `${(Number(count) / max) * 100}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
