@@ -1,9 +1,10 @@
 'use client'
 
+import { useState, useRef } from 'react'
 import { type Task, TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG, type TaskStatus } from '@/types/database'
 import { useTaskModal } from '@/lib/task-modal'
 import { createClient } from '@/lib/supabase/client'
-import { MessageSquare, MoreHorizontal, ArrowDown, Minus, ArrowUp, AlertTriangle, Calendar } from 'lucide-react'
+import { MessageSquare, MoreHorizontal, ArrowDown, Minus, ArrowUp, AlertTriangle, Calendar, GripVertical } from 'lucide-react'
 
 const STATUS_ORDER: TaskStatus[] = ['todo', 'in_progress', 'review', 'done']
 
@@ -14,24 +15,42 @@ const PRIORITY_ICONS = {
   urgent: AlertTriangle,
 }
 
-function TaskCard({ task }: { task: Task }) {
+// Card border colors per status
+const CARD_BORDER_COLORS: Record<TaskStatus, string> = {
+  todo: 'border-l-slate-400',
+  in_progress: 'border-l-indigo-500',
+  review: 'border-l-amber-500',
+  done: 'border-l-emerald-500',
+}
+
+const CARD_BG_COLORS: Record<TaskStatus, string> = {
+  todo: 'bg-white',
+  in_progress: 'bg-indigo-50/30',
+  review: 'bg-amber-50/30',
+  done: 'bg-emerald-50/30',
+}
+
+function TaskCard({ task, onDragStart }: { task: Task; onDragStart: (e: React.DragEvent, taskId: string) => void }) {
   const { openTask } = useTaskModal()
   const pCfg = TASK_PRIORITY_CONFIG[task.priority]
   const PIcon = PRIORITY_ICONS[task.priority]
-
-  const isOverdue = task.due_date && !['done'].includes(task.status) && new Date(task.due_date) < new Date()
-
+  const isOverdue = task.due_date && task.status !== 'done' && new Date(task.due_date) < new Date()
   const initials = task.assignee?.full_name
     ? task.assignee.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : null
 
   return (
     <div
+      draggable
+      onDragStart={(e) => onDragStart(e, task.id)}
       onClick={() => openTask(task.id)}
-      className="bg-white rounded-xl border border-slate-100 p-3.5 cursor-pointer hover:shadow-md hover:border-slate-200 transition-all group"
+      className={`${CARD_BG_COLORS[task.status]} rounded-xl border border-slate-100 border-l-[3px] ${CARD_BORDER_COLORS[task.status]} p-3.5 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-slate-200 transition-all group`}
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
-        <h4 className="text-[13px] font-semibold text-slate-800 leading-snug line-clamp-2 flex-1">{task.title}</h4>
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <GripVertical className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={2} />
+          <h4 className="text-[13px] font-semibold text-slate-800 leading-snug line-clamp-2">{task.title}</h4>
+        </div>
         <div className="flex items-center gap-1 shrink-0">
           <PIcon className="w-3.5 h-3.5" style={{ color: pCfg.color }} strokeWidth={2} />
           <StatusDropdown task={task} />
@@ -91,11 +110,8 @@ function StatusDropdown({ task }: { task: Task }) {
             {STATUS_ORDER.map(s => {
               const cfg = TASK_STATUS_CONFIG[s]
               return (
-                <button
-                  key={s}
-                  onClick={(e) => { e.stopPropagation(); changeStatus(s) }}
-                  className={`w-full text-left px-3 py-2 text-[12px] font-medium hover:bg-slate-50 flex items-center gap-2 ${task.status === s ? 'text-slate-900' : 'text-slate-600'}`}
-                >
+                <button key={s} onClick={(e) => { e.stopPropagation(); changeStatus(s) }}
+                  className={`w-full text-left px-3 py-2 text-[12px] font-medium hover:bg-slate-50 flex items-center gap-2 ${task.status === s ? 'text-slate-900' : 'text-slate-600'}`}>
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cfg.color }} />
                   {cfg.label}
                 </button>
@@ -108,9 +124,51 @@ function StatusDropdown({ task }: { task: Task }) {
   )
 }
 
-import { useState } from 'react'
-
 export function KanbanView({ tasks, loading }: { tasks: Task[]; loading: boolean }) {
+  const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null)
+  const draggedTaskId = useRef<string | null>(null)
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    draggedTaskId.current = taskId
+    e.dataTransfer.effectAllowed = 'move'
+    // Make the drag ghost semi-transparent
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0.5'
+    }
+  }
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1'
+    }
+    setDragOverColumn(null)
+    draggedTaskId.current = null
+  }
+
+  const handleDragOver = (e: React.DragEvent, status: TaskStatus) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverColumn(status)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverColumn(null)
+  }
+
+  const handleDrop = async (e: React.DragEvent, targetStatus: TaskStatus) => {
+    e.preventDefault()
+    setDragOverColumn(null)
+    const taskId = draggedTaskId.current
+    if (!taskId) return
+
+    const task = tasks.find(t => t.id === taskId)
+    if (!task || task.status === targetStatus) return
+
+    const supabase = createClient()
+    await supabase.from('tasks').update({ status: targetStatus }).eq('id', taskId)
+    draggedTaskId.current = null
+  }
+
   if (loading) {
     return (
       <div className="flex gap-3 overflow-x-auto pb-4">
@@ -131,9 +189,16 @@ export function KanbanView({ tasks, loading }: { tasks: Task[]; loading: boolean
       {STATUS_ORDER.map(status => {
         const cfg = TASK_STATUS_CONFIG[status]
         const columnTasks = tasks.filter(t => t.status === status)
+        const isDropTarget = dragOverColumn === status
 
         return (
-          <div key={status} className="min-w-[280px] md:min-w-0 md:flex-1 snap-center flex flex-col">
+          <div
+            key={status}
+            className="min-w-[280px] md:min-w-0 md:flex-1 snap-center flex flex-col"
+            onDragOver={(e) => handleDragOver(e, status)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, status)}
+          >
             {/* Column header */}
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl mb-3" style={{ backgroundColor: cfg.bg }}>
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cfg.color }} />
@@ -141,13 +206,20 @@ export function KanbanView({ tasks, loading }: { tasks: Task[]; loading: boolean
               <span className="text-[11px] font-medium text-slate-400 ml-auto">{columnTasks.length}</span>
             </div>
 
-            {/* Cards */}
-            <div className="space-y-2 flex-1 md:max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5">
-              {columnTasks.length === 0 && (
+            {/* Drop zone */}
+            <div
+              className={`space-y-2 flex-1 md:max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5 rounded-xl transition-all ${isDropTarget ? 'bg-indigo-50/50 ring-2 ring-indigo-200 ring-dashed p-2' : 'p-0'}`}
+            >
+              {columnTasks.length === 0 && !isDropTarget && (
                 <div className="text-center py-8 text-[11px] text-slate-300">Нет задач</div>
               )}
+              {columnTasks.length === 0 && isDropTarget && (
+                <div className="text-center py-8 text-[11px] text-indigo-400 font-medium">Отпустите здесь</div>
+              )}
               {columnTasks.map(task => (
-                <TaskCard key={task.id} task={task} />
+                <div key={task.id} onDragEnd={handleDragEnd}>
+                  <TaskCard task={task} onDragStart={handleDragStart} />
+                </div>
               ))}
             </div>
           </div>
