@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Users, Clock, Diamond, Award, Medal, Star, Circle } from 'lucide-react'
+import { Search, Users, Clock } from 'lucide-react'
 import type { Client } from '@/types/database'
 
 type ActivityTab = 'all' | 'active' | 'moderate' | 'inactive'
@@ -71,32 +71,6 @@ export default function ClientsPage() {
     { key: 'inactive', label: 'Неактивные', count: clients.filter(c => c.daysSince === null || c.daysSince > 365).length },
   ], [clients])
 
-  function getRank(count: number): { label: string; emoji: string; color: string; bg: string } {
-    if (count >= 100) return { label: 'Зверь', emoji: '🦁', color: 'text-red-600', bg: 'bg-red-50' }
-    if (count >= 50) return { label: 'Бриллиант', emoji: '💎', color: 'text-violet-600', bg: 'bg-violet-50' }
-    if (count >= 20) return { label: 'Золото', emoji: '🥇', color: 'text-amber-600', bg: 'bg-amber-50' }
-    if (count >= 10) return { label: 'Серебро', emoji: '🥈', color: 'text-slate-500', bg: 'bg-slate-50' }
-    if (count >= 3) return { label: 'Бронза', emoji: '🥉', color: 'text-orange-600', bg: 'bg-orange-50' }
-    return { label: 'Новичок', emoji: '⚪', color: 'text-slate-400', bg: 'bg-slate-50' }
-  }
-
-  const rankStats = useMemo(() => {
-    const beast = clients.filter(c => c.shipmentCount >= 100).length
-    const diamond = clients.filter(c => c.shipmentCount >= 50 && c.shipmentCount < 100).length
-    const gold = clients.filter(c => c.shipmentCount >= 20 && c.shipmentCount < 50).length
-    const silver = clients.filter(c => c.shipmentCount >= 10 && c.shipmentCount < 20).length
-    const bronze = clients.filter(c => c.shipmentCount >= 3 && c.shipmentCount < 10).length
-    const newbie = clients.filter(c => c.shipmentCount < 3).length
-    return [
-      { label: 'Зверь', emoji: '🦁', count: beast, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
-      { label: 'Бриллиант', emoji: '💎', count: diamond, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-200' },
-      { label: 'Золото', emoji: '🥇', count: gold, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
-      { label: 'Серебро', emoji: '🥈', count: silver, color: 'text-slate-500', bg: 'bg-slate-100', border: 'border-slate-200' },
-      { label: 'Бронза', emoji: '🥉', count: bronze, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
-      { label: 'Новичок', emoji: '⚪', count: newbie, color: 'text-slate-400', bg: 'bg-slate-50', border: 'border-slate-200' },
-    ]
-  }, [clients])
-
   function getDaysLabel(days: number | null): { text: string; color: string } {
     if (days === null) return { text: 'нет загрузок', color: 'text-slate-300' }
     if (days === 0) return { text: 'сегодня', color: 'text-emerald-500' }
@@ -112,19 +86,6 @@ export default function ClientsPage() {
         <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Клиенты</h1>
         <p className="text-[12px] text-slate-400 mt-0.5">{clients.length} контактов</p>
       </div>
-
-      {/* Stats + Ranks */}
-      {!loading && clients.length > 0 && (
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
-          {rankStats.map(r => (
-            <div key={r.label} className={`${r.bg} rounded-xl border ${r.border} p-3 text-center`}>
-              <span className="text-xl">{r.emoji}</span>
-              <p className={`text-[18px] font-bold ${r.color} mt-1`}>{r.count}</p>
-              <p className="text-[10px] text-slate-500 font-medium">{r.label}</p>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-4 flex-wrap">
@@ -192,7 +153,6 @@ export default function ClientsPage() {
                           {c.name.charAt(0).toUpperCase()}
                         </div>
                         <span className="text-[13px] font-medium text-slate-800">{c.name}</span>
-                        {c.shipmentCount >= 3 && <span className="text-[10px] ml-1">{getRank(c.shipmentCount).emoji}</span>}
                       </div>
                     </td>
                     <td className="px-5 py-3">
@@ -234,7 +194,7 @@ export default function ClientsPage() {
                     {c.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-slate-800 truncate">{c.name} {c.shipmentCount >= 3 && <span className="text-[10px]">{getRank(c.shipmentCount).emoji}</span>}</p>
+                    <p className="text-[13px] font-semibold text-slate-800 truncate">{c.name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className={`text-[10px] font-medium ${daysInfo.color}`}>{daysInfo.text}</span>
                       <span className="text-[10px] text-slate-300">·</span>
