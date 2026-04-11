@@ -129,21 +129,19 @@ export default function ClientsPage() {
         <p className="text-[12px] text-slate-400 mt-0.5">{clients.length} контактов</p>
       </div>
 
-      {/* Stats + Ranks */}
+      {/* Rank bar */}
       {!loading && clients.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {rankStats.map(r => (
-            <div key={r.label} className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border ${r.border} ${r.bg} min-w-fit`}>
-              <span className="text-lg">{r.emoji}</span>
-              <div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className={`text-[16px] font-bold ${r.color}`}>{r.count}</span>
-                  <span className={`text-[11px] font-medium ${r.color} opacity-70`}>{r.label}</span>
-                </div>
-                <p className="text-[9px] text-slate-400">{r.threshold}</p>
+        <div className="bg-slate-50 rounded-xl border border-slate-200/60 px-4 py-3">
+          <div className="flex items-center gap-6 overflow-x-auto">
+            {rankStats.filter(r => r.count > 0).map(r => (
+              <div key={r.label} className="flex items-center gap-2 shrink-0 group cursor-default" title={r.threshold}>
+                <span className="text-sm">{r.emoji}</span>
+                <span className={`text-[14px] font-bold ${r.color}`}>{r.count}</span>
+                <span className="text-[11px] text-slate-400 hidden sm:inline">{r.label}</span>
               </div>
-            </div>
-          ))}
+            ))}
+            <div className="ml-auto text-[10px] text-slate-300 hidden md:block shrink-0">наведите для подсказки</div>
+          </div>
         </div>
       )}
 
