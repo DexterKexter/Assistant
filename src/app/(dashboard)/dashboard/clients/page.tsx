@@ -19,7 +19,14 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<ActivityTab>('all')
+  const [sortBy, setSortBy] = useState<'name' | 'daysSince' | 'shipmentCount'>('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const router = useRouter()
+
+  const toggleSort = (field: 'name' | 'daysSince' | 'shipmentCount') => {
+    if (sortBy === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(field); setSortDir(field === 'name' ? 'asc' : 'desc') }
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -61,8 +68,17 @@ export default function ClientsPage() {
     if (tab === 'moderate') result = result.filter(c => c.daysSince !== null && c.daysSince >= 90 && c.daysSince <= 365)
     if (tab === 'inactive') result = result.filter(c => c.daysSince === null || c.daysSince > 365)
 
+    // Sort
+    result.sort((a, b) => {
+      let cmp = 0
+      if (sortBy === 'name') cmp = a.name.localeCompare(b.name)
+      else if (sortBy === 'shipmentCount') cmp = a.shipmentCount - b.shipmentCount
+      else if (sortBy === 'daysSince') cmp = (a.daysSince ?? 99999) - (b.daysSince ?? 99999)
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+
     return result
-  }, [clients, search, tab])
+  }, [clients, search, tab, sortBy, sortDir])
 
   const tabs: { key: ActivityTab; label: string; count: number }[] = useMemo(() => [
     { key: 'all', label: 'Все', count: clients.length },
@@ -88,12 +104,12 @@ export default function ClientsPage() {
     const bronze = clients.filter(c => c.shipmentCount >= 3 && c.shipmentCount < 10).length
     const newbie = clients.filter(c => c.shipmentCount < 3).length
     return [
-      { label: 'Зверь', emoji: '🦁', count: beast, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
-      { label: 'Бриллиант', emoji: '💎', count: diamond, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-200' },
-      { label: 'Золото', emoji: '🥇', count: gold, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
-      { label: 'Серебро', emoji: '🥈', count: silver, color: 'text-slate-500', bg: 'bg-slate-100', border: 'border-slate-200' },
-      { label: 'Бронза', emoji: '🥉', count: bronze, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
-      { label: 'Новичок', emoji: '⚪', count: newbie, color: 'text-slate-400', bg: 'bg-slate-50', border: 'border-slate-200' },
+      { label: 'Зверь', emoji: '🦁', count: beast, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', threshold: 'от 100 перевозок' },
+      { label: 'Бриллиант', emoji: '💎', count: diamond, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-200', threshold: 'от 50 перевозок' },
+      { label: 'Золото', emoji: '🥇', count: gold, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', threshold: 'от 20 перевозок' },
+      { label: 'Серебро', emoji: '🥈', count: silver, color: 'text-slate-500', bg: 'bg-slate-100', border: 'border-slate-200', threshold: 'от 10 перевозок' },
+      { label: 'Бронза', emoji: '🥉', count: bronze, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', threshold: 'от 3 перевозок' },
+      { label: 'Новичок', emoji: '⚪', count: newbie, color: 'text-slate-400', bg: 'bg-slate-50', border: 'border-slate-200', threshold: '0-2 перевозки' },
     ]
   }, [clients])
 
@@ -115,12 +131,17 @@ export default function ClientsPage() {
 
       {/* Stats + Ranks */}
       {!loading && clients.length > 0 && (
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1">
           {rankStats.map(r => (
-            <div key={r.label} className={`${r.bg} rounded-xl border ${r.border} p-3 text-center`}>
-              <span className="text-xl">{r.emoji}</span>
-              <p className={`text-[18px] font-bold ${r.color} mt-1`}>{r.count}</p>
-              <p className="text-[10px] text-slate-500 font-medium">{r.label}</p>
+            <div key={r.label} className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border ${r.border} ${r.bg} min-w-fit`}>
+              <span className="text-lg">{r.emoji}</span>
+              <div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className={`text-[16px] font-bold ${r.color}`}>{r.count}</span>
+                  <span className={`text-[11px] font-medium ${r.color} opacity-70`}>{r.label}</span>
+                </div>
+                <p className="text-[9px] text-slate-400">{r.threshold}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -170,9 +191,16 @@ export default function ClientsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200/60">
-                <th className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Клиент</th>
-                <th className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Последняя загрузка</th>
-                <th className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Перевозок</th>
+                {[
+                  { field: 'name' as const, label: 'Клиент' },
+                  { field: 'daysSince' as const, label: 'Последняя загрузка' },
+                  { field: 'shipmentCount' as const, label: 'Перевозок' },
+                ].map(col => (
+                  <th key={col.field} onClick={() => toggleSort(col.field)}
+                    className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-600 select-none transition-colors">
+                    {col.label} {sortBy === col.field && <span className="text-indigo-500">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                  </th>
+                ))}
                 <th className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Телефон</th>
                 <th className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Регион</th>
               </tr>
