@@ -30,7 +30,7 @@ export function ListView({ tasks, loading }: { tasks: Task[]; loading: boolean }
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/60">
-              {['Задача', 'Статус', 'Приоритет', 'Исполнитель', 'Срок', 'Создана'].map(h => (
+              {['Задача', 'Статус', 'Приоритет', 'Исполнители', 'Срок', 'Создана'].map(h => (
                 <th key={h} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-left px-4 py-3">{h}</th>
               ))}
             </tr>
@@ -43,9 +43,7 @@ export function ListView({ tasks, loading }: { tasks: Task[]; loading: boolean }
               const sCfg = TASK_STATUS_CONFIG[task.status]
               const pCfg = TASK_PRIORITY_CONFIG[task.priority]
               const PIcon = PRIORITY_ICONS[task.priority]
-              const initials = task.assignee?.full_name
-                ? task.assignee.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                : null
+              const assignees = task.assignees || []
               const isOverdue = task.due_date && task.status !== 'done' && new Date(task.due_date) < new Date()
 
               return (
@@ -67,10 +65,23 @@ export function ListView({ tasks, loading }: { tasks: Task[]; loading: boolean }
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {initials ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[8px] font-bold">{initials}</div>
-                        <span className="text-[12px] text-slate-600 truncate max-w-[100px]">{task.assignee?.full_name}</span>
+                    {assignees.length > 0 ? (
+                      <div className="flex items-center">
+                        <div className="flex -space-x-1.5">
+                          {assignees.slice(0, 3).map(a => {
+                            const name = a.profile?.full_name || ''
+                            const ini = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'
+                            return (
+                              <div key={a.user_id} className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[8px] font-bold ring-2 ring-white" title={name}>{ini}</div>
+                            )
+                          })}
+                          {assignees.length > 3 && (
+                            <div className="w-6 h-6 rounded-lg bg-slate-200 flex items-center justify-center text-slate-600 text-[8px] font-bold ring-2 ring-white">+{assignees.length - 3}</div>
+                          )}
+                        </div>
+                        {assignees.length === 1 && (
+                          <span className="text-[12px] text-slate-600 truncate max-w-[100px] ml-2">{assignees[0].profile?.full_name}</span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-[11px] text-slate-300">—</span>
@@ -96,9 +107,7 @@ export function ListView({ tasks, loading }: { tasks: Task[]; loading: boolean }
           const sCfg = TASK_STATUS_CONFIG[task.status]
           const pCfg = TASK_PRIORITY_CONFIG[task.priority]
           const PIcon = PRIORITY_ICONS[task.priority]
-          const initials = task.assignee?.full_name
-            ? task.assignee.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-            : null
+          const assignees = task.assignees || []
 
           return (
             <div key={task.id} onClick={() => openTask(task.id)} className="bg-white rounded-xl border border-slate-100 p-3.5 cursor-pointer active:scale-[0.99] transition-transform">
@@ -111,8 +120,19 @@ export function ListView({ tasks, loading }: { tasks: Task[]; loading: boolean }
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: sCfg.color }} />
                   {sCfg.label}
                 </span>
-                {initials && (
-                  <div className="w-5 h-5 rounded-md bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[7px] font-bold">{initials}</div>
+                {assignees.length > 0 && (
+                  <div className="flex -space-x-1">
+                    {assignees.slice(0, 3).map(a => {
+                      const name = a.profile?.full_name || ''
+                      const ini = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'
+                      return (
+                        <div key={a.user_id} className="w-5 h-5 rounded-md bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[7px] font-bold ring-1 ring-white">{ini}</div>
+                      )
+                    })}
+                    {assignees.length > 3 && (
+                      <div className="w-5 h-5 rounded-md bg-slate-200 flex items-center justify-center text-slate-600 text-[7px] font-bold ring-1 ring-white">+{assignees.length - 3}</div>
+                    )}
+                  </div>
                 )}
                 {task.due_date && (
                   <span className="text-[10px] text-slate-400">{new Date(task.due_date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}</span>

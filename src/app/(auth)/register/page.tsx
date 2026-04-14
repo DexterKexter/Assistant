@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -18,9 +19,10 @@ export default function RegisterPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setInfo('')
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -30,6 +32,13 @@ export default function RegisterPage() {
 
     if (error) {
       setError(error.message)
+      setLoading(false)
+      return
+    }
+
+    // If email confirmation is required, user won't have a session
+    if (data?.user && !data.session) {
+      setInfo('На вашу почту отправлено письмо для подтверждения. Проверьте email (и папку «Спам») и перейдите по ссылке, затем войдите.')
       setLoading(false)
       return
     }
@@ -103,6 +112,7 @@ export default function RegisterPage() {
               />
             </div>
             {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+            {info && <p className="text-sm text-blue-600 bg-blue-50 rounded-lg px-3 py-2">{info}</p>}
             <button
               type="submit" disabled={loading}
               className="w-full h-11 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"

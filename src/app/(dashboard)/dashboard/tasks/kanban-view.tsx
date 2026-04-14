@@ -35,9 +35,7 @@ function TaskCard({ task, onDragStart }: { task: Task; onDragStart: (e: React.Dr
   const pCfg = TASK_PRIORITY_CONFIG[task.priority]
   const PIcon = PRIORITY_ICONS[task.priority]
   const isOverdue = task.due_date && task.status !== 'done' && new Date(task.due_date) < new Date()
-  const initials = task.assignee?.full_name
-    ? task.assignee.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : null
+  const assignees = task.assignees || []
 
   return (
     <div
@@ -64,9 +62,20 @@ function TaskCard({ task, onDragStart }: { task: Task; onDragStart: (e: React.Dr
       {/* Bottom: avatars + meta */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100/80">
         <div className="flex items-center gap-1.5">
-          {initials && (
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white" title={task.assignee?.full_name || ''}>
-              {initials}
+          {assignees.length > 0 && (
+            <div className="flex -space-x-1.5">
+              {assignees.slice(0, 3).map(a => {
+                const name = a.profile?.full_name || ''
+                const ini = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'
+                return (
+                  <div key={a.user_id} className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white" title={name}>
+                    {ini}
+                  </div>
+                )
+              })}
+              {assignees.length > 3 && (
+                <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-[9px] font-bold ring-2 ring-white">+{assignees.length - 3}</div>
+              )}
             </div>
           )}
           {task.due_date && (

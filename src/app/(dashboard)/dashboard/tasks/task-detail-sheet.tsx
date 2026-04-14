@@ -6,7 +6,7 @@ import { useTaskModal } from '@/lib/task-modal'
 import { useTaskComments } from '@/lib/useTasks'
 import { useProfile } from '@/lib/useProfile'
 import { type Task, type TaskStatus, type TaskPriority, TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG, type Profile } from '@/types/database'
-import { X, Trash2, Send, ArrowDown, Minus, ArrowUp, AlertTriangle, Link, User, CheckCircle, Calendar } from 'lucide-react'
+import { X, Trash2, Send, ArrowDown, Minus, ArrowUp, AlertTriangle, Link, User, Users, CheckCircle, Calendar, Check } from 'lucide-react'
 
 const STATUS_ORDER: TaskStatus[] = ['todo', 'in_progress', 'review', 'done']
 const PRIORITY_ORDER: TaskPriority[] = ['low', 'medium', 'high', 'urgent']
@@ -23,8 +23,13 @@ export default function TaskDetailSheet() {
   const [createTitle, setCreateTitle] = useState('')
   const [createDesc, setCreateDesc] = useState('')
   const [createPriority, setCreatePriority] = useState<TaskPriority>('medium')
-  const [createAssignee, setCreateAssignee] = useState('')
+  const [createAssignees, setCreateAssignees] = useState<string[]>([])
+  const [showAssigneePicker, setShowAssigneePicker] = useState(false)
   const [createDue, setCreateDue] = useState('')
+
+  // Assignees for edit mode
+  const [taskAssigneeIds, setTaskAssigneeIds] = useState<string[]>([])
+  const [showEditAssigneePicker, setShowEditAssigneePicker] = useState(false)
 
   // Comment
   const { comments, addComment, refetch: refetchComments } = useTaskComments(selectedTaskId)
@@ -50,10 +55,14 @@ export default function TaskDetailSheet() {
         setLoading(true)
         const { data } = await supabase
           .from('tasks')
-          .select('*, assignee:profiles!assigned_to(id, full_name, role), creator:profiles!created_by(id, full_name, role)')
+          .select('*, assignee:profiles!assigned_to(id, full_name, role), assignees:task_assignees(id, task_id, user_id, profile:profiles(id, full_name, role)), creator:profiles!created_by(id, full_name, role)')
           .eq('id', selectedTaskId)
           .single()
-        if (data) setTask(data as unknown as Task)
+        if (data) {
+          setTask(data as unknown as Task)
+          const ids = (data as any).assignees?.map((a: any) => a.user_id) || []
+          setTaskAssigneeIds(ids)
+        }
         setLoading(false)
       }
     }
@@ -64,8 +73,32 @@ export default function TaskDetailSheet() {
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [comments])
 
-  const isAssignee = profile && task ? task.assigned_to === profile.id : false
+  const isAssignee = profile ? taskAssigneeIds.includes(profile.id) : false
   const canChangeStatus = canEdit || isAssignee
+
+  const toggleAssignee = async (userId: string) => {
+    if (!selectedTaskId || !profile || !canEdit) return
+    const supabase = createClient()
+    const isAdding = !taskAssigneeIds.includes(userId)
+
+    if (isAdding) {
+      setTaskAssigneeIds(prev => [...prev, userId])
+      await supabase.from('task_assignees').insert({ task_id: selectedTaskId, user_id: userId })
+      // Notify
+      if (userId !== profile.id) {
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          type: 'task_assigned',
+          task_id: selectedTaskId,
+          actor_id: profile.id,
+          message: `${profile.full_name} назначил вам задачу «${task?.title}»`,
+        })
+      }
+    } else {
+      setTaskAssigneeIds(prev => prev.filter(id => id !== userId))
+      await supabase.from('task_assignees').delete().eq('task_id', selectedTaskId).eq('user_id', userId)
+    }
+  }
 
   const updateField = async (field: string, value: string | null) => {
     if (!selectedTaskId || !profile) return
@@ -95,10 +128,27 @@ export default function TaskDetailSheet() {
       title: createTitle.trim(),
       description: createDesc.trim() || null,
       priority: createPriority,
-      assigned_to: createAssignee || null,
+      assigned_to: createAssignees[0] || null,
       due_date: createDue || null,
       created_by: profile.id,
     }).select().single()
+    if (data && createAssignees.length > 0) {
+      await supabase.from('task_assignees').insert(
+        createAssignees.map(uid => ({ task_id: data.id, user_id: uid }))
+      )
+      // Notify each assignee
+      for (const uid of createAssignees) {
+        if (uid !== profile.id) {
+          await supabase.from('notifications').insert({
+            user_id: uid,
+            type: 'task_assigned',
+            task_id: data.id,
+            actor_id: profile.id,
+            message: `${profile.full_name} назначил вам задачу «${createTitle.trim()}»`,
+          })
+        }
+      }
+    }
     if (data) closeTask()
   }
 
@@ -115,11 +165,13 @@ export default function TaskDetailSheet() {
     if (!commentText.trim() || !profile || !task) return
     await addComment(commentText.trim())
 
-    // Notify task participants (creator + assignee, except self)
+    // Notify task participants (creator + all assignees, except self)
     const supabase = createClient()
     const recipients = new Set<string>()
     if (task.created_by && task.created_by !== profile.id) recipients.add(task.created_by)
-    if (task.assigned_to && task.assigned_to !== profile.id) recipients.add(task.assigned_to)
+    for (const uid of taskAssigneeIds) {
+      if (uid !== profile.id) recipients.add(uid)
+    }
 
     for (const userId of recipients) {
       await supabase.from('notifications').insert({
@@ -167,11 +219,48 @@ export default function TaskDetailSheet() {
             </div>
           </div>
           <div>
-            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5 block">Исполнитель</label>
-            <select value={createAssignee} onChange={e => setCreateAssignee(e.target.value)} className={inputCls}>
-              <option value="">Не назначен</option>
-              {profiles.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-            </select>
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5 block">Исполнители</label>
+            <div className="relative">
+              <div role="button" tabIndex={0} onClick={() => setShowAssigneePicker(!showAssigneePicker)}
+                className={inputCls + ' flex items-center gap-1.5 text-left cursor-pointer'}>
+                {createAssignees.length === 0 ? (
+                  <span className="text-slate-400">Не назначены</span>
+                ) : (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {createAssignees.map(uid => {
+                      const p = profiles.find(pr => pr.id === uid)
+                      return p ? (
+                        <span key={uid} className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 text-[11px] font-medium px-2 py-0.5 rounded-md">
+                          {p.full_name}
+                          <span role="button" tabIndex={0} onClick={e => { e.stopPropagation(); setCreateAssignees(prev => prev.filter(id => id !== uid)) }}
+                            className="hover:text-indigo-900 ml-0.5 cursor-pointer"><X className="w-3 h-3" /></span>
+                        </span>
+                      ) : null
+                    })}
+                  </div>
+                )}
+              </div>
+              {showAssigneePicker && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowAssigneePicker(false)} />
+                  <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-xl border border-slate-200 shadow-lg max-h-[200px] overflow-y-auto py-1">
+                    {profiles.map(p => {
+                      const selected = createAssignees.includes(p.id)
+                      return (
+                        <button key={p.id} type="button"
+                          onClick={() => setCreateAssignees(prev => selected ? prev.filter(id => id !== p.id) : [...prev, p.id])}
+                          className={`w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 hover:bg-slate-50 transition-colors ${selected ? 'text-indigo-700 font-medium' : 'text-slate-700'}`}>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${selected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
+                            {selected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                          </div>
+                          {p.full_name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -272,17 +361,63 @@ export default function TaskDetailSheet() {
               </select>
             </div>
 
-            {/* Assignee */}
-            <div className="flex items-center py-2.5">
-              <div className="flex items-center gap-2 w-[120px] shrink-0">
-                <User className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.8} />
-                <span className="text-[12px] text-slate-500">Исполнитель</span>
+            {/* Assignees */}
+            <div className="flex items-start py-2.5">
+              <div className="flex items-center gap-2 w-[120px] shrink-0 mt-0.5">
+                <Users className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.8} />
+                <span className="text-[12px] text-slate-500">Исполнители</span>
               </div>
-              <select value={task.assigned_to || ''} onChange={e => updateField('assigned_to', e.target.value)} disabled={!canEdit}
-                className={`text-[12px] text-slate-700 bg-transparent border-none outline-none font-medium py-1 -ml-1 pr-6 ${canEdit ? 'cursor-pointer hover:text-slate-900' : 'opacity-70 cursor-default'}`}>
-                <option value="">Не назначен</option>
-                {profiles.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-              </select>
+              <div className="flex-1 relative">
+                {taskAssigneeIds.length === 0 ? (
+                  <button type="button" onClick={() => canEdit && setShowEditAssigneePicker(!showEditAssigneePicker)}
+                    className={`text-[12px] text-slate-400 font-medium py-1 -ml-1 ${canEdit ? 'cursor-pointer hover:text-slate-600' : 'cursor-default'}`}>
+                    Не назначены
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1 flex-wrap -ml-1">
+                    {taskAssigneeIds.map(uid => {
+                      const p = profiles.find(pr => pr.id === uid)
+                      if (!p) return null
+                      const initials = p.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'
+                      return (
+                        <span key={uid} className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-[11px] font-medium pl-1 pr-2 py-0.5 rounded-lg">
+                          <span className="w-5 h-5 rounded-md bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[7px] font-bold">{initials}</span>
+                          {p.full_name}
+                          {canEdit && (
+                            <button type="button" onClick={() => toggleAssignee(uid)} className="text-slate-400 hover:text-red-500 ml-0.5"><X className="w-3 h-3" /></button>
+                          )}
+                        </span>
+                      )
+                    })}
+                    {canEdit && (
+                      <button type="button" onClick={() => setShowEditAssigneePicker(!showEditAssigneePicker)}
+                        className="w-6 h-6 rounded-lg border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:text-indigo-500 hover:border-indigo-300 transition-colors">
+                        <span className="text-[14px] leading-none">+</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+                {showEditAssigneePicker && canEdit && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowEditAssigneePicker(false)} />
+                    <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white rounded-xl border border-slate-200 shadow-lg max-h-[200px] overflow-y-auto py-1">
+                      {profiles.map(p => {
+                        const selected = taskAssigneeIds.includes(p.id)
+                        return (
+                          <button key={p.id} type="button"
+                            onClick={() => toggleAssignee(p.id)}
+                            className={`w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 hover:bg-slate-50 transition-colors ${selected ? 'text-indigo-700 font-medium' : 'text-slate-700'}`}>
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${selected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
+                              {selected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                            </div>
+                            {p.full_name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Due date */}

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Task, TaskComment } from '@/types/database'
 
-const TASK_SELECT = '*, assignee:profiles!assigned_to(id, full_name, role), creator:profiles!created_by(id, full_name, role)'
+const TASK_SELECT = '*, assignee:profiles!assigned_to(id, full_name, role), assignees:task_assignees(id, task_id, user_id, profile:profiles(id, full_name, role)), creator:profiles!created_by(id, full_name, role)'
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -32,6 +32,9 @@ export function useTasks() {
 
     const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        fetchTasks()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, () => {
         fetchTasks()
       })
       .subscribe()
@@ -110,10 +113,17 @@ export function useMyTaskCount() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user || !mountedRef.current) return
+      // Count tasks where user is in task_assignees
+      const { data: assigned } = await supabase
+        .from('task_assignees')
+        .select('task_id')
+        .eq('user_id', user.id)
+      const taskIds = assigned?.map(a => a.task_id) || []
+      if (taskIds.length === 0) { if (mountedRef.current) setCount(0); return }
       const { count: c } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
-        .eq('assigned_to', user.id)
+        .in('id', taskIds)
         .neq('status', 'done')
       if (mountedRef.current) setCount(c || 0)
       } catch { /* auth lock contention — ignore */ }

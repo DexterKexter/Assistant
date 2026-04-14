@@ -202,6 +202,14 @@ export interface Conversation {
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 
+export interface TaskAssignee {
+  id: string
+  task_id: string
+  user_id: string
+  created_at: string
+  profile?: Profile
+}
+
 export interface Task {
   id: string
   title: string
@@ -215,6 +223,7 @@ export interface Task {
   created_at: string
   updated_at: string
   assignee?: Profile
+  assignees?: TaskAssignee[]
   creator?: Profile
   shipment?: Shipment
   comment_count?: number

@@ -23,7 +23,8 @@ export default function TasksPage() {
       result = result.filter(t =>
         t.title.toLowerCase().includes(q) ||
         t.description?.toLowerCase().includes(q) ||
-        t.assignee?.full_name?.toLowerCase().includes(q)
+        t.assignee?.full_name?.toLowerCase().includes(q) ||
+        t.assignees?.some(a => a.profile?.full_name?.toLowerCase().includes(q))
       )
     }
     if (statusFilter !== 'all') result = result.filter(t => t.status === statusFilter)
