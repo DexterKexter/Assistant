@@ -8,7 +8,7 @@ import type { Client } from '@/types/database'
 
 type ActivityTab = 'all' | 'active' | 'moderate' | 'inactive'
 
-interface ClientWithActivity extends Client {
+interface ClientWithActivity extends Pick<Client, 'id' | 'name' | 'phone' | 'is_russia'> {
   lastShipmentDate: string | null
   daysSince: number | null
   shipmentCount: number

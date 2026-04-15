@@ -8,7 +8,7 @@ import type { Carrier } from '@/types/database'
 
 type ActivityTab = 'all' | 'active' | 'moderate' | 'inactive'
 
-interface CarrierWithStats extends Carrier {
+interface CarrierWithStats extends Pick<Carrier, 'id' | 'name'> {
   shipmentCount: number
   avgDeliveryCost: number | null
   lastShipmentDate: string | null
