@@ -54,6 +54,13 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
 
+  // Hide the mobile bottom nav while a chat is open so the message input isn't covered
+  useEffect(() => {
+    if (selectedId) document.documentElement.setAttribute('data-chat-open', 'true')
+    else document.documentElement.removeAttribute('data-chat-open')
+    return () => document.documentElement.removeAttribute('data-chat-open')
+  }, [selectedId])
+
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
     if (!profile) return

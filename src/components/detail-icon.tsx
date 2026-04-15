@@ -20,13 +20,13 @@ export function DetailIcon({
   bold?: boolean
 }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <div className="w-7 h-7 rounded-md bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
+    <div className="flex items-center gap-2">
+      <div className="w-6 h-6 rounded-md bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[12px] text-slate-500">{label}</p>
-        <p className={`text-[15px] text-slate-900 mt-0.5 truncate ${bold ? 'font-bold font-mono' : 'font-semibold'}`}>
+        <p className="text-[10px] text-slate-400 leading-tight">{label}</p>
+        <p className={`text-[12.5px] text-slate-900 mt-0.5 leading-tight line-clamp-2 ${bold ? 'font-bold font-mono' : 'font-semibold'}`}>
           {value}
         </p>
       </div>

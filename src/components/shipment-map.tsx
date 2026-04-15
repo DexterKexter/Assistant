@@ -114,6 +114,13 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
     // Wait for DOM to be ready
     const timer = setTimeout(() => {
     if (!mapRef.current) return
+    // Container must have size before leaflet can initialize — otherwise fitBounds throws _leaflet_pos
+    const rect = mapRef.current.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
+    // Strip any stale leaflet metadata from the container (prevents "Map container is already initialized")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const el = mapRef.current as any
+    if (el._leaflet_id) delete el._leaflet_id
 
     const points: { coord: [number, number]; label: string; color: string; tooltip: string; hasDate: boolean }[] = []
     const originCoord = getCoord(origin)

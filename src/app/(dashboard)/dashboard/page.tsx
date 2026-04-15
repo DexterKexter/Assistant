@@ -152,7 +152,7 @@ export default function DashboardPage() {
 
       <div className="grid gap-3 md:gap-4 lg:grid-cols-3">
         {/* Active shipments */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 overflow-hidden">
+        <div className="lg:col-span-2 bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3.5">
             <h2 className="text-[14px] font-semibold text-slate-900 font-heading">Активные перевозки</h2>
             <button onClick={() => router.push('/dashboard/shipments')} className="flex items-center gap-1 text-[12px] text-indigo-500 hover:text-indigo-600 font-medium transition-colors">
@@ -191,7 +191,7 @@ export default function DashboardPage() {
         {/* Right column */}
         <div className="space-y-4">
           {/* Top carriers */}
-          <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-5">
             <h2 className="text-[14px] font-semibold text-slate-900 font-heading mb-3">Перевозчики в пути</h2>
             {loading ? (
               <div className="space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="skeleton h-6 w-full" />)}</div>
@@ -216,7 +216,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Top routes */}
-          <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-5">
             <h2 className="text-[14px] font-semibold text-slate-900 font-heading mb-3">Популярные маршруты</h2>
             {loading ? (
               <div className="space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="skeleton h-6 w-full" />)}</div>

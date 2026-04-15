@@ -241,3 +241,8 @@
 .card-tooltip::before {
   border-top-color: white !important;
 }
+
+/* Hide mobile bottom nav while a chat is open so the message input stays visible */
+html[data-chat-open="true"] nav[data-mobile-nav] {
+  display: none;
+}

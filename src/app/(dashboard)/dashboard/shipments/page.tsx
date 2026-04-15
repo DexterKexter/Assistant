@@ -395,7 +395,7 @@ export default function ShipmentsPage() {
                   <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide px-1 pt-3 pb-1.5">{curMonth}</p>
                 )}
                 <div
-                  className="bg-white rounded-xl border border-slate-100 p-3.5 active:bg-slate-50 transition-colors cursor-pointer"
+                  className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-3.5 active:bg-slate-50 transition-colors cursor-pointer"
                   onClick={() => openShipment(s.id)}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">

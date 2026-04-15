@@ -57,7 +57,7 @@ export function MobileNav() {
 
   return (
     <>
-      <nav className="md:hidden fixed bottom-3 left-3 right-3 z-50 rounded-[28px] bg-gradient-to-br from-indigo-50/40 via-white/30 to-violet-50/40 backdrop-blur-[24px] backdrop-saturate-200 border border-white/50 shadow-[0_12px_40px_-4px_rgba(79,70,229,0.18),0_4px_12px_-2px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.7),inset_0_-1px_0_0_rgba(255,255,255,0.2)]">
+      <nav data-mobile-nav className="md:hidden fixed bottom-3 left-3 right-3 z-50 rounded-[28px] bg-gradient-to-br from-indigo-50/40 via-white/30 to-violet-50/40 backdrop-blur-[24px] backdrop-saturate-200 border border-white/50 shadow-[0_12px_40px_-4px_rgba(79,70,229,0.18),0_4px_12px_-2px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.7),inset_0_-1px_0_0_rgba(255,255,255,0.2)]">
         <div className="flex items-center justify-around px-1.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {items.map((item) => {
             const active = isActive(item.href)
@@ -118,15 +118,15 @@ export function MobileNav() {
         <div className="md:hidden fixed inset-0 z-[60]" onClick={() => setMenuOpen(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl animate-in slide-in-from-bottom duration-200 pb-[max(1rem,env(safe-area-inset-bottom))]"
+            className="absolute bottom-3 left-3 right-3 rounded-[28px] bg-gradient-to-br from-indigo-50/70 via-white/60 to-violet-50/70 backdrop-blur-[24px] backdrop-saturate-200 border border-white/60 shadow-[0_12px_40px_-4px_rgba(79,70,229,0.25),0_4px_12px_-2px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.8),inset_0_-1px_0_0_rgba(255,255,255,0.2)] animate-in slide-in-from-bottom duration-200 pb-[max(0.75rem,env(safe-area-inset-bottom))] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-center pt-2.5 pb-1">
-              <div className="w-10 h-1 rounded-full bg-slate-200" />
+              <div className="w-10 h-1 rounded-full bg-slate-300/70" />
             </div>
             <div className="flex items-center justify-between px-5 pb-3 pt-1">
               <h3 className="text-[15px] font-bold text-slate-900 font-heading">Меню</h3>
-              <button onClick={() => setMenuOpen(false)} className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center">
+              <button onClick={() => setMenuOpen(false)} className="w-8 h-8 rounded-full bg-white/50 active:bg-white/80 flex items-center justify-center transition-colors">
                 <X className="w-4 h-4 text-slate-500" />
               </button>
             </div>
@@ -144,10 +144,10 @@ export function MobileNav() {
                           href={item.href}
                           onClick={() => setMenuOpen(false)}
                           className={cn(
-                            'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] transition-colors',
+                            'flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[14px] transition-colors',
                             active
-                              ? 'bg-indigo-50 text-indigo-600 font-semibold'
-                              : 'text-slate-700 active:bg-slate-100 font-medium'
+                              ? 'bg-indigo-500/15 text-indigo-600 font-semibold shadow-sm shadow-indigo-500/10'
+                              : 'text-slate-700 active:bg-white/60 font-medium'
                           )}
                         >
                           <item.icon className="w-[18px] h-[18px] shrink-0" strokeWidth={active ? 2.2 : 1.8} />
@@ -179,7 +179,7 @@ export function MobileNav() {
                     <Link
                       href="/dashboard/admin/references"
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-slate-700 active:bg-slate-100 font-medium"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[14px] text-slate-700 active:bg-white/60 font-medium"
                     >
                       <Settings className="w-[18px] h-[18px] shrink-0" strokeWidth={1.8} />
                       <span>Справочники</span>
@@ -188,10 +188,10 @@ export function MobileNav() {
                 </div>
               )}
 
-              <div className="border-t border-slate-100 pt-2 mt-2">
+              <div className="border-t border-white/60 pt-2 mt-2">
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] text-red-500 active:bg-red-50 font-medium"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[14px] text-red-500 active:bg-red-500/10 font-medium"
                 >
                   <LogOut className="w-[18px] h-[18px] shrink-0" strokeWidth={1.8} />
                   <span>Выйти</span>

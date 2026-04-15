@@ -262,10 +262,10 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       ? lookups.refs[refCategory].map(n => ({ value: n, label: n }))
       : []
     return (
-      <div className="flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-md bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">{icon}</div>
+      <div className="flex items-center gap-2">
+        <div className="w-6 h-6 rounded-md bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">{icon}</div>
         <div className="min-w-0 flex-1">
-          <p className="text-[12px] text-slate-500 font-medium mb-0.5">{label}</p>
+          <p className="text-[10px] text-slate-400 font-medium mb-0.5 leading-tight">{label}</p>
           {type === 'select' && options ? (
             <SearchableSelect
               options={options}
@@ -296,23 +296,23 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   return (
     <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shrink-0">
             <X className="w-4 h-4 text-slate-500" />
           </button>
-          <h1 className="text-[18px] font-bold text-slate-900 font-mono">{isCreateMode ? 'Новая перевозка' : shipment.container_number}</h1>
+          <h1 className="text-[16px] sm:text-[18px] font-bold text-slate-900 font-mono truncate">{isCreateMode ? 'Новая перевозка' : shipment.container_number}</h1>
           {!isCreateMode && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: status.color + '15', color: status.color }}>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold shrink-0" style={{ background: status.color + '15', color: status.color }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: status.color }} />
               {status.label}
             </span>
           )}
         </div>
         {canEdit && !editing && (
-          <button onClick={enterEditMode} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors flex items-center gap-1.5">
+          <button onClick={enterEditMode} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors flex items-center gap-1.5 shrink-0">
             <Pencil className="w-3 h-3" />
-            Редактировать
+            <span className="hidden sm:inline">Редактировать</span>
           </button>
         )}
         {editing && (
@@ -351,8 +351,8 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
       {/* === SHIPMENT TAB === */}
       {tab === 'shipment' && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] px-5 py-4">
             <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Контейнер</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Номер" field="container_number" bold />
@@ -364,7 +364,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
               <EditField icon={<Package className="w-3.5 h-3.5" />} label="Груз" field="cargo_description" type="ref" refCategory="cargo" />
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
+          <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] px-5 py-4">
             <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Участники</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               {!editing && shipment.client_id ? (
@@ -396,37 +396,37 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
       {/* Route — view mode: timeline, edit mode: simple grid */}
       {tab === 'shipment' && !editing && (
-        <div className="bg-white rounded-xl border border-slate-100 px-6 py-4">
+        <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] px-6 py-4">
           <div className="flex items-start">
             <div className="flex-1 text-center">
               <div className="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center mx-auto"><Ship className="w-4 h-4" /></div>
-              <p className="text-[14px] font-bold text-slate-900 mt-2">{shipment.origin || '—'}</p>
-              <p className="text-[12px] text-slate-500">{fmtDate(shipment.departure_date)}</p>
+              <p className="text-[12px] font-bold text-slate-900 mt-1.5 leading-tight">{shipment.origin || '—'}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{fmtDate(shipment.departure_date)}</p>
             </div>
             <div className="flex-1 relative flex flex-col items-center" style={{ marginTop: 17 }}>
               <div className={`h-0.5 w-full rounded-full ${shipment.arrival_date ? 'bg-slate-400' : 'bg-slate-200'}`} />
-              {shipment.departure_date && <div className="mt-2 px-2.5 py-1 rounded-full text-[12px] font-bold bg-slate-100 text-slate-700">{(() => { if (!shipment.departure_date) return ''; const end = shipment.arrival_date ? new Date(shipment.arrival_date).getTime() : Date.now(); return Math.round((end - new Date(shipment.departure_date).getTime()) / 86400000) + 'д' })()}</div>}
+              {shipment.departure_date && <div className="mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">{(() => { if (!shipment.departure_date) return ''; const end = shipment.arrival_date ? new Date(shipment.arrival_date).getTime() : Date.now(); return Math.round((end - new Date(shipment.departure_date).getTime()) / 86400000) + 'д' })()}</div>}
             </div>
             <div className="flex-1 text-center">
               <div className={`w-9 h-9 rounded-full flex items-center justify-center mx-auto ${shipment.arrival_date ? 'bg-slate-600 text-white' : 'bg-slate-100 text-slate-400'}`}><Filter className="w-4 h-4" /></div>
-              <p className="text-[14px] font-bold text-slate-900 mt-2">{shipment.destination_station || '—'}</p>
-              <p className="text-[12px] text-slate-500">{fmtDate(shipment.arrival_date)}</p>
+              <p className="text-[12px] font-bold text-slate-900 mt-1.5 leading-tight">{shipment.destination_station || '—'}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{fmtDate(shipment.arrival_date)}</p>
             </div>
             <div className="flex-1 relative flex flex-col items-center" style={{ marginTop: 17 }}>
               <div className={`h-0.5 w-full rounded-full ${shipment.delivery_date ? 'bg-slate-400' : 'bg-slate-200'}`} />
-              {shipment.arrival_date && <div className="mt-2 px-2.5 py-1 rounded-full text-[12px] font-bold bg-slate-100 text-slate-700">{(() => { const end = shipment.delivery_date ? new Date(shipment.delivery_date).getTime() : Date.now(); return Math.round((end - new Date(shipment.arrival_date!).getTime()) / 86400000) + 'д' })()}</div>}
+              {shipment.arrival_date && <div className="mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">{(() => { const end = shipment.delivery_date ? new Date(shipment.delivery_date).getTime() : Date.now(); return Math.round((end - new Date(shipment.arrival_date!).getTime()) / 86400000) + 'д' })()}</div>}
             </div>
             <div className="flex-1 text-center">
               <div className={`w-9 h-9 rounded-full flex items-center justify-center mx-auto ${shipment.delivery_date || shipment.is_completed ? 'bg-slate-400 text-white' : 'bg-slate-100 text-slate-400'}`}><Ship className="w-4 h-4" /></div>
-              <p className="text-[14px] font-bold text-slate-900 mt-2">{shipment.destination_city || '—'}</p>
-              <p className="text-[12px] text-slate-500">{fmtDate(shipment.delivery_date)}</p>
+              <p className="text-[12px] font-bold text-slate-900 mt-1.5 leading-tight">{shipment.destination_city || '—'}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{fmtDate(shipment.delivery_date)}</p>
             </div>
           </div>
         </div>
       )}
 
       {tab === 'shipment' && editing && (
-        <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
+        <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] px-5 py-4">
           <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Маршрут</p>
           <div className="grid grid-cols-3 gap-x-4 gap-y-2">
             <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Откуда" field="origin" type="ref" refCategory="city" />
@@ -455,7 +455,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
       {/* Notes + completed — edit mode only */}
       {tab === 'shipment' && editing && (
-        <div className="bg-white rounded-xl border border-slate-100 px-5 py-4">
+        <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] px-5 py-4">
           <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Дополнительно</p>
           <div className="space-y-3">
             <div>
@@ -468,7 +468,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
       {/* === FINANCE TAB === */}
       {tab === 'finance' && !editing && (
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-5">
           <div className="grid grid-cols-3 gap-3">
             {shipment.delivery_cost && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Доставка</p><p className="text-[18px] font-bold text-slate-900">${shipment.delivery_cost.toLocaleString()}</p></div>}
             {shipment.price && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Цена</p><p className="text-[18px] font-bold text-slate-900">${shipment.price.toLocaleString()}</p></div>}
@@ -481,7 +481,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       )}
 
       {tab === 'finance' && editing && (
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-5">
           <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Финансы</p>
           <div className="grid grid-cols-3 gap-3">
             {[
@@ -509,9 +509,9 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
         const hasFiles = shipment.contract_pdf || excelFiles.length
         const curPhoto = photos[photoIdx] || null
         return (
-          <div className="flex gap-3" style={{ height: 'calc(90vh - 165px)' }}>
+          <div className="flex flex-col md:flex-row gap-3 md:h-[calc(90vh-165px)]">
             {photos.length > 0 ? (
-              <div className="flex-[4] flex flex-col bg-white rounded-xl border border-slate-100 overflow-hidden">
+              <div className="flex-[4] flex flex-col bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] overflow-hidden h-[340px] md:h-auto">
                 <div className="flex-1 relative overflow-hidden cursor-zoom-in bg-slate-50" onClick={() => setLightbox(true)}>
                   <img src={curPhoto!} alt="" className="w-full h-full object-contain" />
                 </div>
@@ -561,7 +561,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                 </div>
               </div>
             ) : (
-              <div className="flex-[4] flex flex-col items-center justify-center bg-white rounded-xl border border-slate-100 gap-3">
+              <div className="flex-[4] flex flex-col items-center justify-center bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] gap-3 py-10 md:py-0">
                 <Image className="w-8 h-8 text-slate-200" strokeWidth={1.5} />
                 <p className="text-[13px] text-slate-400">Нет фотографий</p>
                 {canEdit && (
@@ -588,7 +588,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                 )}
               </div>
             )}
-            <div className="flex-1 flex flex-col bg-white rounded-xl border border-slate-100 p-3 overflow-y-auto">
+            <div className="flex-1 flex flex-col bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-3 overflow-y-auto">
               <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Файлы</p>
               {shipment.contract_pdf && (
                 <div className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 border border-slate-100 mb-2">
@@ -693,7 +693,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
       {/* Comments section — visible on documents tab */}
       {tab === 'documents' && !isCreateMode && (
-        <div className="bg-white rounded-xl border border-slate-100 p-4">
+        <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-4">
           <div className="flex items-center gap-2 mb-3">
             <MessageSquare className="w-4 h-4 text-slate-400" strokeWidth={1.8} />
             <h3 className="text-[13px] font-semibold text-slate-700">Комментарии ({comments.length})</h3>
