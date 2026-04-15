@@ -36,11 +36,14 @@ export default function RegisterPage() {
       return
     }
 
-    // If email confirmation is required, user won't have a session
+    // If no session returned (email confirmation still enabled), try to sign in directly
     if (data?.user && !data.session) {
-      setInfo('На вашу почту отправлено письмо для подтверждения. Проверьте email (и папку «Спам») и перейдите по ссылке, затем войдите.')
-      setLoading(false)
-      return
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInError) {
+        setError(signInError.message)
+        setLoading(false)
+        return
+      }
     }
 
     router.push('/dashboard')

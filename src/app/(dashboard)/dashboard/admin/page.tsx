@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/useProfile'
 import { useRouter } from 'next/navigation'
 import type { Profile, UserRole } from '@/types/database'
+
+type AdminUser = Profile & { last_sign_in_at: string | null }
 import { Shield, Users, ChevronDown, Check, Search, UserPlus, Calculator, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 
@@ -34,7 +36,7 @@ const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
 export default function AdminPage() {
   const { profile: me, loading: meLoading, hasRole } = useProfile()
   const router = useRouter()
-  const [users, setUsers] = useState<Profile[]>([])
+  const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -56,11 +58,8 @@ export default function AdminPage() {
 
   const fetchUsers = async () => {
     const supabase = createClient()
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setUsers((data as Profile[]) || [])
+    const { data } = await supabase.rpc('admin_list_users')
+    setUsers((data as AdminUser[]) || [])
     setLoading(false)
   }
 
@@ -214,6 +213,7 @@ export default function AdminPage() {
                   <th className="text-left py-2.5 px-4 text-slate-400 font-medium">Телефон</th>
                   <th className="text-left py-2.5 px-4 text-slate-400 font-medium">Роль</th>
                   <th className="text-left py-2.5 px-4 text-slate-400 font-medium">Создан</th>
+                  <th className="text-left py-2.5 px-4 text-slate-400 font-medium">Последний вход</th>
                 </tr>
               </thead>
               <tbody>
@@ -273,12 +273,23 @@ export default function AdminPage() {
                       <td className="py-2.5 px-4 text-slate-400">
                         {new Date(user.created_at).toLocaleDateString('ru-RU')}
                       </td>
+                      <td className="py-2.5 px-4 text-slate-500">
+                        {user.last_sign_in_at
+                          ? new Date(user.last_sign_in_at).toLocaleString('ru-RU', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : <span className="text-slate-300">—</span>}
+                      </td>
                     </tr>
                   )
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-400">
+                    <td colSpan={6} className="py-8 text-center text-slate-400">
                       Пользователи не найдены
                     </td>
                   </tr>
