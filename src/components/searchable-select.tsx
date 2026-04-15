@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, Search, X } from 'lucide-react'
 
 interface Option {
@@ -18,7 +19,10 @@ interface Props {
 export function SearchableSelect({ options, value, onChange, placeholder = 'Выберите...' }: Props) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number; openUp: boolean } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const popRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const selected = options.find(o => o.value === value)
@@ -27,13 +31,43 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
     ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
     : options
 
+  // Close on outside click (accounting for the portalled popover)
   useEffect(() => {
+    if (!open) return
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (ref.current?.contains(t)) return
+      if (popRef.current?.contains(t)) return
+      setOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  }, [open])
+
+  // Reposition popover on scroll/resize while open
+  useLayoutEffect(() => {
+    if (!open) return
+    const update = () => {
+      if (!btnRef.current) return
+      const r = btnRef.current.getBoundingClientRect()
+      const popHeight = 260
+      const spaceBelow = window.innerHeight - r.bottom
+      const openUp = spaceBelow < popHeight && r.top > popHeight
+      setCoords({
+        top: openUp ? r.top - 4 : r.bottom + 4,
+        left: r.left,
+        width: Math.max(r.width, 200),
+        openUp,
+      })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [open])
 
   useEffect(() => {
     if (open && inputRef.current) inputRef.current.focus()
@@ -42,6 +76,7 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
   return (
     <div ref={ref} className="relative">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen(!open)}
         className="w-full h-9 flex items-center justify-between text-[13px] border border-slate-200 rounded-lg px-2.5 text-slate-800 bg-white hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 transition-all text-left"
@@ -62,8 +97,17 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
         </div>
       </button>
 
-      {open && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden" style={{ minWidth: 200 }}>
+      {open && coords && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={popRef}
+          className="fixed z-[200] bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden"
+          style={{
+            top: coords.openUp ? undefined : coords.top,
+            bottom: coords.openUp ? window.innerHeight - coords.top : undefined,
+            left: coords.left,
+            width: coords.width,
+          }}
+        >
           {options.length > 5 && (
             <div className="p-1.5 border-b border-slate-100">
               <div className="relative">
@@ -99,7 +143,8 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
