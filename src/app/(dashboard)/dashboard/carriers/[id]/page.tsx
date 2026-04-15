@@ -28,7 +28,7 @@ export default function CarrierDetailPage() {
     const load = async () => {
       const [{ data: c }, { data: sh }] = await Promise.all([
         supabase.from('carriers').select('*').eq('id', id).single(),
-        supabase.from('shipments').select('*, client:clients(name, is_russia)').eq('carrier_id', id).order('departure_date', { ascending: false }),
+        supabase.from('shipments').select('id, container_number, container_size, origin, destination_station, destination_city, departure_date, arrival_date, delivery_date, is_completed, delivery_cost, price, client:clients(name, is_russia)').eq('carrier_id', id).order('departure_date', { ascending: false }),
       ])
       setCarrier(c)
       setShipments((sh || []) as any)

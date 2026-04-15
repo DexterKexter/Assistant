@@ -448,7 +448,7 @@ function AttachmentItem({ att, isMine }: { att: MessageAttachment; isMine: boole
     return (
       <>
         <button onClick={() => setShowModal(true)} className="block cursor-zoom-in">
-          <img src={att.url} alt={att.name} className="rounded-lg max-w-[200px] max-h-[150px] object-cover" />
+          <img src={att.url} alt={att.name} loading="lazy" decoding="async" className="rounded-lg max-w-[200px] max-h-[150px] object-cover" />
         </button>
         {showModal && (
           <div className="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowModal(false)}>

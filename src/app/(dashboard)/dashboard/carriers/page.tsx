@@ -25,7 +25,7 @@ export default function CarriersPage() {
   useEffect(() => {
     const supabase = createClient()
     const load = async () => {
-      const { data: carriersData } = await supabase.from('carriers').select('*').order('name')
+      const { data: carriersData } = await supabase.from('carriers').select('id, name').order('name')
       const { data: shipmentsData } = await supabase.from('shipments').select('carrier_id, departure_date, delivery_cost')
 
       if (!carriersData) { setLoading(false); return }

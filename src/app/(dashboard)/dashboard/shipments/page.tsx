@@ -63,7 +63,7 @@ export default function ShipmentsPage() {
     if (append) setLoadingMore(true)
     const { data, count } = await supabase
       .from('shipments')
-      .select('*, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)', { count: 'exact' })
+      .select('id, container_number, container_size, container_type, origin, destination_station, destination_city, departure_date, arrival_date, delivery_date, is_completed, client_id, carrier_id, sender_name, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)', { count: 'estimated' })
       .order('departure_date', { ascending: false, nullsFirst: false })
       .range(from, from + PAGE_SIZE - 1)
     const rows = (data as unknown as Shipment[]) || []

@@ -520,7 +520,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                     <div key={i} className="relative shrink-0">
                       <button onClick={() => setPhotoIdx(i)}
                         className={`w-14 h-14 rounded-md overflow-hidden border-2 transition-all ${i === photoIdx ? 'border-slate-700' : 'border-transparent opacity-50 hover:opacity-100'}`}>
-                        <img src={url} alt="" className="w-full h-full object-cover" />
+                        <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       </button>
                       {canEdit && editing && (
                         <button onClick={async () => {

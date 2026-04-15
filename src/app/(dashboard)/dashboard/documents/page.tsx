@@ -153,7 +153,7 @@ export default function DocumentsPage() {
                   <div key={s.id} className="flex items-center gap-3 px-4 py-2 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 cursor-pointer transition-colors"
                     onClick={() => openShipment(s.id)}>
                     <div className="w-12 h-9 rounded-lg overflow-hidden bg-slate-100 shrink-0">
-                      <img src={s.photos![0]} alt="" className="w-full h-full object-cover" />
+                      <img src={s.photos![0]} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-bold text-slate-900 font-mono">{s.container_number}</p>
@@ -176,7 +176,7 @@ export default function DocumentsPage() {
                         className="shrink-0 w-[140px] snap-start text-left active:opacity-70 transition-opacity"
                       >
                         <div className="w-full aspect-square rounded-xl overflow-hidden bg-slate-100 mb-2 relative">
-                          <img src={s.photos![0]} alt="" className="w-full h-full object-cover" />
+                          <img src={s.photos![0]} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           {s.photos!.length > 1 && (
                             <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-semibold backdrop-blur-sm">
                               {s.photos!.length}
@@ -221,7 +221,7 @@ export default function DocumentsPage() {
                       <div key={s.id} onClick={() => openShipment(s.id)}
                         className="flex items-center gap-3 px-4 py-3 border-b sm:border-r border-slate-100 last:border-b-0 hover:bg-slate-50/50 cursor-pointer transition-colors">
                         {photoCount > 0 ? (
-                          <img src={s.photos![0]} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                          <img src={s.photos![0]} alt="" loading="lazy" decoding="async" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                         ) : (
                           <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
                             <FileText className="w-4 h-4 text-slate-400" />

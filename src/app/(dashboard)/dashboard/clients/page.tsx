@@ -32,7 +32,7 @@ export default function ClientsPage() {
     const supabase = createClient()
     const load = async () => {
       // Fetch clients and their latest shipment dates
-      const { data: clientsData } = await supabase.from('clients').select('*').order('name')
+      const { data: clientsData } = await supabase.from('clients').select('id, name, phone, is_russia').order('name')
       const { data: shipmentsData } = await supabase.from('shipments').select('client_id, departure_date').order('departure_date', { ascending: false })
 
       if (!clientsData) { setLoading(false); return }
