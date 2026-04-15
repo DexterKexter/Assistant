@@ -1,18 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutGrid, Ship, Users, CheckSquare, MessageSquare,
   Menu as MenuIcon, X, BarChart3, Truck, Wallet, FileText,
-  Shield, Settings, LogOut,
+  Shield, Settings, LogOut, User, Save,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useUnreadCount } from '@/lib/useMessages'
 import { useMyTaskCount } from '@/lib/useTasks'
 import { useProfile } from '@/lib/useProfile'
 import { cn } from '@/lib/utils'
+import { APP_VERSION, BUILD_DATE } from '@/lib/version'
 
 const items = [
   { href: '/dashboard', label: 'Обзор', icon: LayoutGrid },
@@ -39,8 +40,37 @@ export function MobileNav() {
   const router = useRouter()
   const unreadCount = useUnreadCount()
   const taskCount = useMyTaskCount()
-  const { hasRole } = useProfile()
+  const { profile, hasRole, refresh } = useProfile()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [profileDraft, setProfileDraft] = useState<{ full_name: string; phone: string }>({ full_name: '', phone: '' })
+  const [profileSaving, setProfileSaving] = useState(false)
+
+  // Hide mobile bottom nav while either sheet is open
+  useEffect(() => {
+    if (menuOpen || profileOpen) document.documentElement.setAttribute('data-chat-open', 'true')
+    else document.documentElement.removeAttribute('data-chat-open')
+    return () => document.documentElement.removeAttribute('data-chat-open')
+  }, [menuOpen, profileOpen])
+
+  const openProfile = () => {
+    if (!profile) return
+    setProfileDraft({ full_name: profile.full_name || '', phone: profile.phone || '' })
+    setMenuOpen(false)
+    setProfileOpen(true)
+  }
+  const saveProfile = async () => {
+    if (!profile) return
+    setProfileSaving(true)
+    const supabase = createClient()
+    await supabase
+      .from('profiles')
+      .update({ full_name: profileDraft.full_name.trim() || null, phone: profileDraft.phone.trim() || null })
+      .eq('id', profile.id)
+    if (refresh) await refresh()
+    setProfileSaving(false)
+    setProfileOpen(false)
+  }
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
@@ -197,7 +227,17 @@ export function MobileNav() {
                 </div>
               )}
 
-              <div className="border-t border-white/60 pt-2 mt-2">
+              <div className="border-t border-white/60 pt-2 mt-2 space-y-0.5">
+                <button
+                  onClick={openProfile}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[14px] text-slate-700 active:bg-white/60 font-medium"
+                >
+                  <User className="w-[18px] h-[18px] shrink-0" strokeWidth={1.8} />
+                  <span>Профиль</span>
+                  {profile?.full_name && (
+                    <span className="ml-auto text-[11px] text-slate-400 truncate max-w-[140px]">{profile.full_name}</span>
+                  )}
+                </button>
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[14px] text-red-500 active:bg-red-500/10 font-medium"
@@ -206,6 +246,88 @@ export function MobileNav() {
                   <span>Выйти</span>
                 </button>
               </div>
+
+              <p className="text-center text-[10px] text-slate-400 mt-3 mb-1">
+                v{APP_VERSION} · {BUILD_DATE}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Profile sheet */}
+      {profileOpen && (
+        <div className="md:hidden fixed inset-0 z-[70] flex items-end justify-center" onClick={() => !profileSaving && setProfileOpen(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
+          <div
+            onClick={e => e.stopPropagation()}
+            className="relative w-full mx-3 mb-3 rounded-[28px] bg-gradient-to-br from-indigo-50/70 via-white/60 to-violet-50/70 backdrop-blur-[24px] backdrop-saturate-200 border border-white/60 shadow-[0_12px_40px_-4px_rgba(79,70,229,0.25),0_4px_12px_-2px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.8)] animate-in slide-in-from-bottom duration-200 pb-[max(0.75rem,env(safe-area-inset-bottom))] overflow-hidden"
+          >
+            <div className="flex items-center justify-center pt-2.5 pb-1">
+              <div className="w-10 h-1 rounded-full bg-slate-300/70" />
+            </div>
+            <div className="flex items-center justify-between px-5 pt-3 pb-3 border-b border-white/60">
+              <h3 className="text-[15px] font-bold text-slate-900 font-heading">Профиль</h3>
+              <button onClick={() => !profileSaving && setProfileOpen(false)} className="w-8 h-8 rounded-full bg-white/50 active:bg-white/80 flex items-center justify-center transition-colors">
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3.5">
+              {/* Avatar + role */}
+              <div className="flex items-center gap-3 pb-2">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-[16px] font-bold shrink-0">
+                  {(profileDraft.full_name || profile?.email || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[14px] font-bold text-slate-900 truncate">{profileDraft.full_name || profile?.email || 'Без имени'}</p>
+                  <p className="text-[11px] text-slate-500 truncate">{profile?.email}</p>
+                  {profile?.role && (
+                    <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/15 text-indigo-700">
+                      {profile.role === 'admin' ? 'Администратор' : profile.role === 'manager' ? 'Менеджер' : profile.role === 'accountant' ? 'Бухгалтер' : 'Клиент'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Имя</label>
+                <input
+                  type="text"
+                  value={profileDraft.full_name}
+                  onChange={e => setProfileDraft(d => ({ ...d, full_name: e.target.value }))}
+                  className="mt-1 w-full h-10 rounded-xl border border-white/80 bg-white/70 backdrop-blur-sm px-3 text-[13px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 focus:bg-white"
+                  placeholder="Иван Иванов"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Телефон</label>
+                <input
+                  type="tel"
+                  value={profileDraft.phone}
+                  onChange={e => setProfileDraft(d => ({ ...d, phone: e.target.value }))}
+                  className="mt-1 w-full h-10 rounded-xl border border-white/80 bg-white/70 backdrop-blur-sm px-3 text-[13px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 focus:bg-white"
+                  placeholder="+7 900 000 00 00"
+                />
+              </div>
+            </div>
+
+            <div className="px-5 pb-4 pt-2 flex items-center gap-2">
+              <button
+                onClick={() => !profileSaving && setProfileOpen(false)}
+                disabled={profileSaving}
+                className="flex-1 h-10 rounded-xl border border-white/80 bg-white/60 text-slate-600 text-[13px] font-medium active:bg-white/90 disabled:opacity-50 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={saveProfile}
+                disabled={profileSaving}
+                className="flex-1 h-10 rounded-xl bg-indigo-600 text-white text-[13px] font-semibold active:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/25"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {profileSaving ? 'Сохранение...' : 'Сохранить'}
+              </button>
             </div>
           </div>
         </div>

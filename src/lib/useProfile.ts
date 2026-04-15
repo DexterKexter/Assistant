@@ -40,7 +40,15 @@ export function useProfile() {
 
   const hasRole = (...roles: UserRole[]) => !!profile && roles.includes(profile.role)
 
-  return { profile, loading, hasRole }
+  const refresh = async () => {
+    cachedProfile = null
+    fetchPromise = doFetch()
+    const p = await fetchPromise
+    cachedProfile = p
+    setProfile(p)
+  }
+
+  return { profile, loading, hasRole, refresh }
 }
 
 /** Invalidate cache (e.g. after role change) */
