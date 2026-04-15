@@ -9,8 +9,10 @@ import { type Client, type Shipment, type Transaction, getShipmentStatus } from 
 import { fmtDate } from '@/lib/utils'
 import {
   ArrowLeft, Phone, MapPin, Globe, Ship, Package, TrendingUp, Calendar,
-  DollarSign, Clock, ChevronRight, Container, Truck, CheckCircle2, Search
+  DollarSign, Clock, ChevronRight, Container, Truck, CheckCircle2, Search,
+  Pencil, X as XIcon, Save
 } from 'lucide-react'
+import { useProfile } from '@/lib/useProfile'
 
 export default function ClientDetailPage() {
   const { id } = useParams()
@@ -22,6 +24,52 @@ export default function ClientDetailPage() {
   const [loading, setLoading] = useState(true)
   const [activityYear, setActivityYear] = useState<string>('all')
   const [shipmentSearch, setShipmentSearch] = useState('')
+
+  // Edit modal
+  const { hasRole } = useProfile()
+  const canEdit = hasRole('admin', 'manager')
+  const [editOpen, setEditOpen] = useState(false)
+  const [draft, setDraft] = useState<{ name: string; phone: string; address: string; is_russia: boolean }>({
+    name: '', phone: '', address: '', is_russia: false,
+  })
+  const [saving, setSaving] = useState(false)
+
+  const openEdit = () => {
+    if (!client) return
+    setDraft({
+      name: client.name || '',
+      phone: client.phone || '',
+      address: client.address || '',
+      is_russia: !!client.is_russia,
+    })
+    setEditOpen(true)
+  }
+
+  // Hide the mobile bottom nav while the edit modal is open
+  useEffect(() => {
+    if (editOpen) document.documentElement.setAttribute('data-chat-open', 'true')
+    else document.documentElement.removeAttribute('data-chat-open')
+    return () => document.documentElement.removeAttribute('data-chat-open')
+  }, [editOpen])
+  const saveEdit = async () => {
+    if (!client) return
+    setSaving(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('clients')
+      .update({
+        name: draft.name.trim() || client.name,
+        phone: draft.phone.trim() || null,
+        address: draft.address.trim() || null,
+        is_russia: draft.is_russia,
+      })
+      .eq('id', client.id)
+      .select()
+      .single()
+    if (data) setClient(data as Client)
+    setSaving(false)
+    setEditOpen(false)
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -144,9 +192,9 @@ export default function ClientDetailPage() {
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-[12px] font-bold shrink-0">
           {initials}
         </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-[20px] font-bold text-slate-900 tracking-tight font-heading truncate">{client.name}</h1>
-            <div className="flex items-center gap-3 mt-0.5">
+            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
               <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${client.is_russia ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
                 <Globe className="w-3 h-3" strokeWidth={2} />
                 {client.is_russia ? 'Россия' : 'Казахстан'}
@@ -165,24 +213,123 @@ export default function ClientDetailPage() {
               )}
             </div>
           </div>
+          {canEdit && (
+            <button
+              onClick={openEdit}
+              aria-label="Редактировать клиента"
+              className="shrink-0 w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 active:scale-95 transition-all text-slate-500"
+            >
+              <Pencil className="w-4 h-4" strokeWidth={1.8} />
+            </button>
+          )}
       </div>
+
+      {/* ── Edit modal ── */}
+      {editOpen && (
+        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center md:p-4" onClick={() => !saving && setEditOpen(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
+          <div
+            onClick={e => e.stopPropagation()}
+            className="relative w-full md:w-[440px] mb-3 mx-3 md:mb-0 md:mx-0 rounded-[28px] bg-gradient-to-br from-indigo-50/70 via-white/60 to-violet-50/70 backdrop-blur-[24px] backdrop-saturate-200 border border-white/60 shadow-[0_12px_40px_-4px_rgba(79,70,229,0.25),0_4px_12px_-2px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.8)] animate-in slide-in-from-bottom md:zoom-in-95 duration-200 pb-[max(0.75rem,env(safe-area-inset-bottom))] overflow-hidden"
+          >
+            <div className="flex items-center justify-center pt-2.5 pb-1 md:hidden">
+              <div className="w-10 h-1 rounded-full bg-slate-300/70" />
+            </div>
+            <div className="flex items-center justify-between px-5 pt-3 pb-3 border-b border-white/60">
+              <h3 className="text-[15px] font-bold text-slate-900 font-heading">Редактировать клиента</h3>
+              <button onClick={() => !saving && setEditOpen(false)} className="w-8 h-8 rounded-full bg-white/50 active:bg-white/80 flex items-center justify-center transition-colors">
+                <XIcon className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3.5">
+              <div>
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Имя / контактное лицо</label>
+                <input
+                  type="text"
+                  value={draft.name}
+                  onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                  className="mt-1 w-full h-10 rounded-xl border border-white/80 bg-white/70 backdrop-blur-sm px-3 text-[13px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 focus:bg-white"
+                  placeholder="Иван Иванов"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Телефон</label>
+                <input
+                  type="tel"
+                  value={draft.phone}
+                  onChange={e => setDraft(d => ({ ...d, phone: e.target.value }))}
+                  className="mt-1 w-full h-10 rounded-xl border border-white/80 bg-white/70 backdrop-blur-sm px-3 text-[13px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 focus:bg-white"
+                  placeholder="+7 900 000 00 00"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Адрес</label>
+                <input
+                  type="text"
+                  value={draft.address}
+                  onChange={e => setDraft(d => ({ ...d, address: e.target.value }))}
+                  className="mt-1 w-full h-10 rounded-xl border border-white/80 bg-white/70 backdrop-blur-sm px-3 text-[13px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 focus:bg-white"
+                  placeholder="Город, улица, дом"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 block">Направление</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDraft(d => ({ ...d, is_russia: false }))}
+                    className={`h-10 rounded-xl border text-[13px] font-medium transition-colors ${!draft.is_russia ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-700 font-semibold' : 'bg-white/50 border-white/80 text-slate-500 active:bg-white/80'}`}
+                  >
+                    🇰🇿 Казахстан
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDraft(d => ({ ...d, is_russia: true }))}
+                    className={`h-10 rounded-xl border text-[13px] font-medium transition-colors ${draft.is_russia ? 'bg-blue-500/15 border-blue-400/50 text-blue-700 font-semibold' : 'bg-white/50 border-white/80 text-slate-500 active:bg-white/80'}`}
+                  >
+                    🇷🇺 Россия
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 pb-4 pt-2 flex items-center gap-2">
+              <button
+                onClick={() => !saving && setEditOpen(false)}
+                disabled={saving}
+                className="flex-1 h-10 rounded-xl border border-white/80 bg-white/60 text-slate-600 text-[13px] font-medium active:bg-white/90 disabled:opacity-50 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={saving || !draft.name.trim()}
+                className="flex-1 h-10 rounded-xl bg-indigo-600 text-white text-[13px] font-semibold active:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/25"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {saving ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* ── Stats Cards ── */}
       {analytics && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
           {[
-            { label: 'Всего перевозок', value: analytics.total, icon: Ship, color: '#6366f1', bg: '#eef2ff' },
-            { label: 'Доставлено', value: analytics.delivered, icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4' },
-            { label: 'В пути', value: analytics.inTransit, icon: Truck, color: '#f59e0b', bg: '#fffbeb' },
-            { label: 'Среднее время', value: `${analytics.avgDays} д`, icon: Clock, color: '#8b5cf6', bg: '#f5f3ff' },
+            { label: 'Всего', fullLabel: 'Всего перевозок', value: analytics.total, icon: Ship, color: '#6366f1', bg: '#eef2ff' },
+            { label: 'Доставлено', fullLabel: 'Доставлено', value: analytics.delivered, icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4' },
+            { label: 'В пути', fullLabel: 'В пути', value: analytics.inTransit, icon: Truck, color: '#f59e0b', bg: '#fffbeb' },
+            { label: 'Ср. время', fullLabel: 'Среднее время', value: `${analytics.avgDays} д`, icon: Clock, color: '#8b5cf6', bg: '#f5f3ff' },
           ].map(stat => (
-            <div key={stat.label} className="bg-slate-50 rounded-xl border border-slate-200/60 p-4">
-              <div className="flex items-center gap-2.5 mb-2">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: stat.bg }}>
-                  <stat.icon className="w-4 h-4" style={{ color: stat.color }} strokeWidth={1.8} />
-                </div>
-                <span className="text-[10px] text-slate-400 uppercase tracking-wide font-medium">{stat.label}</span>
+            <div key={stat.fullLabel} className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-3 md:p-4 flex items-center gap-2.5 md:flex-col md:items-start md:gap-0">
+              <div className="w-9 h-9 md:w-8 md:h-8 rounded-xl flex items-center justify-center shrink-0 md:mb-2" style={{ backgroundColor: stat.bg }}>
+                <stat.icon className="w-[18px] h-[18px] md:w-4 md:h-4" style={{ color: stat.color }} strokeWidth={2} />
               </div>
-              <p className="text-[22px] font-bold text-slate-900 leading-none">{stat.value}</p>
+              <div className="min-w-0 flex-1 md:flex-none md:w-full">
+                <p className="text-[9.5px] md:text-[10px] text-slate-400 uppercase tracking-wide font-medium leading-tight mb-0.5 md:mb-2 truncate md:hidden">{stat.label}</p>
+                <p className="hidden md:block text-[10px] text-slate-400 uppercase tracking-wide font-medium mb-2">{stat.fullLabel}</p>
+                <p className="text-[18px] md:text-[22px] font-bold text-slate-900 leading-none">{stat.value}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -191,7 +338,7 @@ export default function ClientDetailPage() {
       {/* ── Two-column layout ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left: Activity chart + details */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-4 order-2 lg:order-1">
 
           {/* Monthly activity sparkline */}
           {analytics && (
@@ -297,9 +444,9 @@ export default function ClientDetailPage() {
         </div>
 
         {/* Right: Info panel */}
-        <div className="space-y-4">
+        <div className="space-y-4 order-1 lg:order-2">
           {/* Client details */}
-          <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
+          <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-5">
             <h3 className="text-[13px] font-semibold text-slate-900 mb-3">Информация</h3>
             <div className="space-y-3">
               {[
@@ -322,7 +469,7 @@ export default function ClientDetailPage() {
 
           {/* Analytics breakdown */}
           {analytics && (
-            <div className="bg-slate-50 rounded-xl border border-slate-200/60 p-5">
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-5">
               <h3 className="text-[13px] font-semibold text-slate-900 mb-3">Аналитика</h3>
               <div className="space-y-3">
                 {analytics.topOrigin && (

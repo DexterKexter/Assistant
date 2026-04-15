@@ -57,8 +57,17 @@ export function MobileNav() {
 
   return (
     <>
-      <nav data-mobile-nav className="md:hidden fixed bottom-3 left-3 right-3 z-50 rounded-[28px] bg-gradient-to-br from-indigo-50/40 via-white/30 to-violet-50/40 backdrop-blur-[24px] backdrop-saturate-200 border border-white/50 shadow-[0_12px_40px_-4px_rgba(79,70,229,0.18),0_4px_12px_-2px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.7),inset_0_-1px_0_0_rgba(255,255,255,0.2)]">
-        <div className="flex items-center justify-around px-1.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <nav
+        data-mobile-nav
+        style={{
+          transform: 'translate3d(0,0,0)',
+          willChange: 'transform',
+          WebkitBackfaceVisibility: 'hidden',
+          bottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        }}
+        className="md:hidden fixed left-3 right-3 z-50 rounded-[28px] bg-gradient-to-br from-indigo-50/40 via-white/30 to-violet-50/40 backdrop-blur-[24px] backdrop-saturate-200 border border-white/50 shadow-[0_12px_40px_-4px_rgba(79,70,229,0.18),0_4px_12px_-2px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.7),inset_0_-1px_0_0_rgba(255,255,255,0.2)]"
+      >
+        <div className="flex items-center justify-around px-1.5 py-2">
           {items.map((item) => {
             const active = isActive(item.href)
             return (

@@ -147,12 +147,12 @@ export default function ClientsPage() {
 
       {/* Tabs */}
       <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex gap-1 border-b border-slate-200 flex-1">
+        <div className="flex gap-1 border-b border-slate-200 flex-1 min-w-0 overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
           {tabs.map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 px-3 pb-2.5 text-[12px] font-medium border-b-2 -mb-px transition-all ${
+              className={`flex items-center gap-1.5 px-3 pb-2.5 text-[12px] font-medium border-b-2 -mb-px transition-all shrink-0 ${
                 tab === t.key ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
             >
@@ -163,7 +163,7 @@ export default function ClientsPage() {
             </button>
           ))}
         </div>
-        <div className="relative w-full max-w-xs">
+        <div className="relative w-full md:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" strokeWidth={2} />
           <input
             type="text"

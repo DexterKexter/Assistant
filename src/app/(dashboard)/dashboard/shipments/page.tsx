@@ -52,6 +52,13 @@ export default function ShipmentsPage() {
   const [savingNew, setSavingNew] = useState(false)
   const [lookups, setLookups] = useState<RefLookups | null>(null)
 
+  // Hide the mobile bottom nav while the new-shipment sheet is open
+  useEffect(() => {
+    if (addingNew) document.documentElement.setAttribute('data-chat-open', 'true')
+    else document.documentElement.removeAttribute('data-chat-open')
+    return () => document.documentElement.removeAttribute('data-chat-open')
+  }, [addingNew])
+
   const fetchPage = async (from: number, append: boolean) => {
     if (append) setLoadingMore(true)
     const { data, count } = await supabase
@@ -218,22 +225,25 @@ export default function ShipmentsPage() {
         ))}
       </div>
 
-      {/* Add new overlay */}
+      {/* New shipment sheet */}
       {addingNew && lookups && (
-        <>
-          <div className="fixed inset-0 z-[100] bg-black/20 backdrop-blur-[2px]" onClick={cancelNew} />
-          <div className="relative z-[101] bg-white rounded-xl border border-indigo-200 shadow-xl shadow-indigo-500/10 p-4 animate-fade-up">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[14px] font-semibold text-slate-900 font-heading">Новая перевозка</p>
-              <div className="flex gap-2">
-                <button onClick={cancelNew} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-500 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors">Отмена</button>
-                <button onClick={saveNew} disabled={savingNew || !newRow.container_number?.trim()}
-                  className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[12px] font-medium hover:bg-slate-800 disabled:opacity-50 flex items-center gap-1.5 transition-colors">
-                  <Save className="w-3 h-3" /> {savingNew ? 'Сохранение...' : 'Сохранить'}
-                </button>
-              </div>
+        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center md:p-4" onClick={cancelNew}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
+          <div
+            onClick={e => e.stopPropagation()}
+            className="relative w-full md:max-w-[1100px] md:w-[90vw] mx-3 mb-3 md:mb-0 md:mx-0 rounded-[28px] bg-gradient-to-br from-indigo-50/70 via-white/60 to-violet-50/70 backdrop-blur-[24px] backdrop-saturate-200 border border-white/60 shadow-[0_12px_40px_-4px_rgba(79,70,229,0.25),0_4px_12px_-2px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.8)] animate-in slide-in-from-bottom md:zoom-in-95 duration-200 pb-[max(0.75rem,env(safe-area-inset-bottom))] overflow-hidden max-h-[92vh] flex flex-col"
+          >
+            <div className="flex items-center justify-center pt-2.5 pb-1 md:hidden">
+              <div className="w-10 h-1 rounded-full bg-slate-300/70" />
             </div>
-            <div className="grid grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="flex items-center justify-between px-5 pt-3 pb-3 border-b border-white/60">
+              <p className="text-[15px] font-bold text-slate-900 font-heading">Новая перевозка</p>
+              <button onClick={cancelNew} className="w-8 h-8 rounded-full bg-white/50 active:bg-white/80 flex items-center justify-center transition-colors">
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               <div>
                 <p className="text-[12px] text-slate-500 font-medium mb-1">Контейнер *</p>
                 <div className="flex gap-1">
@@ -289,8 +299,21 @@ export default function ShipmentsPage() {
                 <input type="number" placeholder="0" className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300 w-full" value={newRow.delivery_cost || ''} onChange={e => setNew('delivery_cost', e.target.value || '')} />
               </div>
             </div>
+            </div>
+            <div className="px-5 pt-3 pb-3 flex items-center gap-2 border-t border-white/60 bg-white/20">
+              <button onClick={cancelNew} className="flex-1 h-10 rounded-xl border border-white/80 bg-white/60 text-slate-600 text-[13px] font-medium active:bg-white/90 transition-colors">
+                Отмена
+              </button>
+              <button
+                onClick={saveNew}
+                disabled={savingNew || !newRow.container_number?.trim()}
+                className="flex-1 h-10 rounded-xl bg-indigo-600 text-white text-[13px] font-semibold active:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/25"
+              >
+                <Save className="w-3.5 h-3.5" /> {savingNew ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Desktop Table */}

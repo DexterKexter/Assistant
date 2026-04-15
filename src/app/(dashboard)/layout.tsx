@@ -29,7 +29,9 @@ export default function DashboardLayout({
             style={{ boxShadow: '-6px 0 30px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.04)' }}
           >
             <Header />
-            <main className="flex-1 overflow-auto px-3 py-3 md:px-5 md:py-4 pb-20 md:pb-4 relative">
+            <main
+              className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-3 md:px-5 md:pt-4 md:pb-4 relative pb-[calc(5.5rem+env(safe-area-inset-bottom))]"
+            >
               {children}
             </main>
           </div>
