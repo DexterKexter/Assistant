@@ -34,8 +34,6 @@ export default function ReferencesPage() {
   const [newName, setNewName] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const supabase = createClient()
-
   useEffect(() => {
     if (!meLoading && !hasRole('admin', 'manager')) {
       router.replace('/dashboard')
@@ -47,6 +45,7 @@ export default function ReferencesPage() {
   }, [meLoading])
 
   const fetchItems = async () => {
+    const supabase = createClient()
     const { data } = await supabase
       .from('reference_items')
       .select('*')
@@ -62,6 +61,7 @@ export default function ReferencesPage() {
   const handleAdd = async () => {
     if (!newName.trim()) return
     setSaving(true)
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('reference_items')
       .insert({ category: activeCategory, name: newName.trim() })
@@ -78,6 +78,7 @@ export default function ReferencesPage() {
   const handleEdit = async (id: string) => {
     if (!editName.trim()) return
     setSaving(true)
+    const supabase = createClient()
     await supabase.from('reference_items').update({ name: editName.trim() }).eq('id', id)
     setItems(prev => prev.map(i => i.id === id ? { ...i, name: editName.trim() } : i))
     setEditingId(null)
@@ -85,6 +86,7 @@ export default function ReferencesPage() {
   }
 
   const handleDelete = async (id: string) => {
+    const supabase = createClient()
     await supabase.from('reference_items').delete().eq('id', id)
     setItems(prev => prev.filter(i => i.id !== id))
   }
