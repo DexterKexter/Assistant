@@ -1,7 +1,7 @@
 // Logistics PWA service worker
 // Cache-first for static assets, network-first for pages and API, offline fallback.
 
-const VERSION = 'v1'
+const VERSION = 'v2'
 const STATIC_CACHE = `static-${VERSION}`
 const PAGE_CACHE = `pages-${VERSION}`
 const RUNTIME_CACHE = `runtime-${VERSION}`
@@ -49,6 +49,10 @@ self.addEventListener('fetch', (event) => {
 
   // Skip Next.js dev/HMR and API routes — always fresh
   if (url.pathname.startsWith('/_next/webpack-hmr') || url.pathname.startsWith('/api/')) return
+
+  // Never intercept the manifest, SW itself, auth pages — let browser handle them fresh
+  if (url.pathname === '/manifest.webmanifest' || url.pathname === '/sw.js') return
+  if (url.pathname === '/login' || url.pathname === '/register') return
 
   // Next.js static assets — cache-first, long-lived
   if (url.pathname.startsWith('/_next/static/')) {
