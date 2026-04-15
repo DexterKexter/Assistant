@@ -81,7 +81,7 @@ export default function ClientDetailPage() {
       ])
       setClient(c)
       setShipments((sh || []) as any)
-      setTransactions(tr || [])
+      setTransactions((tr || []) as unknown as Transaction[])
       setLoading(false)
     }
     load()
