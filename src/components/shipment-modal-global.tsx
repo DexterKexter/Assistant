@@ -60,11 +60,11 @@ export function ShipmentModalGlobal() {
     >
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
       <div
-        className="relative bg-[#f8fafc] w-full mt-[20vh] md:mt-0 h-full md:rounded-2xl md:w-[95vw] md:max-w-6xl md:h-[90vh] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-200"
+        className="relative w-full h-[80vh] md:h-[90vh] md:w-[95vw] md:max-w-6xl rounded-t-3xl md:rounded-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-200 bg-gradient-to-br from-indigo-50/60 via-white/50 to-violet-50/60 backdrop-blur-[24px] backdrop-saturate-200 border-t border-white/60 md:border md:border-white/60 shadow-[0_-12px_40px_-4px_rgba(79,70,229,0.2),0_4px_12px_-2px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.8)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-center pt-4 pb-2 md:hidden">
-          <div className="w-12 h-1.5 rounded-full bg-slate-300" />
+          <div className="w-12 h-1.5 rounded-full bg-slate-300/70" />
         </div>
         <div className="flex-1 overflow-auto px-5 py-4 md:pt-4 pt-1">
           <ShipmentDetailInlineLoader

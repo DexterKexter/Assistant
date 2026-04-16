@@ -11,6 +11,33 @@ import { getShipmentStatus, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
 import { useShipmentModal } from '@/lib/shipment-modal'
 
+const CITY_FLAGS: Record<string, string> = {
+  'Дубай': '🇦🇪', 'Чингдао': '🇨🇳', 'Гуаньчжоу': '🇨🇳', 'Шанхай': '🇨🇳', 'Шэньчжень': '🇨🇳',
+  'Тяньцзинь': '🇨🇳', 'Чуньцинь': '🇨🇳', 'Чэнгду': '🇨🇳', 'Дэчжоу': '🇨🇳', 'Чжуншань': '🇨🇳',
+  'Гонконг': '🇭🇰', 'Тайвань': '🇹🇼', 'Корея': '🇰🇷', 'Пусан': '🇰🇷',
+  'Япония': '🇯🇵', 'Иокохама': '🇯🇵', 'Иокохама, Япония': '🇯🇵', 'Иокохама Япония': '🇯🇵',
+  'Германия': '🇩🇪', 'США': '🇺🇸', 'Австралия': '🇦🇺', 'Швейцария': '🇨🇭', 'Шри Ланка': '🇱🇰',
+  'Алматы': '🇰🇿', 'Астана': '🇰🇿', 'Шымкент': '🇰🇿', 'Актау': '🇰🇿', 'Актобе': '🇰🇿',
+  'Караганды': '🇰🇿', 'Кызылорда': '🇰🇿', 'Семей': '🇰🇿', 'Оскемен': '🇰🇿', 'Тараз': '🇰🇿',
+  'Петропавл': '🇰🇿', 'Каскелен': '🇰🇿',
+  'Москва': '🇷🇺', 'Челябинск': '🇷🇺', 'Новосибирск': '🇷🇺', 'Екатеринбург': '🇷🇺',
+  'Красноярск': '🇷🇺', 'Омск': '🇷🇺', 'Барнаул': '🇷🇺', 'Иркутск': '🇷🇺', 'Краснодар': '🇷🇺',
+  'Тула': '🇷🇺', 'Санкт-Петербург': '🇷🇺', 'Тольятти': '🇷🇺', 'Самара': '🇷🇺', 'Ростов': '🇷🇺',
+  'Тюмень': '🇷🇺', 'Бийск': '🇷🇺', 'Махачкала': '🇷🇺', 'Грозный': '🇷🇺', 'Киров': '🇷🇺',
+  'Брянск': '🇷🇺', 'Симферополь': '🇷🇺',
+  'Минск': '🇧🇾', 'Пинск': '🇧🇾',
+  'Актау Порт': '🇰🇿', 'Алтынколь': '🇰🇿', 'Алтынкол': '🇰🇿', 'Достык': '🇰🇿',
+  'Сары-агаш': '🇰🇿', 'Темир-Баба': '🇹🇲', 'Калжат': '🇰🇿',
+}
+function getFlag(city: string | null): string {
+  if (!city) return ''
+  if (CITY_FLAGS[city.trim()]) return CITY_FLAGS[city.trim()]
+  for (const [k, v] of Object.entries(CITY_FLAGS)) {
+    if (city.toLowerCase().includes(k.toLowerCase())) return v
+  }
+  return ''
+}
+
 function Hl({ text, q }: { text: string; q: string }) {
   if (!q || !text) return <>{text}</>
   const idx = text.toLowerCase().indexOf(q.toLowerCase())
@@ -193,7 +220,6 @@ export default function ShipmentsPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Перевозки</h1>
-        <p className="text-[13px] text-slate-400 mt-0.5">Отслеживание контейнеров и грузов</p>
       </div>
 
       {/* Search + Actions */}
@@ -365,7 +391,7 @@ export default function ShipmentsPage() {
                       <td className="px-1 py-2.5 text-[12px] text-slate-500 tabular-nums whitespace-nowrap">{fmtDate(s.departure_date)}</td>
                       <td className="px-3 py-2.5 text-[12px] font-medium text-slate-700 max-w-[140px] truncate"><Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} /></td>
                       <td className="px-3 py-2.5 text-[12px] text-slate-600 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} /></td>
-                      <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{s.origin || '—'}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{getFlag(s.origin)} {s.origin || '—'}</td>
                       <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{s.destination_station || '—'}</td>
                       <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{s.destination_city || '—'}</td>
                       <td className="px-2 py-2.5">
@@ -432,7 +458,7 @@ export default function ShipmentsPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                    <span>{s.origin || '—'} → {s.destination_city || s.destination_station || '—'}</span>
+                    <span>{getFlag(s.origin)} {s.origin || '—'} → {getFlag(s.destination_city || s.destination_station)} {s.destination_city || s.destination_station || '—'}</span>
                     <span className="ml-auto">{fmtDate(s.departure_date)}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1.5">

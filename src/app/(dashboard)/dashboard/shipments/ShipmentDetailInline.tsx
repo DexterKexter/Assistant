@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Building2, Truck, Pencil, Check, Save, Trash2, Upload, Image, Plus, Send, MessageSquare } from 'lucide-react'
@@ -33,6 +33,20 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   const [photoIdx, setPhotoIdx] = useState(0)
   const [lightbox, setLightbox] = useState(false)
   const [uploading, setUploading] = useState(false)
+
+  // Inline date picker refs for timeline icons
+  const arrivalDateRef = useRef<HTMLInputElement>(null)
+  const deliveryDateRef = useRef<HTMLInputElement>(null)
+  const departureDateRef = useRef<HTMLInputElement>(null)
+
+  const handleInlineDate = async (field: 'departure_date' | 'arrival_date' | 'delivery_date', value: string) => {
+    if (!shipment || !value || isCreateMode) return
+    const supabase = createClient()
+    const update: Record<string, unknown> = { [field]: value }
+    if (field === 'delivery_date' && value) update.is_completed = true
+    await supabase.from('shipments').update(update).eq('id', shipment.id)
+    setShipment({ ...shipment, ...update } as Shipment)
+  }
   const [fileDocName, setFileDocName] = useState('')
   const [showFileUpload, setShowFileUpload] = useState(false)
 
@@ -298,7 +312,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       {/* Header */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shrink-0">
+          <button onClick={onClose} className="w-8 h-8 rounded-xl bg-white/50 active:bg-white/80 flex items-center justify-center transition-colors shrink-0">
             <X className="w-4 h-4 text-slate-500" />
           </button>
           <h1 className="text-[16px] sm:text-[18px] font-bold text-slate-900 font-mono truncate">{isCreateMode ? 'Новая перевозка' : shipment.container_number}</h1>
@@ -310,7 +324,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
           )}
         </div>
         {canEdit && !editing && (
-          <button onClick={enterEditMode} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors flex items-center gap-1.5 shrink-0">
+          <button onClick={enterEditMode} className="px-3 py-1.5 bg-white/50 active:bg-white/80 text-slate-700 rounded-xl text-[12px] font-medium transition-colors flex items-center gap-1.5 shrink-0">
             <Pencil className="w-3 h-3" />
             <span className="hidden sm:inline">Редактировать</span>
           </button>
@@ -335,7 +349,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-6 border-b border-slate-200">
+      <div className="flex gap-6 border-b border-slate-200/60">
         {([
           { key: 'shipment' as const, label: 'Перевозка', Icon: Package },
           { key: 'documents' as const, label: 'Документы', Icon: FileText },
@@ -398,28 +412,49 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       {tab === 'shipment' && !editing && (
         <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] px-6 py-4">
           <div className="flex items-start">
+            {/* Origin */}
             <div className="flex-1 text-center">
-              <div className="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center mx-auto"><Ship className="w-4 h-4" /></div>
+              <button
+                onClick={() => !shipment.departure_date && canEdit && departureDateRef.current?.showPicker()}
+                className={`w-9 h-9 rounded-full flex items-center justify-center mx-auto ${shipment.departure_date ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-400 ring-2 ring-dashed ring-slate-300 cursor-pointer active:ring-indigo-400'}`}
+              >
+                <Ship className="w-4 h-4" />
+              </button>
+              <input ref={departureDateRef} type="date" className="sr-only" onChange={e => handleInlineDate('departure_date', e.target.value)} />
               <p className="text-[12px] font-bold text-slate-900 mt-1.5 leading-tight">{shipment.origin || '—'}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{fmtDate(shipment.departure_date)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{shipment.departure_date ? fmtDate(shipment.departure_date) : canEdit ? <span className="text-indigo-500">+ дата</span> : '—'}</p>
             </div>
             <div className="flex-1 relative flex flex-col items-center" style={{ marginTop: 17 }}>
               <div className={`h-0.5 w-full rounded-full ${shipment.arrival_date ? 'bg-slate-400' : 'bg-slate-200'}`} />
               {shipment.departure_date && <div className="mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">{(() => { if (!shipment.departure_date) return ''; const end = shipment.arrival_date ? new Date(shipment.arrival_date).getTime() : Date.now(); return Math.round((end - new Date(shipment.departure_date).getTime()) / 86400000) + 'д' })()}</div>}
             </div>
+            {/* Border */}
             <div className="flex-1 text-center">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center mx-auto ${shipment.arrival_date ? 'bg-slate-600 text-white' : 'bg-slate-100 text-slate-400'}`}><Filter className="w-4 h-4" /></div>
+              <button
+                onClick={() => !shipment.arrival_date && canEdit && arrivalDateRef.current?.showPicker()}
+                className={`w-9 h-9 rounded-full flex items-center justify-center mx-auto ${shipment.arrival_date ? 'bg-slate-600 text-white' : 'bg-slate-100 text-slate-400 ring-2 ring-dashed ring-slate-300 cursor-pointer active:ring-indigo-400'}`}
+              >
+                <Filter className="w-4 h-4" />
+              </button>
+              <input ref={arrivalDateRef} type="date" className="sr-only" onChange={e => handleInlineDate('arrival_date', e.target.value)} />
               <p className="text-[12px] font-bold text-slate-900 mt-1.5 leading-tight">{shipment.destination_station || '—'}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{fmtDate(shipment.arrival_date)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{shipment.arrival_date ? fmtDate(shipment.arrival_date) : canEdit ? <span className="text-indigo-500">+ дата</span> : '—'}</p>
             </div>
             <div className="flex-1 relative flex flex-col items-center" style={{ marginTop: 17 }}>
               <div className={`h-0.5 w-full rounded-full ${shipment.delivery_date ? 'bg-slate-400' : 'bg-slate-200'}`} />
               {shipment.arrival_date && <div className="mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">{(() => { const end = shipment.delivery_date ? new Date(shipment.delivery_date).getTime() : Date.now(); return Math.round((end - new Date(shipment.arrival_date!).getTime()) / 86400000) + 'д' })()}</div>}
             </div>
+            {/* Delivery */}
             <div className="flex-1 text-center">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center mx-auto ${shipment.delivery_date || shipment.is_completed ? 'bg-slate-400 text-white' : 'bg-slate-100 text-slate-400'}`}><Ship className="w-4 h-4" /></div>
+              <button
+                onClick={() => !shipment.delivery_date && canEdit && deliveryDateRef.current?.showPicker()}
+                className={`w-9 h-9 rounded-full flex items-center justify-center mx-auto ${shipment.delivery_date || shipment.is_completed ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400 ring-2 ring-dashed ring-slate-300 cursor-pointer active:ring-indigo-400'}`}
+              >
+                <Ship className="w-4 h-4" />
+              </button>
+              <input ref={deliveryDateRef} type="date" className="sr-only" onChange={e => handleInlineDate('delivery_date', e.target.value)} />
               <p className="text-[12px] font-bold text-slate-900 mt-1.5 leading-tight">{shipment.destination_city || '—'}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{fmtDate(shipment.delivery_date)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{shipment.delivery_date ? fmtDate(shipment.delivery_date) : canEdit ? <span className="text-indigo-500">+ дата</span> : '—'}</p>
             </div>
           </div>
         </div>
