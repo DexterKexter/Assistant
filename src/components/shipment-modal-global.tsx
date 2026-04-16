@@ -55,14 +55,18 @@ export function ShipmentModalGlobal() {
 
   return (
     <div
-      className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm flex items-end md:items-center justify-center md:p-4"
+      className="fixed inset-0 z-[1000] flex items-end md:items-center justify-center md:p-4"
       onClick={closeShipment}
     >
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
       <div
-        className="bg-[#f8fafc] w-full h-full md:rounded-2xl md:w-[95vw] md:max-w-6xl md:h-[90vh] shadow-2xl overflow-hidden flex flex-col"
+        className="relative bg-[#f8fafc] w-full mt-[20vh] md:mt-0 h-full md:rounded-2xl md:w-[95vw] md:max-w-6xl md:h-[90vh] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex-1 overflow-auto px-5 py-4">
+        <div className="flex items-center justify-center pt-4 pb-2 md:hidden">
+          <div className="w-12 h-1.5 rounded-full bg-slate-300" />
+        </div>
+        <div className="flex-1 overflow-auto px-5 py-4 md:pt-4 pt-1">
           <ShipmentDetailInlineLoader
             id={selectedId || ''}
             mode={isCreating ? 'create' : 'view'}

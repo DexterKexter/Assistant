@@ -64,16 +64,15 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8 md:space-y-5">
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Документы</h1>
-          <p className="text-[13px] text-slate-400 mt-0.5">{contracts.length} договоров · {withPhotos.length} с фото</p>
         </div>
         <div className="relative w-full md:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <input type="text" placeholder="Поиск по контейнеру или клиенту..." value={search} onChange={(e) => setSearch(e.target.value)}
+          <input type="text" placeholder="Поиск..." value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full h-9 rounded-lg bg-white border border-slate-200/80 pl-9 pr-3 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all" />
         </div>
       </div>
@@ -86,13 +85,11 @@ export default function DocumentsPage() {
       ) : (
         <>
           {/* Two columns: Contracts + Photos */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-4">
             {/* Contracts — vertical list desktop, horizontal carousel mobile */}
             <div className="md:bg-white md:rounded-2xl md:ring-1 md:ring-slate-900/[0.04] md:shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] md:overflow-hidden">
-              <div className="flex items-center gap-2 px-1 pb-2 md:px-4 md:py-3 md:border-b md:border-slate-100">
-                <FileText className="w-4 h-4 text-slate-400" />
-                <h2 className="text-[13px] font-semibold text-slate-900">Договора и счета</h2>
-                <span className="text-[11px] text-slate-400 ml-1">{contracts.length}</span>
+              <div className="flex items-center gap-2 px-1 pb-3 md:px-4 md:py-3 md:border-b md:border-slate-100">
+                <h2 className="text-[15px] font-bold text-slate-900">Договора и счета</h2>
               </div>
               {/* Desktop: vertical scroll list */}
               <div className="hidden md:block max-h-[400px] overflow-y-auto">
@@ -118,19 +115,23 @@ export default function DocumentsPage() {
                 {contracts.filter(filterFn).length === 0 ? (
                   <p className="text-[13px] text-slate-400 py-8 text-center">Нет договоров</p>
                 ) : (
-                  <div className="flex gap-2.5">
+                  <div className="flex gap-2.5 py-2 px-1">
                     {contracts.filter(filterFn).map(s => (
                       <button
                         key={s.id}
                         onClick={() => openShipment(s.id)}
-                        className="shrink-0 w-[180px] snap-start text-left active:opacity-70 transition-opacity"
+                        className="shrink-0 w-[220px] snap-start text-left active:scale-[0.97] transition-transform"
                       >
-                        <div className="w-full aspect-[4/3] rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mb-2">
-                          <FileText className="w-8 h-8 text-slate-400" strokeWidth={1.5} />
+                        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_12px_-4px_rgba(15,23,42,0.06)]">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                            <FileText className="w-5 h-5 text-indigo-500" strokeWidth={1.8} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[12.5px] font-bold text-slate-900 font-mono truncate">{s.container_number}</p>
+                            <p className="text-[10.5px] text-slate-500 truncate">{(s.client as unknown as { name: string })?.name || '—'}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{(s.recipient as unknown as { name: string })?.name || ''}</p>
+                          </div>
                         </div>
-                        <p className="text-[12.5px] font-bold text-slate-900 font-mono truncate">{s.container_number}</p>
-                        <p className="text-[11px] text-slate-500 truncate">{(s.client as unknown as { name: string })?.name || '—'}</p>
-                        <p className="text-[10px] text-slate-400">{s.departure_date ? s.departure_date.split('-').reverse().join('.') : ''}</p>
                       </button>
                     ))}
                   </div>
@@ -140,10 +141,8 @@ export default function DocumentsPage() {
 
             {/* Photos — vertical list desktop, horizontal carousel mobile */}
             <div className="md:bg-white md:rounded-2xl md:ring-1 md:ring-slate-900/[0.04] md:shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] md:overflow-hidden">
-              <div className="flex items-center gap-2 px-1 pb-2 md:px-4 md:py-3 md:border-b md:border-slate-100">
-                <ImageIcon className="w-4 h-4 text-slate-400" />
-                <h2 className="text-[13px] font-semibold text-slate-900">Фото грузов</h2>
-                <span className="text-[11px] text-slate-400 ml-1">{withPhotos.length}</span>
+              <div className="flex items-center gap-2 px-1 pb-3 md:px-4 md:py-3 md:border-b md:border-slate-100">
+                <h2 className="text-[15px] font-bold text-slate-900">Фото грузов</h2>
               </div>
               {/* Desktop: vertical scroll list */}
               <div className="hidden md:block max-h-[400px] overflow-y-auto">
@@ -251,16 +250,17 @@ export default function DocumentsPage() {
             const pageStart = (page - 1) * STATUS_PAGE_SIZE
             const pageItems = filtered.slice(pageStart, pageStart + STATUS_PAGE_SIZE)
             return (
-          <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-5 py-3.5">
-              <h2 className="text-[14px] font-semibold text-slate-900">Статус документов</h2>
+          <div>
+            {/* Section header — no container on mobile */}
+            <div className="flex items-center justify-between gap-3 px-1 pb-3 md:px-5 md:py-3.5 md:bg-white md:rounded-t-2xl md:ring-1 md:ring-slate-900/[0.04]">
+              <h2 className="text-[15px] font-bold text-slate-900">Статус документов</h2>
               <span className="text-[11px] text-slate-400">
                 {filtered.length > 0 && `${pageStart + 1}–${Math.min(pageStart + STATUS_PAGE_SIZE, filtered.length)} из ${filtered.length}`}
               </span>
             </div>
 
             {/* Desktop table */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto bg-white rounded-b-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)]">
               <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="border-t border-b border-slate-100 bg-slate-50/60">
@@ -300,8 +300,8 @@ export default function DocumentsPage() {
               </table>
             </div>
 
-            {/* Mobile cards */}
-            <div className="md:hidden border-t border-slate-100 divide-y divide-slate-50">
+            {/* Mobile cards — each as individual card */}
+            <div className="md:hidden space-y-2">
               {pageItems.map(s => {
                 const hasPdf = !!s.contract_pdf
                 const hasPhoto = !!s.photos?.length
@@ -310,10 +310,6 @@ export default function DocumentsPage() {
                 const recipientName = (s.recipient as unknown as { name: string })?.name
                 const status = getShipmentStatus(s, client?.is_russia)
 
-                // Right-side date/label logic:
-                // delivered → date of delivery
-                // on border / transit → arrival_date
-                // in transit → days since departure
                 let dateLabel = ''
                 if (s.delivery_date || s.is_completed) {
                   dateLabel = s.delivery_date ? fmtDDMM(s.delivery_date) : 'Доставлен'
@@ -327,9 +323,8 @@ export default function DocumentsPage() {
                   <button
                     key={s.id}
                     onClick={() => openShipment(s.id)}
-                    className="flex items-center gap-3 px-4 py-3 w-full text-left active:bg-slate-50 transition-colors"
+                    className="flex items-center gap-3 p-3 w-full text-left rounded-2xl bg-white ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_12px_-4px_rgba(15,23,42,0.06)] active:scale-[0.98] transition-transform"
                   >
-                    {/* Left: avatar circle with status color */}
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                       style={{ background: status.color + '15', color: status.color }}
@@ -337,10 +332,9 @@ export default function DocumentsPage() {
                       {status.key === 'delivered' ? <CheckCircle2 className="w-5 h-5" strokeWidth={2} /> : <Clock className="w-5 h-5" strokeWidth={2} />}
                     </div>
 
-                    {/* Middle: info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-[13.5px] font-bold text-slate-900 font-mono truncate">{s.container_number}</span>
+                        <span className="text-[13px] font-bold text-slate-900 font-mono truncate">{s.container_number}</span>
                         <span
                           className="px-1.5 py-0.5 rounded-md text-[9.5px] font-semibold shrink-0"
                           style={{ background: status.color + '18', color: status.color }}
@@ -352,20 +346,13 @@ export default function DocumentsPage() {
                       {recipientName && <p className="text-[11px] text-slate-400 truncate leading-tight">{recipientName}</p>}
                     </div>
 
-                    {/* Right: date + docs dots */}
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                       {dateLabel && <span className="text-[11px] font-semibold text-slate-500 whitespace-nowrap">{dateLabel}</span>}
                       <div className="flex items-center gap-1">
-                        <span
-                          title={hasPdf ? 'Инвойс есть' : 'Нет инвойса'}
-                          className={`w-6 h-6 rounded-md flex items-center justify-center ${hasPdf ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}
-                        >
+                        <span className={`w-6 h-6 rounded-md flex items-center justify-center ${hasPdf ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}>
                           <Receipt className="w-3.5 h-3.5" strokeWidth={2} />
                         </span>
-                        <span
-                          title={hasPhoto ? 'Фото есть' : 'Нет фото'}
-                          className={`w-6 h-6 rounded-md flex items-center justify-center ${hasPhoto ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}
-                        >
+                        <span className={`w-6 h-6 rounded-md flex items-center justify-center ${hasPhoto ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}>
                           <Camera className="w-3.5 h-3.5" strokeWidth={2} />
                         </span>
                       </div>
