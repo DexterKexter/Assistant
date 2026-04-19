@@ -44,55 +44,48 @@ export default function DashboardPage() {
         { count: inTransit },
         { count: onBorder },
         { data: active },
-        { data: allShipments },
+        { data: analytics },
       ] = await Promise.all([
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('departure_date', curStart),
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('delivery_date', curStart),
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('departure_date', prevStart).lte('departure_date', prevEnd),
         supabase.from('shipments').select('*', { count: 'exact', head: true }).gte('delivery_date', prevStart).lte('delivery_date', prevEnd),
-        // В пути: отправлен, не на границе, не доставлен
         supabase.from('shipments').select('*', { count: 'exact', head: true }).not('departure_date', 'is', null).is('arrival_date', null).is('delivery_date', null).eq('is_completed', false),
-        // На границе: есть arrival, нет delivery
         supabase.from('shipments').select('*', { count: 'exact', head: true }).not('arrival_date', 'is', null).is('delivery_date', null).eq('is_completed', false),
-        // Active shipments list
         supabase.from('shipments').select('*, client:clients(name), carrier:carriers(name)').is('delivery_date', null).eq('is_completed', false).not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(6),
-        // All for analytics
-        supabase.from('shipments').select('carrier_id, origin, destination_city, destination_station, departure_date, arrival_date, delivery_date, is_completed').not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(2000),
+        supabase.from('shipments').select('carrier:carriers(name), origin, destination_city, destination_station, delivery_date, is_completed').not('departure_date', 'is', null).order('departure_date', { ascending: false }).limit(500),
       ])
 
       setCur({ loaded: curLoaded || 0, inTransit: inTransit || 0, onBorder: onBorder || 0, delivered: curDelivered || 0 })
       setPrev({ loaded: prevLoaded || 0, inTransit: 0, onBorder: 0, delivered: prevDelivered || 0 })
       setRecentActive((active as unknown as Shipment[]) || [])
 
-      // Top carriers — only active (in transit, no delivery)
-      const carrierCounts: Record<string, number> = {}
-      const { data: carriers } = await supabase.from('carriers').select('id, name')
-      const carrierMap = Object.fromEntries((carriers || []).map(c => [c.id, c.name]))
-      ;(allShipments || []).filter(s => !s.delivery_date && !s.is_completed).forEach(s => {
-        if (s.carrier_id) carrierCounts[s.carrier_id] = (carrierCounts[s.carrier_id] || 0) + 1
-      })
-      setTopCarriers(
-        Object.entries(carrierCounts)
-          .map(([id, count]) => ({ name: carrierMap[id] || id, count }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 5)
-      )
+      const rows = (analytics || []) as unknown as Array<{
+        carrier: { name: string } | { name: string }[] | null
+        origin: string | null
+        destination_city: string | null
+        destination_station: string | null
+        delivery_date: string | null
+        is_completed: boolean
+      }>
 
-      // Top routes
+      const carrierCounts: Record<string, number> = {}
       const routeCounts: Record<string, number> = {}
-      ;(allShipments || []).forEach(s => {
+      const mapRows: typeof mapShipments = []
+
+      for (const s of rows) {
+        if (!s.delivery_date && !s.is_completed) {
+          const name = Array.isArray(s.carrier) ? s.carrier[0]?.name : s.carrier?.name
+          if (name) carrierCounts[name] = (carrierCounts[name] || 0) + 1
+        }
         const route = `${s.origin || '?'} → ${s.destination_city || s.destination_station || '?'}`
         routeCounts[route] = (routeCounts[route] || 0) + 1
-      })
-      setTopRoutes(
-        Object.entries(routeCounts)
-          .map(([route, count]) => ({ route, count }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 5)
-      )
+        mapRows.push({ origin: s.origin, departure_date: null, destination_city: s.destination_city, destination_station: s.destination_station })
+      }
 
-      // Shipments for map
-      setMapShipments((allShipments || []).map(s => ({ origin: s.origin, departure_date: s.departure_date, destination_city: s.destination_city, destination_station: s.destination_station })))
+      setTopCarriers(Object.entries(carrierCounts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 5))
+      setTopRoutes(Object.entries(routeCounts).map(([route, count]) => ({ route, count })).sort((a, b) => b.count - a.count).slice(0, 5))
+      setMapShipments(mapRows)
 
       setLoading(false)
     }

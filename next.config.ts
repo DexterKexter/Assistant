@@ -1,8 +1,19 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
-};
+  compress: true,
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      'recharts',
+      'date-fns',
+      'react-email',
+      '@react-email/render',
+      'leaflet',
+      'react-leaflet',
+    ],
+  },
+}
 
-export default nextConfig;
+export default nextConfig
