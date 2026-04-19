@@ -53,10 +53,13 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
       const popHeight = 260
       const spaceBelow = window.innerHeight - r.bottom
       const openUp = spaceBelow < popHeight && r.top > popHeight
+      const margin = 8
+      const width = Math.min(Math.max(r.width, 200), window.innerWidth - margin * 2)
+      const left = Math.min(Math.max(r.left, margin), window.innerWidth - width - margin)
       setCoords({
         top: openUp ? r.top - 4 : r.bottom + 4,
-        left: r.left,
-        width: Math.max(r.width, 200),
+        left,
+        width,
         openUp,
       })
     }
