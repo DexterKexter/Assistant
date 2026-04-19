@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   CheckSquare,
+  Mail,
 } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 import { useUnreadCount } from '@/lib/useMessages'
@@ -40,6 +41,7 @@ const businessItems = [
 
 const otherItems = [
   { href: '/dashboard/messages', label: 'Сообщения', icon: MessageSquare },
+  { href: '/dashboard/mail', label: 'Почта', icon: Mail },
   { href: '/dashboard/documents', label: 'Документы', icon: FileText },
   { href: '/dashboard/tasks', label: 'Задачи', icon: CheckSquare },
 ]
