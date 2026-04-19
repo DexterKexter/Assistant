@@ -147,7 +147,7 @@ export default function ClientsPage() {
 
       {/* Tabs */}
       <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex gap-1 border-b border-slate-200 flex-1 min-w-0 overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
+        <div className="flex gap-1 border-b border-slate-200 flex-1 min-w-0 overflow-x-auto md:overflow-visible">
           {tabs.map(t => (
             <button
               key={t.key}

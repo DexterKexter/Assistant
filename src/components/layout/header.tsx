@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useProfile } from '@/lib/useProfile'
 import { useNotifications } from '@/lib/useNotifications'
 import { useTaskModal } from '@/lib/task-modal'
-import { Search, Bell, CheckCheck, UserPlus, MessageSquare, X, HelpCircle, Eye, Shield, Users, Wallet } from 'lucide-react'
+import { Search, Bell, CheckCheck, UserPlus, MessageSquare, X, HelpCircle, Eye, Shield, Users, Wallet, FileText, Camera } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
@@ -189,8 +189,16 @@ export function Header() {
                   const actorInitials = notif.actor?.full_name
                     ? notif.actor.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
                     : '??'
-                  const Icon = notif.type === 'task_assigned' ? UserPlus : MessageSquare
-                  const iconColor = notif.type === 'task_assigned' ? 'text-indigo-500' : 'text-emerald-500'
+                  const Icon = notif.type === 'task_assigned' ? UserPlus
+                    : notif.type === 'document_added' ? FileText
+                    : notif.type === 'photo_added' ? Camera
+                    : notif.type === 'shipment_comment' ? MessageSquare
+                    : MessageSquare
+                  const iconColor = notif.type === 'task_assigned' ? 'text-indigo-500'
+                    : notif.type === 'document_added' ? 'text-amber-500'
+                    : notif.type === 'photo_added' ? 'text-violet-500'
+                    : notif.type === 'shipment_comment' ? 'text-blue-500'
+                    : 'text-emerald-500'
 
                   return (
                     <button

@@ -39,6 +39,32 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   const deliveryDateRef = useRef<HTMLInputElement>(null)
   const departureDateRef = useRef<HTMLInputElement>(null)
 
+  // Notify all admin/manager users about shipment changes
+  const notifyShipmentChange = async (type: 'document_added' | 'photo_added' | 'shipment_comment', containerNumber: string, extraMsg?: string) => {
+    if (!shipment) return
+    const supabase = createClient()
+    const { data: staff } = await supabase.from('profiles').select('id').in('role', ['admin', 'manager'])
+    if (!staff?.length) return
+    const message = type === 'photo_added'
+      ? `Добавлено фото к ${containerNumber}`
+      : type === 'shipment_comment'
+      ? `Комментарий к ${containerNumber}: ${extraMsg?.slice(0, 60) || ''}`
+      : `Добавлен документ к ${containerNumber}`
+    await Promise.all(
+      staff
+        .filter(u => u.id !== currentProfile?.id) // don't notify yourself
+        .map(u =>
+          supabase.from('notifications').insert({
+            user_id: u.id,
+            type,
+            message,
+            shipment_id: shipment.id,
+            actor_id: currentProfile?.id,
+          })
+        )
+    )
+  }
+
   const handleInlineDate = async (field: 'departure_date' | 'arrival_date' | 'delivery_date', value: string) => {
     if (!shipment || !value || isCreateMode) return
     const supabase = createClient()
@@ -590,6 +616,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                         setShipment({ ...shipment, photos: newPhotos })
                         setPhotoIdx(newPhotos.length - 1)
                         setUploading(false)
+                        notifyShipmentChange('photo_added', shipment.container_number || shipment.id)
                       }} />
                     </label>
                   )}
@@ -618,6 +645,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                       setShipment({ ...shipment, photos: newPhotos })
                       setPhotoIdx(newPhotos.length - 1)
                       setUploading(false)
+                      notifyShipmentChange('photo_added', shipment.container_number || shipment.id)
                     }} />
                   </label>
                 )}
@@ -709,6 +737,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                             setUploading(false)
                             setShowFileUpload(false)
                             setFileDocName('')
+                            notifyShipmentChange('document_added', shipment.container_number || shipment.id)
                           }} />
                         </label>
                       )}
@@ -789,6 +818,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                   const { data } = await supabase.from('shipment_comments').select('*, author:profiles(id, full_name)')
                     .eq('shipment_id', id).order('created_at', { ascending: true })
                   setComments(data || [])
+                  if (shipment) notifyShipmentChange('shipment_comment', shipment.container_number || id, text)
                 }
               }}
               placeholder="Написать комментарий..."
@@ -805,6 +835,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                 const { data } = await supabase.from('shipment_comments').select('*, author:profiles(id, full_name)')
                   .eq('shipment_id', id).order('created_at', { ascending: true })
                 setComments(data || [])
+                if (shipment) notifyShipmentChange('shipment_comment', shipment.container_number || id, text)
               }}
               disabled={!commentText.trim()}
               className="w-9 h-9 rounded-lg bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 disabled:opacity-40 transition-colors shrink-0"

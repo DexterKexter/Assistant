@@ -100,7 +100,7 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
       {open && coords && typeof document !== 'undefined' && createPortal(
         <div
           ref={popRef}
-          className="fixed z-[200] bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden"
+          className="fixed z-[1200] bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden"
           style={{
             top: coords.openUp ? undefined : coords.top,
             bottom: coords.openUp ? window.innerHeight - coords.top : undefined,

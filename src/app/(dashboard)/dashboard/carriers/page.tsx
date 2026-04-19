@@ -82,7 +82,7 @@ export default function CarriersPage() {
       </div>
 
       <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex gap-1 border-b border-slate-200 flex-1 min-w-0 overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
+        <div className="flex gap-1 border-b border-slate-200 flex-1 min-w-0 overflow-x-auto md:overflow-visible">
           {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 px-3 pb-2.5 text-[12px] font-medium border-b-2 -mb-px transition-all shrink-0 ${tab === t.key ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
