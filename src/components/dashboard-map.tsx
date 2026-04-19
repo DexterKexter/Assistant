@@ -123,27 +123,27 @@ const COLORS = ['#6366f1', '#f97316', '#ef4444', '#06b6d4', '#8b5cf6', '#ec4899'
 const YEAR_FILTERS = ['Все', '2024', '2025', '2026']
 
 /* ── Types ── */
-interface ShipmentData { origin: string | null; departure_date: string | null; destination_city: string | null; destination_station: string | null }
-interface Props { shipments: ShipmentData[] }
+export interface OriginAgg { year: string; origin: string; destination: string | null; count: number }
+interface Props { aggregates: OriginAgg[] }
 interface OriginPin { name: string; count: number; svgPos: { x: number; y: number }; color: string; idx: number }
 interface RouteInfo { dest: string; destPos: { x: number; y: number }; count: number }
 
 /* ── Component ── */
-export function DashboardMap({ shipments }: Props) {
+export function DashboardMap({ aggregates }: Props) {
   const [activeYear, setActiveYear] = useState('Все')
   const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const filtered = useMemo(() => {
-    if (activeYear === 'Все') return shipments
-    return shipments.filter(s => s.departure_date?.startsWith(activeYear))
-  }, [shipments, activeYear])
+  const yearKey = activeYear === 'Все' ? 'all' : activeYear
+  const filtered = useMemo(() => aggregates.filter(a => a.year === yearKey), [aggregates, yearKey])
 
   /* All origins with SVG positions */
   const origins: OriginPin[] = useMemo(() => {
     const counts: Record<string, number> = {}
-    filtered.forEach(s => { if (s.origin) counts[s.origin] = (counts[s.origin] || 0) + 1 })
+    for (const a of filtered) {
+      counts[a.origin] = (counts[a.origin] || 0) + a.count
+    }
     return Object.entries(counts)
       .sort(([, a], [, b]) => b - a)
       .map(([name, count], idx) => {
@@ -159,13 +159,11 @@ export function DashboardMap({ shipments }: Props) {
   const routesByOrigin = useMemo(() => {
     const map = new Map<string, RouteInfo[]>()
     const byOrigin: Record<string, Record<string, number>> = {}
-    filtered.forEach(s => {
-      if (!s.origin) return
-      const dest = s.destination_city || s.destination_station
-      if (!dest) return
-      if (!byOrigin[s.origin]) byOrigin[s.origin] = {}
-      byOrigin[s.origin][dest] = (byOrigin[s.origin][dest] || 0) + 1
-    })
+    for (const a of filtered) {
+      if (!a.destination) continue
+      if (!byOrigin[a.origin]) byOrigin[a.origin] = {}
+      byOrigin[a.origin][a.destination] = (byOrigin[a.origin][a.destination] || 0) + a.count
+    }
     for (const [origin, dests] of Object.entries(byOrigin)) {
       const routes: RouteInfo[] = []
       for (const [dest, count] of Object.entries(dests)) {

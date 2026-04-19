@@ -17,7 +17,7 @@ interface StatsResult {
   }
   topCarriers: { name: string; cnt: number }[]
   topRoutes: { route: string; cnt: number }[]
-  mapPoints: { origin: string | null; destination_city: string | null; destination_station: string | null }[]
+  originAgg: { year: string; origin: string; destination: string | null; count: number }[]
 }
 
 const getStats = unstable_cache(
@@ -52,7 +52,7 @@ export default async function DashboardPage() {
     counts: { cur_loaded: 0, cur_delivered: 0, prev_loaded: 0, prev_delivered: 0, in_transit: 0, on_border: 0 },
     topCarriers: [],
     topRoutes: [],
-    mapPoints: [],
+    originAgg: [],
   }) as StatsResult
 
   const data: DashboardData = {
@@ -68,12 +68,7 @@ export default async function DashboardPage() {
     },
     topCarriers: stats.topCarriers.map(c => ({ name: c.name, count: c.cnt })),
     topRoutes: stats.topRoutes.map(r => ({ route: r.route, count: r.cnt })),
-    mapShipments: stats.mapPoints.map(p => ({
-      origin: p.origin,
-      departure_date: null,
-      destination_city: p.destination_city,
-      destination_station: p.destination_station,
-    })),
+    originAgg: stats.originAgg,
     recentActive: (active as unknown as Shipment[]) || [],
   }
 

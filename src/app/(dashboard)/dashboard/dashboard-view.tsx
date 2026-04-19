@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { useShipmentModal } from '@/lib/shipment-modal'
 import { Ship, ArrowRight, MapPin, Truck, Clock, CheckCircle2 } from 'lucide-react'
 import { type Shipment } from '@/types/database'
+import type { OriginAgg } from '@/components/dashboard-map'
 
 const DashboardMap = dynamic(() => import('@/components/dashboard-map').then(m => ({ default: m.DashboardMap })), { ssr: false })
 
@@ -13,12 +14,12 @@ export interface DashboardData {
   prev: { loaded: number; delivered: number }
   topCarriers: { name: string; count: number }[]
   topRoutes: { route: string; count: number }[]
-  mapShipments: { origin: string | null; departure_date: string | null; destination_city: string | null; destination_station: string | null }[]
+  originAgg: OriginAgg[]
   recentActive: Shipment[]
 }
 
 export function DashboardView({ data }: { data: DashboardData }) {
-  const { cur, prev, topCarriers, topRoutes, mapShipments, recentActive } = data
+  const { cur, prev, topCarriers, topRoutes, originAgg, recentActive } = data
   const router = useRouter()
   const { openShipment } = useShipmentModal()
 
@@ -38,7 +39,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
   return (
     <div className="space-y-4 md:space-y-5">
       <div className="-mx-3 -mt-3 md:-mx-5 md:-mt-4 mb-1 hidden md:block">
-        {mapShipments.length > 0 && <DashboardMap shipments={mapShipments} />}
+        {originAgg.length > 0 && <DashboardMap aggregates={originAgg} />}
       </div>
 
       <div className="grid gap-2 grid-cols-2 md:gap-3 lg:grid-cols-4">
