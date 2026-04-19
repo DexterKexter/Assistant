@@ -352,9 +352,7 @@ export default function ShipmentsPage() {
               <th className="text-left px-1 py-2.5 text-[12px] font-semibold text-slate-500 w-[8%]">Загрузка</th>
               <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Клиент</th>
               <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Перевозчик</th>
-              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Откуда</th>
-              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Погранпереход</th>
-              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Город</th>
+              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500" colSpan={3}>Маршрут</th>
               <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500 w-[6%]">Дней</th>
               <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500 w-[9%]">Статус</th>
             </tr>
@@ -391,9 +389,24 @@ export default function ShipmentsPage() {
                       <td className="px-1 py-2.5 text-[12px] text-slate-500 tabular-nums whitespace-nowrap">{fmtDate(s.departure_date)}</td>
                       <td className="px-3 py-2.5 text-[12px] font-medium text-slate-700 max-w-[140px] truncate"><Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} /></td>
                       <td className="px-3 py-2.5 text-[12px] text-slate-600 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} /></td>
-                      <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{getFlag(s.origin)} {s.origin || '—'}</td>
-                      <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{s.destination_station || '—'}</td>
-                      <td className="px-3 py-2.5 text-[12px] text-slate-500 truncate max-w-[110px]">{s.destination_city || '—'}</td>
+                      <td className="px-3 py-2.5" colSpan={3}>
+                        <div className="flex items-center gap-1.5 text-[12px] min-w-0">
+                          <span className="inline-flex items-center gap-1 text-slate-700 font-medium truncate shrink-0 max-w-[110px]">
+                            <span className="shrink-0">{getFlag(s.origin)}</span>
+                            <span className="truncate">{s.origin || '—'}</span>
+                          </span>
+                          <span className="text-slate-300 shrink-0">›</span>
+                          <span className="inline-flex items-center gap-1 text-slate-500 truncate shrink-0 max-w-[100px]">
+                            <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
+                            <span className="truncate">{s.destination_station || '—'}</span>
+                          </span>
+                          <span className="text-slate-300 shrink-0">›</span>
+                          <span className="inline-flex items-center gap-1 text-slate-800 font-semibold truncate shrink-0 max-w-[110px]">
+                            <span className="shrink-0">{getFlag(s.destination_city)}</span>
+                            <span className="truncate">{s.destination_city || '—'}</span>
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-2 py-2.5">
                         {(() => {
                           if (status.key === 'delivered') return <span className="text-[11px] text-emerald-500 font-medium">✓</span>
