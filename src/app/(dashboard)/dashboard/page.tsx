@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { type Shipment } from '@/types/database'
 import { DashboardView, type DashboardData } from './dashboard-view'
@@ -18,21 +19,29 @@ interface StatsResult {
   mapPoints: { origin: string | null; destination_city: string | null; destination_station: string | null }[]
 }
 
+const getDashboardPayload = unstable_cache(
+  async () => {
+    const supabase = await createClient()
+    const [statsRes, activeRes] = await Promise.all([
+      supabase.rpc('dashboard_stats'),
+      supabase.from('shipments')
+        .select('id, container_number, departure_date, arrival_date, delivery_date, is_completed, client:clients(name), carrier:carriers(name)')
+        .is('delivery_date', null)
+        .eq('is_completed', false)
+        .not('departure_date', 'is', null)
+        .order('departure_date', { ascending: false })
+        .limit(6),
+    ])
+    return { stats: statsRes.data, active: activeRes.data }
+  },
+  ['dashboard-payload'],
+  { revalidate: 30, tags: ['shipments'] }
+)
+
 export default async function DashboardPage() {
-  const supabase = await createClient()
+  const { stats: statsData, active } = await getDashboardPayload()
 
-  const [statsRes, activeRes] = await Promise.all([
-    supabase.rpc('dashboard_stats'),
-    supabase.from('shipments')
-      .select('*, client:clients(name), carrier:carriers(name)')
-      .is('delivery_date', null)
-      .eq('is_completed', false)
-      .not('departure_date', 'is', null)
-      .order('departure_date', { ascending: false })
-      .limit(6),
-  ])
-
-  const stats = (statsRes.data || {
+  const stats = (statsData || {
     counts: { cur_loaded: 0, cur_delivered: 0, prev_loaded: 0, prev_delivered: 0, in_transit: 0, on_border: 0 },
     topCarriers: [],
     topRoutes: [],
@@ -58,7 +67,7 @@ export default async function DashboardPage() {
       destination_city: p.destination_city,
       destination_station: p.destination_station,
     })),
-    recentActive: (activeRes.data as unknown as Shipment[]) || [],
+    recentActive: (active as unknown as Shipment[]) || [],
   }
 
   return <DashboardView data={data} />

@@ -23,9 +23,10 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Use getSession() instead of getUser() — reads cookie only, no HTTP round-trip.
+  // Server components still use getUser() for true validation on sensitive actions.
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user
 
   if (
     !user &&
@@ -44,19 +45,6 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Admin-only pages
-  if (user && request.nextUrl.pathname.startsWith('/dashboard/admin')) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    if (profile?.role !== 'admin') {
-      const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
-      return NextResponse.redirect(url)
-    }
-  }
-
+  // Admin check moved to the page to keep middleware fast.
   return supabaseResponse
 }
