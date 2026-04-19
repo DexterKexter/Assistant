@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useProfile } from '@/lib/useProfile'
 import { useNotifications } from '@/lib/useNotifications'
 import { useTaskModal } from '@/lib/task-modal'
-import { Search, Bell, CheckCheck, UserPlus, MessageSquare, X, HelpCircle, Eye, Shield, Users, Wallet, FileText, Camera } from 'lucide-react'
+import { Bell, CheckCheck, UserPlus, MessageSquare, X, HelpCircle, Eye, Shield, Users, Wallet, FileText, Camera, Calendar, DollarSign } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
@@ -32,6 +32,19 @@ export function Header() {
   const [showNotifs, setShowNotifs] = useState(false)
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false)
   const [switching, setSwitching] = useState(false)
+  const [rates, setRates] = useState<{ usd: number | null; rub: number | null }>({ usd: null, rub: null })
+
+  useEffect(() => {
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then(r => r.json())
+      .then((d: { rates?: Record<string, number> }) => {
+        if (!d.rates) return
+        setRates({ usd: d.rates.KZT ?? null, rub: d.rates.KZT && d.rates.RUB ? d.rates.KZT / d.rates.RUB : null })
+      })
+      .catch(() => {})
+  }, [])
+
+  const today = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' })
 
   // Track original admin role so eye button stays visible after switching
   const [showEye, setShowEye] = useState(false)
@@ -68,14 +81,27 @@ export function Header() {
   return (
     <>
       <header className="hidden md:flex h-[56px] items-center gap-3 md:gap-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-sm px-3 md:px-6">
-        {/* Search */}
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Поиск по номеру контейнера..."
-            className="w-full h-9 rounded-lg bg-slate-50 border border-slate-200/60 pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 focus:bg-white transition-all"
-          />
+        {/* Date + rates */}
+        <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-[13px] text-slate-600">
+            <Calendar className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.8} />
+            <span className="capitalize font-medium">{today}</span>
+          </div>
+          <div className="hidden md:block h-5 w-px bg-slate-200" />
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-slate-400 font-medium">$</span>
+              <span className="text-[13px] font-semibold text-slate-700 tabular-nums">
+                {rates.usd ? `${rates.usd.toFixed(2)} ₸` : '— ₸'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-slate-400 font-medium">₽</span>
+              <span className="text-[13px] font-semibold text-slate-700 tabular-nums">
+                {rates.rub ? `${rates.rub.toFixed(2)} ₸` : '— ₸'}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Right side */}

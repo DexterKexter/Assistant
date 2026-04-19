@@ -39,32 +39,24 @@ function RoutePoint({ label, flag, date, onChange, variant, canEdit }: {
   }
 
   const hasDate = !!date
-  const dotColor = variant === 'origin' ? 'bg-indigo-500' : variant === 'border' ? 'bg-amber-500' : 'bg-emerald-500'
-  const labelColor = variant === 'dest' ? 'text-slate-900 font-semibold' : 'text-slate-700'
+  const colorByVariant = variant === 'origin' ? 'text-indigo-600' : variant === 'border' ? 'text-amber-600' : 'text-emerald-600'
+  const nameColor = hasDate ? `${colorByVariant} font-semibold` : 'text-slate-400'
 
   return (
-    <span className={`inline-flex items-center gap-1.5 ${saving ? 'opacity-50' : ''}`}>
-      <span className="inline-flex items-center gap-1 shrink-0 min-w-0">
-        {flag ? <span className="shrink-0">{flag}</span> : <span className={`w-1.5 h-1.5 rounded-full ${dotColor} shrink-0`} />}
-        <span className={`truncate max-w-[90px] text-[12px] ${labelColor}`}>{label}</span>
-      </span>
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={!canEdit || hasDate}
-        title={hasDate ? fmtDate(date) : canEdit ? 'Нажмите чтобы добавить дату' : 'Дата не установлена'}
-        className={`shrink-0 inline-flex items-center justify-center h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums transition-all ${
-          hasDate
-            ? 'bg-slate-100 text-slate-700'
-            : canEdit
-              ? 'border border-dashed border-indigo-300 text-indigo-500 bg-indigo-50/40 hover:bg-indigo-50 hover:border-indigo-400 cursor-pointer'
-              : 'border border-dashed border-slate-200 text-slate-300'
-        }`}
-      >
-        {hasDate ? fmtDate(date)?.slice(0, 5) : canEdit ? '+ дата' : 'нет'}
-        <input id={inputId} type="date" className="sr-only" onChange={handleDateChange} onClick={e => e.stopPropagation()} />
-      </button>
-    </span>
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={!canEdit || hasDate}
+      title={hasDate ? `${label} · ${fmtDate(date)}` : canEdit ? `Добавить дату для ${label}` : label}
+      className={`inline-flex items-center gap-1 text-[12px] shrink-0 min-w-0 transition-colors ${
+        !hasDate && canEdit ? 'hover:text-indigo-500 cursor-pointer' : ''
+      } ${saving ? 'opacity-50' : ''}`}
+    >
+      {flag && <span className="shrink-0">{flag}</span>}
+      <span className={`truncate max-w-[90px] ${nameColor}`}>{label}</span>
+      {hasDate && <span className="text-[10px] text-slate-400 shrink-0 tabular-nums">{fmtDate(date)?.slice(0, 5)}</span>}
+      <input id={inputId} type="date" className="sr-only" onChange={handleDateChange} onClick={e => e.stopPropagation()} />
+    </button>
   )
 }
 
