@@ -32,7 +32,7 @@ export default function WeeklyReport({
   return (
     <Html lang="ru">
       <Head />
-      <Preview>Отчёт за неделю {weekRange} — {stats.delivered} доставлено</Preview>
+      <Preview>{`Отчёт за неделю ${weekRange} — ${stats.delivered} доставлено`}</Preview>
       <Body style={{ backgroundColor: '#f8f9fb', fontFamily: 'Inter, Arial, sans-serif', margin: 0, padding: '32px 16px' }}>
         <Container style={{ backgroundColor: '#fff', maxWidth: 600, margin: '0 auto', borderRadius: 16, border: '1px solid #eef0f4', padding: 32 }}>
           <Section>
