@@ -253,7 +253,7 @@ export const TASK_PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: 
 }
 
 /* ── Notifications ── */
-export type NotificationType = 'task_assigned' | 'task_comment'
+export type NotificationType = 'task_assigned' | 'task_comment' | 'document_added' | 'photo_added' | 'shipment_comment'
 
 export interface Notification {
   id: string
