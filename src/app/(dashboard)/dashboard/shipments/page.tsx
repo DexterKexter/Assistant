@@ -10,6 +10,62 @@ import { SearchableSelect } from '@/components/searchable-select'
 import { getShipmentStatus, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
 import { useShipmentModal } from '@/lib/shipment-modal'
+import { useProfile } from '@/lib/useProfile'
+
+function RoutePoint({ label, flag, date, onChange, variant, canEdit }: {
+  label: string
+  flag?: string
+  date: string | null
+  onChange: (date: string) => Promise<void>
+  variant: 'origin' | 'border' | 'dest'
+  canEdit: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const inputId = `date-${Math.random().toString(36).slice(2)}`
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!canEdit || date) return
+    const input = document.getElementById(inputId) as HTMLInputElement | null
+    input?.showPicker?.()
+  }
+
+  const handleDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    if (!value) return
+    setSaving(true)
+    await onChange(value)
+    setSaving(false)
+    setOpen(false)
+  }
+
+  const hasDate = !!date
+  const textColor = variant === 'origin' ? 'text-slate-700 font-medium' : variant === 'dest' ? 'text-slate-800 font-semibold' : 'text-slate-500'
+  const dotColor = variant === 'origin' ? 'bg-indigo-400' : variant === 'border' ? 'bg-amber-400' : 'bg-emerald-400'
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={!canEdit && !hasDate}
+      title={hasDate ? `${label} · ${fmtDate(date)}` : canEdit ? `Добавить дату для ${label}` : label}
+      className={`relative inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[12px] truncate max-w-[110px] transition-colors ${
+        hasDate
+          ? `${textColor} bg-slate-50 hover:bg-slate-100`
+          : canEdit
+            ? `${textColor} border border-dashed border-slate-300 hover:border-indigo-300 hover:bg-indigo-50/50 cursor-pointer`
+            : textColor
+      } ${saving ? 'opacity-50' : ''}`}
+    >
+      {flag && <span className="shrink-0">{flag}</span>}
+      {!flag && <span className={`w-1 h-1 rounded-full ${dotColor} shrink-0`} />}
+      <span className="truncate">{label}</span>
+      {hasDate && <span className="text-[9px] text-slate-400 shrink-0 tabular-nums">{fmtDate(date)?.slice(0, 5)}</span>}
+      <input id={inputId} type="date" className="sr-only" onChange={handleDateChange} onClick={e => e.stopPropagation()} />
+    </button>
+  )
+}
 
 const CITY_FLAGS: Record<string, string> = {
   'Дубай': '🇦🇪', 'Чингдао': '🇨🇳', 'Гуаньчжоу': '🇨🇳', 'Шанхай': '🇨🇳', 'Шэньчжень': '🇨🇳',
@@ -64,6 +120,8 @@ export default function ShipmentsPage() {
   const router = useRouter()
   const { openShipment } = useShipmentModal()
   const supabase = createClient()
+  const { hasRole } = useProfile()
+  const canEdit = hasRole('admin', 'manager')
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -139,7 +197,7 @@ export default function ShipmentsPage() {
     setLookups({ clients: cl || [], carriers: ca || [], recipients: re || [], refs })
   }
 
-  const updateDate = async (id: string, field: 'arrival_date' | 'delivery_date', value: string) => {
+  const updateDate = async (id: string, field: 'departure_date' | 'arrival_date' | 'delivery_date', value: string) => {
     const update: Record<string, string | boolean> = { [field]: value }
     if (field === 'delivery_date' && value) update.is_completed = true
     await supabase.from('shipments').update(update).eq('id', id)
@@ -389,22 +447,33 @@ export default function ShipmentsPage() {
                       <td className="px-1 py-2.5 text-[12px] text-slate-500 tabular-nums whitespace-nowrap">{fmtDate(s.departure_date)}</td>
                       <td className="px-3 py-2.5 text-[12px] font-medium text-slate-700 max-w-[140px] truncate"><Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} /></td>
                       <td className="px-3 py-2.5 text-[12px] text-slate-600 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} /></td>
-                      <td className="px-3 py-2.5" colSpan={3}>
-                        <div className="flex items-center gap-1.5 text-[12px] min-w-0">
-                          <span className="inline-flex items-center gap-1 text-slate-700 font-medium truncate shrink-0 max-w-[110px]">
-                            <span className="shrink-0">{getFlag(s.origin)}</span>
-                            <span className="truncate">{s.origin || '—'}</span>
-                          </span>
+                      <td className="px-3 py-2.5" colSpan={3} onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 text-[12px] min-w-0">
+                          <RoutePoint
+                            label={s.origin || '—'}
+                            flag={getFlag(s.origin)}
+                            date={s.departure_date}
+                            variant="origin"
+                            canEdit={canEdit}
+                            onChange={(d) => updateDate(s.id, 'departure_date', d)}
+                          />
                           <span className="text-slate-300 shrink-0">›</span>
-                          <span className="inline-flex items-center gap-1 text-slate-500 truncate shrink-0 max-w-[100px]">
-                            <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
-                            <span className="truncate">{s.destination_station || '—'}</span>
-                          </span>
+                          <RoutePoint
+                            label={s.destination_station || '—'}
+                            date={s.arrival_date}
+                            variant="border"
+                            canEdit={canEdit}
+                            onChange={(d) => updateDate(s.id, 'arrival_date', d)}
+                          />
                           <span className="text-slate-300 shrink-0">›</span>
-                          <span className="inline-flex items-center gap-1 text-slate-800 font-semibold truncate shrink-0 max-w-[110px]">
-                            <span className="shrink-0">{getFlag(s.destination_city)}</span>
-                            <span className="truncate">{s.destination_city || '—'}</span>
-                          </span>
+                          <RoutePoint
+                            label={s.destination_city || '—'}
+                            flag={getFlag(s.destination_city)}
+                            date={s.delivery_date}
+                            variant="dest"
+                            canEdit={canEdit}
+                            onChange={(d) => updateDate(s.id, 'delivery_date', d)}
+                          />
                         </div>
                       </td>
                       <td className="px-2 py-2.5">
