@@ -260,6 +260,7 @@ export interface Notification {
   user_id: string
   type: NotificationType
   task_id: string | null
+  shipment_id: string | null
   actor_id: string | null
   message: string
   is_read: boolean

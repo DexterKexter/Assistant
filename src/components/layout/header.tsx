@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useProfile } from '@/lib/useProfile'
 import { useNotifications } from '@/lib/useNotifications'
 import { useTaskModal } from '@/lib/task-modal'
+import { useShipmentModal } from '@/lib/shipment-modal'
 import { Bell, CheckCheck, UserPlus, MessageSquare, X, HelpCircle, Eye, Shield, Users, Wallet, FileText, Camera, Calendar, DollarSign } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -29,6 +30,7 @@ export function Header() {
   const { profile } = useProfile()
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
   const { openTask } = useTaskModal()
+  const { openShipment } = useShipmentModal()
   const [showNotifs, setShowNotifs] = useState(false)
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false)
   const [switching, setSwitching] = useState(false)
@@ -74,6 +76,8 @@ export function Header() {
     markAsRead(notif.id)
     if (notif.task_id) {
       openTask(notif.task_id)
+    } else if (notif.shipment_id) {
+      openShipment(notif.shipment_id)
     }
     setShowNotifs(false)
   }

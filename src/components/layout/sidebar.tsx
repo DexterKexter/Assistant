@@ -115,7 +115,7 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
         <div className="flex-1 flex flex-col items-center gap-1 w-full px-2">
           {(() => {
             const role = profile?.role || 'client'
-            if (role === 'accountant') return [...businessItems.filter(i => ['/dashboard/finance', '/dashboard/documents'].includes(i.href)), ...otherItems]
+            if (role === 'accountant') return [mainItems.find(i => i.href === '/dashboard/shipments')!, ...businessItems.filter(i => ['/dashboard/clients', '/dashboard/finance'].includes(i.href)), ...otherItems]
             if (role === 'client') return otherItems
             return coreItems
           })().map((item) => {
@@ -218,7 +218,8 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
             sections.push({ label: 'Бизнес', items: businessItems })
           }
           if (isAccountant) {
-            sections.push({ label: 'Бизнес', items: businessItems.filter(i => ['/dashboard/finance', '/dashboard/documents'].includes(i.href)) })
+            sections.push({ label: 'Основное', items: mainItems.filter(i => i.href === '/dashboard/shipments') })
+            sections.push({ label: 'Бизнес', items: businessItems.filter(i => ['/dashboard/clients', '/dashboard/finance'].includes(i.href)) })
           }
           sections.push({ label: isAccountant || isClient ? 'Меню' : 'Другое', items: otherItems })
 

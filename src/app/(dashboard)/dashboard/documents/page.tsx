@@ -15,6 +15,14 @@ function daysSince(date: string | null | undefined) {
   if (!date) return 0
   return Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
 }
+function timeAgo(dateStr: string | null | undefined): string {
+  if (!dateStr) return ''
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+  if (diff < 60) return 'только что'
+  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} ч назад`
+  return `${Math.floor(diff / 86400)} д назад`
+}
 import { useShipmentModal } from '@/lib/shipment-modal'
 
 const STATUS_PAGE_SIZE = 50
@@ -102,7 +110,7 @@ export default function DocumentsPage() {
                       <p className="text-[13px] font-bold text-slate-900 font-mono">{s.container_number}</p>
                       <p className="text-[11px] text-slate-400 truncate">{(s.client as unknown as { name: string })?.name || '—'} · {(s.recipient as unknown as { name: string })?.name || ''}</p>
                     </div>
-                    <span className="text-[11px] text-slate-400 shrink-0">{s.departure_date ? s.departure_date.split('-').reverse().join('.') : ''}</span>
+                    <span className="text-[11px] text-slate-400 shrink-0">{timeAgo(s.updated_at)}</span>
                     <a href={s.contract_pdf!} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                       className="px-2.5 py-1 bg-slate-900 text-white rounded-md text-[10px] font-medium hover:bg-slate-800 shrink-0">
                       PDF
@@ -158,7 +166,7 @@ export default function DocumentsPage() {
                       <p className="text-[13px] font-bold text-slate-900 font-mono">{s.container_number}</p>
                       <p className="text-[11px] text-slate-400 truncate">{(s.client as unknown as { name: string })?.name || '—'}</p>
                     </div>
-                    <span className="text-[11px] text-slate-400 shrink-0">{s.photos!.length} фото</span>
+                    <span className="text-[11px] text-slate-400 shrink-0 text-right">{s.photos!.length} фото<br/>{timeAgo(s.updated_at)}</span>
                   </div>
                 ))}
               </div>

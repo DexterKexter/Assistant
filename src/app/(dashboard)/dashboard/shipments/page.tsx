@@ -290,10 +290,12 @@ export default function ShipmentsPage() {
           <BookOpen className="w-3.5 h-3.5" />
           <span className="hidden md:inline">Справочники</span>
         </button>
-        <button onClick={startAddNew} className="h-9 flex items-center gap-1.5 px-3 bg-slate-900 text-white rounded-lg text-[12px] font-medium hover:bg-slate-800 transition-colors shrink-0">
-          <Plus className="w-3.5 h-3.5" />
-          <span className="hidden md:inline">Новая</span>
-        </button>
+        {canEdit && (
+          <button onClick={startAddNew} className="h-9 flex items-center gap-1.5 px-3 bg-slate-900 text-white rounded-lg text-[12px] font-medium hover:bg-slate-800 transition-colors shrink-0">
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Новая</span>
+          </button>
+        )}
       </div>
 
       {/* Status tabs */}

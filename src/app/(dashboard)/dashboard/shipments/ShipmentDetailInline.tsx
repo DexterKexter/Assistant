@@ -75,6 +75,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   }
   const [fileDocName, setFileDocName] = useState('')
   const [showFileUpload, setShowFileUpload] = useState(false)
+  const [previewPdf, setPreviewPdf] = useState<{ url: string; name: string } | null>(null)
 
   // Comments
   const [comments, setComments] = useState<any[]>([])
@@ -83,6 +84,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   // Edit mode
   const { hasRole, profile: currentProfile } = useProfile()
   const canEdit = hasRole('admin', 'manager')
+  const canUploadDocs = hasRole('admin', 'manager', 'accountant')
   const [editing, setEditing] = useState(isCreateMode)
   const [draft, setDraft] = useState<Record<string, unknown>>(isCreateMode ? { container_size: '40', container_type: 'Выкупной', is_completed: false } : {})
   const [saving, setSaving] = useState(false)
@@ -597,7 +599,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                       )}
                     </div>
                   ))}
-                  {canEdit && (
+                  {canUploadDocs && (
                     <label className="w-14 h-14 rounded-md border-2 border-dashed border-slate-200 flex items-center justify-center shrink-0 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/50 transition-all">
                       <Plus className="w-4 h-4 text-slate-300" />
                       <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
@@ -626,7 +628,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
               <div className="flex-[4] flex flex-col items-center justify-center bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] gap-3 py-10 md:py-0">
                 <Image className="w-8 h-8 text-slate-200" strokeWidth={1.5} />
                 <p className="text-[13px] text-slate-400">Нет фотографий</p>
-                {canEdit && (
+                {canUploadDocs && (
                   <label className={`flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 rounded-lg text-[12px] font-medium text-indigo-600 hover:bg-indigo-100 transition-colors cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
                     <Upload className="w-3.5 h-3.5" /> {uploading ? 'Загрузка...' : 'Загрузить фото'}
                     <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
@@ -655,7 +657,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
               <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-3">Файлы</p>
               {shipment.contract_pdf && (
                 <div className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 border border-slate-100 mb-2">
-                  <a href={shipment.contract_pdf} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 flex-1 min-w-0">
+                  <button onClick={() => setPreviewPdf({ url: shipment.contract_pdf!, name: 'Договор' })} className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
                     <div className="w-7 h-6 rounded-md bg-gradient-to-b from-slate-100 to-slate-200 flex items-center justify-center shrink-0">
                       <FileText className="w-3 h-3 text-slate-500" />
                     </div>
@@ -663,9 +665,10 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                       <p className="text-[12px] font-medium text-slate-800 truncate">Договор</p>
                       <p className="text-[10px] text-slate-400">PDF</p>
                     </div>
-                  </a>
-                  {canEdit && editing && (
+                  </button>
+                  {canUploadDocs && (
                     <button onClick={async () => {
+                      if (!confirm('Удалить договор?')) return
                       const supabase = createClient()
                       await supabase.from('shipments').update({ contract_pdf: null }).eq('id', shipment.id)
                       setShipment({ ...shipment, contract_pdf: null })
@@ -675,8 +678,21 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                   )}
                 </div>
               )}
-              {excelFiles.map((url, i) => (
+              {excelFiles.map((url, i) => {
+                const isPdf = /\.pdf($|\?)/i.test(url)
+                return (
                 <div key={i} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 border border-slate-100 mb-2">
+                  {isPdf ? (
+                    <button onClick={() => setPreviewPdf({ url, name: `Документ ${i + 1}` })} className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
+                      <div className="w-7 h-6 rounded-md bg-gradient-to-b from-slate-100 to-slate-200 flex items-center justify-center shrink-0">
+                        <FileText className="w-3 h-3 text-slate-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-medium text-slate-800 truncate">Документ {i + 1}</p>
+                        <p className="text-[10px] text-slate-400">PDF</p>
+                      </div>
+                    </button>
+                  ) : (
                   <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 flex-1 min-w-0">
                     <div className="w-7 h-6 rounded-md bg-gradient-to-b from-slate-100 to-slate-200 flex items-center justify-center shrink-0">
                       <FileText className="w-3 h-3 text-slate-500" />
@@ -686,8 +702,10 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                       <p className="text-[10px] text-slate-400">Файл</p>
                     </div>
                   </a>
-                  {canEdit && editing && (
+                  )}
+                  {canUploadDocs && (
                     <button onClick={async () => {
+                      if (!confirm(`Удалить документ ${i + 1}?`)) return
                       const supabase = createClient()
                       const newFiles = excelFiles.filter((_, j) => j !== i)
                       await supabase.from('shipments').update({ excel_files: newFiles.length ? newFiles : null }).eq('id', shipment.id)
@@ -697,11 +715,12 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
                     </button>
                   )}
                 </div>
-              ))}
+                )
+              })}
               {!hasFiles && <p className="text-[12px] text-slate-400 text-center py-4">Нет файлов</p>}
 
               {/* Upload file */}
-              {canEdit && (
+              {canUploadDocs && (
                 <div className="mt-auto pt-2 border-t border-slate-100">
                   {showFileUpload ? (
                     <div className="space-y-2">
@@ -843,6 +862,23 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
               <Send className="w-3.5 h-3.5" />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* PDF preview */}
+      {previewPdf && (
+        <div className="fixed inset-0 z-[1200] bg-black/80 backdrop-blur-sm flex flex-col" onClick={() => setPreviewPdf(null)}>
+          <div className="flex items-center justify-between px-4 h-12 bg-slate-900/60 text-white shrink-0">
+            <p className="text-[13px] font-medium truncate">{previewPdf.name}</p>
+            <div className="flex items-center gap-2">
+              <a href={previewPdf.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                className="text-[12px] px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 transition-colors">Открыть</a>
+              <button onClick={() => setPreviewPdf(null)} className="w-8 h-8 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <iframe src={previewPdf.url} title={previewPdf.name} className="flex-1 w-full bg-white" onClick={e => e.stopPropagation()} />
         </div>
       )}
 
