@@ -8,8 +8,6 @@ const nextConfig: NextConfig = {
       'lucide-react',
       'recharts',
       'date-fns',
-      'react-email',
-      '@react-email/render',
       'leaflet',
       'react-leaflet',
     ],
