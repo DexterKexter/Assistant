@@ -54,7 +54,11 @@ function RoutePoint({ label, flag, date, onChange, variant, canEdit }: {
     >
       {flag && <span className="shrink-0">{flag}</span>}
       <span className={`truncate max-w-[90px] ${nameColor}`}>{label}</span>
-      {hasDate && <span className="text-[10px] text-slate-400 shrink-0 tabular-nums">{fmtDate(date)?.slice(0, 5)}</span>}
+      {hasDate && (
+        <span className="ml-0.5 inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-[11px] font-semibold text-slate-600 shrink-0 tabular-nums">
+          {fmtDate(date)?.slice(0, 5)}
+        </span>
+      )}
       <input id={inputId} type="date" className="sr-only" onChange={handleDateChange} onClick={e => e.stopPropagation()} />
     </button>
   )
