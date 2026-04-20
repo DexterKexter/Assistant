@@ -441,7 +441,7 @@ export default function ShipmentsPage() {
                       <td className="px-3 py-2.5 text-[12px] font-medium text-slate-700 max-w-[140px] truncate"><Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} /></td>
                       <td className="px-3 py-2.5 text-[12px] text-slate-600 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} /></td>
                       <td className="px-3 py-2.5" colSpan={3} onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center gap-1 text-[12px] min-w-0">
+                        <div className="flex items-center justify-between gap-2 text-[12px] min-w-0 w-full">
                           <RoutePoint
                             label={s.origin || '—'}
                             flag={getFlag(s.origin)}
@@ -450,7 +450,7 @@ export default function ShipmentsPage() {
                             canEdit={canEdit}
                             onChange={(d) => updateDate(s.id, 'departure_date', d)}
                           />
-                          <span className="text-slate-300 shrink-0">›</span>
+                          <div className="flex-1 h-px bg-slate-200/70 min-w-[16px]" />
                           <RoutePoint
                             label={s.destination_station || '—'}
                             date={s.arrival_date}
@@ -458,7 +458,7 @@ export default function ShipmentsPage() {
                             canEdit={canEdit}
                             onChange={(d) => updateDate(s.id, 'arrival_date', d)}
                           />
-                          <span className="text-slate-300 shrink-0">›</span>
+                          <div className="flex-1 h-px bg-slate-200/70 min-w-[16px]" />
                           <RoutePoint
                             label={s.destination_city || '—'}
                             flag={getFlag(s.destination_city)}
