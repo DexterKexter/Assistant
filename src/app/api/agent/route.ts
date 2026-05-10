@@ -28,7 +28,13 @@ const SYSTEM_PROMPT = `Ты — AI ассистент для логистиче�
 
 Используй инструменты для запросов в базу. Отвечай кратко, по делу, на русском. Используй markdown для форматирования: жирный текст, списки, таблицы. Сегодняшняя дата: ${new Date().toISOString().split('T')[0]}.
 
-Когда показываешь перевозку — давай ссылку формата [CONTAINER_NUM](/dashboard/shipments/{id}) чтобы пользователь мог открыть её одним кликом.`
+Когда показываешь перевозку — давай ссылку формата [CONTAINER_NUM](/dashboard/shipments/{id}) чтобы пользователь мог открыть её одним кликом.
+
+Когда данные нагляднее показать визуально (тренды по месяцам, топ маршрутов, доли клиентов РФ/КЗ, динамика финансов) — вызывай render_chart. Бери данные из других tools, агрегируй до 20 точек, выбирай:
+- bar для сравнений и топов
+- line/area для трендов по времени
+- pie для долей и распределений
+После графика дай короткое 1-2-предложений резюме что видно на нём.`
 
 export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json()
@@ -207,6 +213,36 @@ export async function POST(req: Request) {
               .slice(0, limit ?? 10),
           }
         },
+      }),
+
+      render_chart: tool({
+        description:
+          'Отрендерить график в чате. Используй когда данные нагляднее показать визуально: тренды по периодам (line/area), сравнения количеств (bar), доли (pie). ' +
+          'Сначала получи данные через другие tools, потом передай их сюда. Не больше 20 точек на графике.',
+        inputSchema: z.object({
+          type: z.enum(['bar', 'line', 'area', 'pie']).describe('Тип графика'),
+          title: z.string().describe('Заголовок графика'),
+          data: z
+            .array(
+              z.object({
+                name: z.string().describe('Метка по оси X (или сегмент для pie)'),
+                value: z.number().describe('Значение'),
+              })
+            )
+            .min(1)
+            .max(20)
+            .describe('Точки данных, до 20 элементов'),
+          unit: z
+            .string()
+            .optional()
+            .describe('Единица измерения для подписи (шт, $, км и т.п.)'),
+          color: z
+            .enum(['indigo', 'emerald', 'amber', 'rose', 'sky', 'violet'])
+            .optional()
+            .default('indigo')
+            .describe('Цветовая схема'),
+        }),
+        execute: async (args) => args,
       }),
     },
   })

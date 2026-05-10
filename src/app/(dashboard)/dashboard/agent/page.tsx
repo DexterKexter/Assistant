@@ -18,6 +18,23 @@ import {
   Trash2,
   Plus,
 } from 'lucide-react'
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
+} from 'recharts'
 
 const QUICK_PROMPTS = [
   { icon: Ship, label: 'Сколько перевозок в пути?', text: 'Сколько перевозок сейчас в пути и сколько на границе?' },
@@ -251,15 +268,23 @@ function MessageBubble({ message, userInitials }: { message: any; userInitials: 
   // Extract text + tool calls from parts (AI SDK v6)
   const textParts: string[] = []
   const toolCalls: { name: string; state: string; result?: any }[] = []
+  const charts: ChartSpec[] = []
 
   for (const part of message.parts || []) {
     if (part.type === 'text') textParts.push(part.text || '')
     else if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
-      toolCalls.push({
-        name: part.type.replace('tool-', ''),
-        state: part.state || 'pending',
-        result: part.output,
-      })
+      const toolName = part.type.replace('tool-', '')
+      const isChart = toolName === 'render_chart'
+      const isDone = part.state === 'output-available'
+      if (isChart && isDone && part.output) {
+        charts.push(part.output as ChartSpec)
+      } else {
+        toolCalls.push({
+          name: toolName,
+          state: part.state || 'pending',
+          result: part.output,
+        })
+      }
     }
   }
 
@@ -281,9 +306,18 @@ function MessageBubble({ message, userInitials }: { message: any; userInitials: 
       <div className={cn('flex flex-col max-w-[85%] min-w-0', isUser && 'items-end')}>
         {/* Tool calls (only for assistant) */}
         {!isUser && toolCalls.length > 0 && (
-          <div className="space-y-1.5 mb-2">
+          <div className="flex flex-wrap gap-1.5 mb-2">
             {toolCalls.map((tc, i) => (
               <ToolCallChip key={i} tool={tc} />
+            ))}
+          </div>
+        )}
+
+        {/* Charts */}
+        {!isUser && charts.length > 0 && (
+          <div className="space-y-2 mb-2 w-full">
+            {charts.map((c, i) => (
+              <ChartCard key={i} spec={c} />
             ))}
           </div>
         )}
@@ -315,6 +349,7 @@ const TOOL_LABELS: Record<string, string> = {
   list_carriers: 'Перевозчики',
   finance_summary: 'Финансы',
   top_routes: 'Маршруты',
+  render_chart: 'График',
 }
 
 function ToolCallChip({ tool }: { tool: { name: string; state: string; result?: any } }) {
@@ -334,6 +369,144 @@ function ToolCallChip({ tool }: { tool: { name: string; state: string; result?: 
         <span className="text-slate-400">· {tool.result.count}</span>
       )}
     </div>
+  )
+}
+
+/* ── Chart card (rendered from render_chart tool output) ── */
+type ChartSpec = {
+  type: 'bar' | 'line' | 'area' | 'pie'
+  title: string
+  data: { name: string; value: number }[]
+  unit?: string
+  color?: 'indigo' | 'emerald' | 'amber' | 'rose' | 'sky' | 'violet'
+}
+
+const CHART_COLORS: Record<NonNullable<ChartSpec['color']>, string> = {
+  indigo: '#6366f1',
+  emerald: '#10b981',
+  amber: '#f59e0b',
+  rose: '#f43f5e',
+  sky: '#0ea5e9',
+  violet: '#8b5cf6',
+}
+
+const PIE_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#0ea5e9', '#8b5cf6', '#14b8a6', '#ec4899']
+
+function formatChartValue(v: number, unit?: string) {
+  const abs = Math.abs(v)
+  let s: string
+  if (abs >= 1_000_000) s = (v / 1_000_000).toFixed(1) + 'M'
+  else if (abs >= 1_000) s = (v / 1_000).toFixed(abs >= 10_000 ? 0 : 1) + 'K'
+  else s = String(v)
+  return unit ? `${s} ${unit}` : s
+}
+
+function ChartCard({ spec }: { spec: ChartSpec }) {
+  const color = CHART_COLORS[spec.color || 'indigo']
+  const isPie = spec.type === 'pie'
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden w-full">
+      <div className="px-4 pt-3 pb-2 border-b border-slate-100">
+        <p className="text-[13px] font-semibold text-slate-800">{spec.title}</p>
+        {spec.unit && <p className="text-[10px] text-slate-400 mt-0.5">в {spec.unit}</p>}
+      </div>
+      <div className="p-3" style={{ width: '100%', height: 240 }}>
+        <ChartInner spec={spec} color={color} isPie={isPie} />
+      </div>
+    </div>
+  )
+}
+
+function ChartInner({ spec, color, isPie }: { spec: ChartSpec; color: string; isPie: boolean }) {
+  const tickStyle = { fontSize: 11, fill: '#64748b' }
+  const tooltipStyle = {
+    contentStyle: {
+      borderRadius: 10,
+      border: '1px solid #e2e8f0',
+      fontSize: 12,
+      padding: '6px 10px',
+      boxShadow: '0 4px 12px rgba(15,23,42,0.08)',
+    },
+    formatter: (v: any) => formatChartValue(Number(v), spec.unit),
+  }
+
+  if (isPie) {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={spec.data}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            outerRadius={80}
+            innerRadius={40}
+            paddingAngle={2}
+            stroke="#fff"
+            strokeWidth={2}
+          >
+            {spec.data.map((_, i) => (
+              <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
+            ))}
+          </Pie>
+          <Tooltip {...tooltipStyle} />
+          <Legend
+            iconType="circle"
+            wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+            formatter={(v: any) => <span className="text-slate-600">{v}</span>}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    )
+  }
+
+  if (spec.type === 'line') {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={spec.data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <XAxis dataKey="name" tick={tickStyle} tickLine={false} axisLine={false} />
+          <YAxis tick={tickStyle} tickLine={false} axisLine={false} tickFormatter={(v: any) => formatChartValue(Number(v))} width={36} />
+          <Tooltip {...tooltipStyle} />
+          <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} dot={{ r: 3, fill: color }} activeDot={{ r: 5 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    )
+  }
+
+  if (spec.type === 'area') {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={spec.data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`grad-${color}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <XAxis dataKey="name" tick={tickStyle} tickLine={false} axisLine={false} />
+          <YAxis tick={tickStyle} tickLine={false} axisLine={false} tickFormatter={(v: any) => formatChartValue(Number(v))} width={36} />
+          <Tooltip {...tooltipStyle} />
+          <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#grad-${color})`} />
+        </AreaChart>
+      </ResponsiveContainer>
+    )
+  }
+
+  // default: bar
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={spec.data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+        <XAxis dataKey="name" tick={tickStyle} tickLine={false} axisLine={false} interval={0} angle={spec.data.length > 6 ? -25 : 0} textAnchor={spec.data.length > 6 ? 'end' : 'middle'} height={spec.data.length > 6 ? 50 : 30} />
+        <YAxis tick={tickStyle} tickLine={false} axisLine={false} tickFormatter={(v: any) => formatChartValue(Number(v))} width={36} />
+        <Tooltip {...tooltipStyle} cursor={{ fill: '#f1f5f955' }} />
+        <Bar dataKey="value" fill={color} radius={[6, 6, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
   )
 }
 
