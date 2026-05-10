@@ -478,6 +478,7 @@ const TOOL_LABELS: Record<string, string> = {
   get_stats: 'Статистика',
   db_overview: 'Обзор базы',
   count_shipments: 'Подсчёт',
+  smart_search: 'Умный поиск',
   search_shipments: 'Поиск перевозок',
   get_shipment: 'Детали перевозки',
   list_clients: 'Список клиентов',

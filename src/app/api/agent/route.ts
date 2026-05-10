@@ -40,6 +40,9 @@ const SYSTEM_PROMPT = `Ты — AI ассистент для логистиче�
 
 ПРАВИЛО: если пользователь спрашивает "сколько X" — НЕ запрашивай строки через search_shipments, используй count_shipments или get_stats/db_overview. Это в 10 раз быстрее и точнее.
 
+НЕЧЁТКИЙ ПОИСК (pg_trgm):
+Все имена клиентов/перевозчиков ищутся через триграммы — опечатки, частичные слова и разный регистр обрабатываются автоматически. Если пользователь дал размытый запрос ("перевозки в москау", "лора", "стеклинев") — сразу используй search_shipments с client_name/carrier_name (или smart_search для свободного текста). Если совсем ничего не нашлось — попробуй smart_search с разными вариациями.
+
 Когда показываешь перевозку — давай ссылку формата [CONTAINER_NUM](/dashboard/shipments/{id}) чтобы пользователь мог открыть её одним кликом.
 
 Когда данные нагляднее показать визуально (тренды по месяцам, топ маршрутов, доли клиентов РФ/КЗ, динамика финансов) — вызывай render_chart. Бери данные из других tools, агрегируй до 20 точек, выбирай:
@@ -169,14 +172,14 @@ export async function POST(req: Request) {
         execute: async (args) => {
           let clientIds: string[] | null = null
           if (args.client_name) {
-            const { data } = await supabase.from('clients').select('id').ilike('name', `%${args.client_name}%`).limit(200)
-            clientIds = (data || []).map((r) => r.id)
+            const { data } = await supabase.rpc('fuzzy_find_clients', { q: args.client_name, lim: 50 })
+            clientIds = (data || []).map((r: any) => r.id)
             if (clientIds.length === 0) return { count: 0, note: `Клиент "${args.client_name}" не найден` }
           }
           let carrierIds: string[] | null = null
           if (args.carrier_name) {
-            const { data } = await supabase.from('carriers').select('id').ilike('name', `%${args.carrier_name}%`).limit(200)
-            carrierIds = (data || []).map((r) => r.id)
+            const { data } = await supabase.rpc('fuzzy_find_carriers', { q: args.carrier_name, lim: 50 })
+            carrierIds = (data || []).map((r: any) => r.id)
             if (carrierIds.length === 0) return { count: 0, note: `Перевозчик "${args.carrier_name}" не найден` }
           }
           let russiaClientIds: string[] | null = null
@@ -226,16 +229,14 @@ export async function POST(req: Request) {
           // ── Resolve client_name / carrier_name to IDs server-side first ──
           let clientIds: string[] | null = null
           if (args.client_name) {
-            const { data } = await supabase
-              .from('clients').select('id').ilike('name', `%${args.client_name}%`).limit(200)
-            clientIds = (data || []).map((r) => r.id)
-            if (clientIds.length === 0) return { count: 0, shipments: [], note: `Клиент "${args.client_name}" не найден` }
+            const { data } = await supabase.rpc('fuzzy_find_clients', { q: args.client_name, lim: 20 })
+            clientIds = (data || []).map((r: any) => r.id)
+            if (clientIds.length === 0) return { count: 0, shipments: [], note: `Клиент "${args.client_name}" не найден (даже с нечётким поиском)` }
           }
           let carrierIds: string[] | null = null
           if (args.carrier_name) {
-            const { data } = await supabase
-              .from('carriers').select('id').ilike('name', `%${args.carrier_name}%`).limit(200)
-            carrierIds = (data || []).map((r) => r.id)
+            const { data } = await supabase.rpc('fuzzy_find_carriers', { q: args.carrier_name, lim: 20 })
+            carrierIds = (data || []).map((r: any) => r.id)
             if (carrierIds.length === 0) return { count: 0, shipments: [], note: `Перевозчик "${args.carrier_name}" не найден` }
           }
           let russiaClientIds: string[] | null = null
@@ -285,6 +286,50 @@ export async function POST(req: Request) {
               ? { note: `Всего по фильтрам: ${count}. Показано: ${data.length}. Уточни запрос или увеличь limit (макс 200).` }
               : {}),
           }
+        },
+      }),
+
+      smart_search: tool({
+        description:
+          'Универсальный нечёткий поиск перевозок по СВОБОДНОМУ ТЕКСТУ (триграммы pg_trgm). ' +
+          'Понимает опечатки, частичные слова, разный регистр. Ищет одновременно по: container_number, ' +
+          'origin, destination_city/station, cargo_description, notes, sender_name. Используй когда ' +
+          'пользователь ввёл размытый запрос ("перевозки в москау", "груз бытовой техники", "лора"). ' +
+          'Возвращает топ-N результатов с similarity score (sim).',
+        inputSchema: z.object({
+          query: z.string().describe('Свободный текст для поиска'),
+          limit: z.number().int().min(1).max(100).optional().default(20),
+        }),
+        execute: async ({ query, limit }) => {
+          const { data, error } = await supabase.rpc('fuzzy_find_shipments', { q: query, lim: limit ?? 20 })
+          if (error) return { error: error.message }
+          if (!data?.length) return { count: 0, results: [], note: `По запросу "${query}" ничего не найдено даже с нечётким поиском` }
+
+          // Обогащаем joined данными клиента/перевозчика
+          const clientIds = [...new Set(data.map((r: any) => r.client_id).filter(Boolean))]
+          const carrierIds = [...new Set(data.map((r: any) => r.carrier_id).filter(Boolean))]
+          const [clientsRes, carriersRes] = await Promise.all([
+            clientIds.length ? supabase.from('clients').select('id, name, is_russia').in('id', clientIds) : Promise.resolve({ data: [] } as any),
+            carrierIds.length ? supabase.from('carriers').select('id, name').in('id', carrierIds) : Promise.resolve({ data: [] } as any),
+          ])
+          const clientMap = new Map((clientsRes.data || []).map((c: any) => [c.id, c]))
+          const carrierMap = new Map((carriersRes.data || []).map((c: any) => [c.id, c]))
+
+          const results = data.map((r: any) => ({
+            id: r.id,
+            container_number: r.container_number,
+            origin: r.origin,
+            destination_city: r.destination_city,
+            destination_station: r.destination_station,
+            departure_date: r.departure_date,
+            is_completed: r.is_completed,
+            cargo_description: r.cargo_description,
+            sender_name: r.sender_name,
+            client: r.client_id ? clientMap.get(r.client_id) : null,
+            carrier: r.carrier_id ? carrierMap.get(r.carrier_id) : null,
+            match_score: Math.round(r.sim * 100) / 100,
+          }))
+          return { count: results.length, results }
         },
       }),
 
@@ -453,36 +498,33 @@ export async function POST(req: Request) {
           notes: z.string().optional(),
         }),
         execute: async (args) => {
-          // Resolve client
+          // Resolve client (fuzzy via pg_trgm)
           let client_id: string | null = null
           if (args.client_name) {
-            const { data: clients } = await supabase
-              .from('clients').select('id, name').ilike('name', `%${args.client_name}%`).limit(3)
+            const { data: clients } = await supabase.rpc('fuzzy_find_clients', { q: args.client_name, lim: 5 })
             if (!clients?.length) {
-              return { error: `Клиент "${args.client_name}" не найден. Создай его сначала через create_client или уточни имя.` }
+              return { error: `Клиент "${args.client_name}" не найден (даже с нечётким поиском). Создай через create_client или уточни.` }
             }
-            if (clients.length > 1) {
-              const exact = clients.find((c) => c.name.toLowerCase() === args.client_name.toLowerCase())
-              if (exact) client_id = exact.id
-              else return { error: `Несколько клиентов: ${clients.map((c) => c.name).join(', ')}. Уточни имя.` }
+            // Если best score >= 0.7 — берём как точное совпадение, иначе уточнить
+            const top = clients[0] as any
+            if (top.sim >= 0.7 || clients.length === 1) {
+              client_id = top.id
             } else {
-              client_id = clients[0].id
+              return { error: `Несколько похожих клиентов: ${clients.map((c: any) => `${c.name} (${(c.sim * 100).toFixed(0)}%)`).join(', ')}. Уточни.` }
             }
           }
-          // Resolve carrier
+          // Resolve carrier (fuzzy)
           let carrier_id: string | null = null
           if (args.carrier_name) {
-            const { data: carriers } = await supabase
-              .from('carriers').select('id, name').ilike('name', `%${args.carrier_name}%`).limit(3)
+            const { data: carriers } = await supabase.rpc('fuzzy_find_carriers', { q: args.carrier_name, lim: 5 })
             if (!carriers?.length) {
               return { error: `Перевозчик "${args.carrier_name}" не найден. Создай через create_carrier или уточни.` }
             }
-            if (carriers.length > 1) {
-              const exact = carriers.find((c) => c.name.toLowerCase() === args.carrier_name!.toLowerCase())
-              if (exact) carrier_id = exact.id
-              else return { error: `Несколько перевозчиков: ${carriers.map((c) => c.name).join(', ')}. Уточни.` }
+            const top = carriers[0] as any
+            if (top.sim >= 0.7 || carriers.length === 1) {
+              carrier_id = top.id
             } else {
-              carrier_id = carriers[0].id
+              return { error: `Несколько похожих перевозчиков: ${carriers.map((c: any) => `${c.name} (${(c.sim * 100).toFixed(0)}%)`).join(', ')}. Уточни.` }
             }
           }
 
