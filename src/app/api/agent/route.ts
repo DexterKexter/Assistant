@@ -183,17 +183,25 @@ export async function POST(req: Request) {
           is_russia: z.boolean().optional(),
         }),
         execute: async (args) => {
+          // Top-1 если sim >= 0.7, иначе все кандидаты — чтобы не складывать перевозки
+          // нескольких одноимённых клиентов когда есть явный лидер.
           let clientIds: string[] | null = null
+          let resolvedClient: string | null = null
           if (args.client_name) {
             const { data } = await supabase.rpc('fuzzy_find_clients', { q: args.client_name, lim: 50 })
-            clientIds = (data || []).map((r: any) => r.id)
-            if (clientIds.length === 0) return { count: 0, note: `Клиент "${args.client_name}" не найден` }
+            const arr = (data || []) as any[]
+            if (arr.length === 0) return { count: 0, note: `Клиент "${args.client_name}" не найден` }
+            if (arr[0].sim >= 0.7) { clientIds = [arr[0].id]; resolvedClient = arr[0].name }
+            else clientIds = arr.map((r) => r.id)
           }
           let carrierIds: string[] | null = null
+          let resolvedCarrier: string | null = null
           if (args.carrier_name) {
             const { data } = await supabase.rpc('fuzzy_find_carriers', { q: args.carrier_name, lim: 50 })
-            carrierIds = (data || []).map((r: any) => r.id)
-            if (carrierIds.length === 0) return { count: 0, note: `Перевозчик "${args.carrier_name}" не найден` }
+            const arr = (data || []) as any[]
+            if (arr.length === 0) return { count: 0, note: `Перевозчик "${args.carrier_name}" не найден` }
+            if (arr[0].sim >= 0.7) { carrierIds = [arr[0].id]; resolvedCarrier = arr[0].name }
+            else carrierIds = arr.map((r) => r.id)
           }
           let russiaClientIds: string[] | null = null
           if (args.is_russia !== undefined) {
@@ -217,7 +225,11 @@ export async function POST(req: Request) {
 
           const { count, error } = await q
           if (error) return { error: error.message }
-          return { count: count ?? 0 }
+          return {
+            count: count ?? 0,
+            ...(resolvedClient ? { resolved_client: resolvedClient } : {}),
+            ...(resolvedCarrier ? { resolved_carrier: resolvedCarrier } : {}),
+          }
         },
       }),
 
@@ -240,17 +252,35 @@ export async function POST(req: Request) {
         }),
         execute: async (args) => {
           // ── Resolve client_name / carrier_name to IDs server-side first ──
+          // Если top-кандидат уверенный (sim >= 0.7) — берём только его, чтобы не складывать
+          // перевозки нескольких похожих клиентов в одну выборку.
           let clientIds: string[] | null = null
+          let resolvedClient: string | null = null
           if (args.client_name) {
             const { data } = await supabase.rpc('fuzzy_find_clients', { q: args.client_name, lim: 20 })
-            clientIds = (data || []).map((r: any) => r.id)
-            if (clientIds.length === 0) return { count: 0, shipments: [], note: `Клиент "${args.client_name}" не найден (даже с нечётким поиском)` }
+            const arr = (data || []) as any[]
+            if (arr.length === 0) return { count: 0, shipments: [], note: `Клиент "${args.client_name}" не найден` }
+            const top = arr[0]
+            if (top.sim >= 0.7) {
+              clientIds = [top.id]
+              resolvedClient = top.name
+            } else {
+              clientIds = arr.map((r) => r.id)
+            }
           }
           let carrierIds: string[] | null = null
+          let resolvedCarrier: string | null = null
           if (args.carrier_name) {
             const { data } = await supabase.rpc('fuzzy_find_carriers', { q: args.carrier_name, lim: 20 })
-            carrierIds = (data || []).map((r: any) => r.id)
-            if (carrierIds.length === 0) return { count: 0, shipments: [], note: `Перевозчик "${args.carrier_name}" не найден` }
+            const arr = (data || []) as any[]
+            if (arr.length === 0) return { count: 0, shipments: [], note: `Перевозчик "${args.carrier_name}" не найден` }
+            const top = arr[0]
+            if (top.sim >= 0.7) {
+              carrierIds = [top.id]
+              resolvedCarrier = top.name
+            } else {
+              carrierIds = arr.map((r) => r.id)
+            }
           }
           let russiaClientIds: string[] | null = null
           if (args.is_russia !== undefined) {
@@ -295,6 +325,8 @@ export async function POST(req: Request) {
             count: count ?? data?.length ?? 0,
             returned: data?.length ?? 0,
             shipments: data || [],
+            ...(resolvedClient ? { resolved_client: resolvedClient } : {}),
+            ...(resolvedCarrier ? { resolved_carrier: resolvedCarrier } : {}),
             ...(count && data && count > data.length
               ? { note: `Всего по фильтрам: ${count}. Показано: ${data.length}. Уточни запрос или увеличь limit (макс 200).` }
               : {}),
