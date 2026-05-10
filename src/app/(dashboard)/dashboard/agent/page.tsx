@@ -276,7 +276,13 @@ export default function AgentPage() {
       {/* Input */}
       <div className="shrink-0 border-t border-slate-100 bg-white px-4 md:px-6 py-3">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-          <div className="relative flex items-end gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+          <div
+            className="relative flex items-end gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2
+                       transition-all duration-200 ease-out
+                       hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-100/40 hover:-translate-y-0.5
+                       focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-500/20
+                       focus-within:shadow-lg focus-within:shadow-indigo-200/40 focus-within:-translate-y-1"
+          >
             <textarea
               ref={inputRef}
               value={input}
