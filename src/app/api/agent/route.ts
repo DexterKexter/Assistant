@@ -69,7 +69,39 @@ const SYSTEM_PROMPT = `Ты — AI ассистент для логистиче�
 - Перед созданием перевозки кратко покажи что собираешься создать (список полей) и подтверди в одном сообщении ("Создаю перевозку: ...").
 - При update_shipment всегда указывай явно какое поле меняется и на какое значение.
 - Если не хватает обязательных полей (container_number, client) — переспроси у пользователя, не выдумывай.
-- После создания — покажи ссылку на новую перевозку формата [номер_контейнера](/dashboard/shipments/{id}).`
+- После создания — покажи ссылку на новую перевозку формата [номер_контейнера](/dashboard/shipments/{id}).
+
+execute_sql — мощный инструмент для сложной аналитики (Postgres):
+Используй когда обычные tools не покрывают — например: средний/медианный срок доставки по маршрутам, оконные функции, сравнение периодов, перцентили, корреляции цены и сроков, GROUP BY с несколькими измерениями.
+
+Схема таблиц (только SELECT/WITH, RLS уважается):
+
+shipments(id uuid, container_number text, container_size int /* 20|40 */, container_type text,
+  origin text, destination_city text, destination_station text,
+  departure_date date, arrival_date date, delivery_date date, is_completed bool,
+  client_id uuid → clients.id, carrier_id uuid → carriers.id, sender_id uuid → senders.id, recipient_id uuid → recipients.id,
+  sender_name text, price numeric, delivery_cost numeric, customs_cost numeric, additional_cost numeric, invoice_amount numeric,
+  cargo_description text, notes text, contract_pdf text, excel_files jsonb, photos jsonb,
+  created_at timestamptz, updated_at timestamptz)
+
+clients(id uuid, name text, is_russia bool, phone text, address text)
+carriers(id uuid, name text)
+senders(id uuid, name text)
+recipients(id uuid, name text)
+
+Логика статуса в SQL:
+  CASE
+    WHEN is_completed OR delivery_date IS NOT NULL THEN 'delivered'
+    WHEN arrival_date IS NOT NULL THEN 'at_border'
+    WHEN departure_date IS NOT NULL THEN 'in_transit'
+    ELSE 'loading'
+  END
+
+Правила для execute_sql:
+- Всегда LIMIT 200 максимум (если LIMIT не нужен — сделай агрегацию).
+- Для дат используй ::date, EXTRACT(YEAR/MONTH FROM ...), date_trunc('month', ...).
+- Если запрос упал с ошибкой — прочитай ошибку, исправь и попробуй ещё раз (не больше 2 попыток).
+- Не используй INSERT/UPDATE/DELETE/DDL — функция их блокирует.`
 
 export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json()
@@ -80,7 +112,7 @@ export async function POST(req: Request) {
     model: openrouter.chat('deepseek/deepseek-chat-v3.1'),
     system: SYSTEM_PROMPT,
     messages: modelMessages,
-    stopWhen: stepCountIs(8),
+    stopWhen: stepCountIs(12),
     tools: {
       get_stats: tool({
         description: 'Получить общую статистику по перевозкам: всего, в пути, на границе, доставлено, активных',
@@ -104,67 +136,13 @@ export async function POST(req: Request) {
       db_overview: tool({
         description:
           'Полный обзор базы: счётчики ВСЕХ таблиц (shipments, clients, carriers, senders), распределение перевозок ' +
-          'по статусам, по странам клиентов (РФ/КЗ), по годам и месяцам. Считает по ВСЕЙ базе через count/aggregations. ' +
-          'ВСЕГДА используй этот tool первым когда вопрос про общую картину, статистику, структуру базы.',
+          'по статусам, по странам клиентов (РФ/КЗ), по годам и за последние 24 месяца. Считает в один SQL ' +
+          'через RPC agent_db_overview — мгновенно. ВСЕГДА используй первым для общих вопросов о состоянии базы.',
         inputSchema: z.object({}),
         execute: async () => {
-          const [
-            shipTotal, ru, kz, carriersC, clientsC, sendersC, recipsC,
-            inTransit, atBorder, delivered, loading,
-          ] = await Promise.all([
-            supabase.from('shipments').select('id', { count: 'exact', head: true }),
-            supabase.from('clients').select('id', { count: 'exact', head: true }).eq('is_russia', true),
-            supabase.from('clients').select('id', { count: 'exact', head: true }).eq('is_russia', false),
-            supabase.from('carriers').select('id', { count: 'exact', head: true }),
-            supabase.from('clients').select('id', { count: 'exact', head: true }),
-            supabase.from('senders').select('id', { count: 'exact', head: true }),
-            supabase.from('recipients').select('id', { count: 'exact', head: true }),
-            supabase.from('shipments').select('id', { count: 'exact', head: true }).not('departure_date', 'is', null).is('arrival_date', null).is('delivery_date', null).eq('is_completed', false),
-            supabase.from('shipments').select('id', { count: 'exact', head: true }).not('arrival_date', 'is', null).is('delivery_date', null).eq('is_completed', false),
-            supabase.from('shipments').select('id', { count: 'exact', head: true }).or('is_completed.eq.true,delivery_date.not.is.null'),
-            supabase.from('shipments').select('id', { count: 'exact', head: true }).is('departure_date', null).eq('is_completed', false),
-          ])
-
-          // By year (paginated full scan)
-          const all: { departure_date: string | null }[] = []
-          for (let page = 0; page < 20; page++) {
-            const { data } = await supabase.from('shipments').select('departure_date').range(page * 1000, page * 1000 + 999)
-            if (!data || data.length === 0) break
-            all.push(...data)
-            if (data.length < 1000) break
-          }
-          const byYear: Record<string, number> = {}
-          const byMonth: Record<string, number> = {}
-          for (const r of all) {
-            const d = r.departure_date
-            if (!d) { byYear['—'] = (byYear['—'] || 0) + 1; continue }
-            const y = d.slice(0, 4)
-            const ym = d.slice(0, 7)
-            byYear[y] = (byYear[y] || 0) + 1
-            byMonth[ym] = (byMonth[ym] || 0) + 1
-          }
-
-          return {
-            tables: {
-              shipments: shipTotal.count ?? 0,
-              clients: clientsC.count ?? 0,
-              clients_russia: ru.count ?? 0,
-              clients_kazakhstan: kz.count ?? 0,
-              carriers: carriersC.count ?? 0,
-              senders: sendersC.count ?? 0,
-              recipients: recipsC.count ?? 0,
-            },
-            shipments_by_status: {
-              loading: loading.count ?? 0,
-              in_transit: inTransit.count ?? 0,
-              at_border: atBorder.count ?? 0,
-              delivered: delivered.count ?? 0,
-            },
-            shipments_by_year: byYear,
-            shipments_by_month: Object.fromEntries(
-              Object.entries(byMonth).sort((a, b) => a[0].localeCompare(b[0])),
-            ),
-          }
+          const { data, error } = await supabase.rpc('agent_db_overview')
+          if (error) return { error: error.message }
+          return data
         },
       }),
 
@@ -783,6 +761,40 @@ export async function POST(req: Request) {
             .describe('Цветовая схема'),
         }),
         execute: async (args) => args,
+      }),
+
+      execute_sql: tool({
+        description:
+          'Выполнить произвольный read-only SQL SELECT/WITH-запрос для сложной аналитики, которую не покрывают другие tools. ' +
+          'Используй ТОЛЬКО когда: нужна нестандартная агрегация, оконные функции, сложные JOIN, расчёт срока (avg(arrival_date - departure_date)), ' +
+          'медианы/перцентили, корреляции. Для простых счётчиков/поисков используй специализированные tools — они быстрее и читаемее. ' +
+          'Безопасность: разрешён только SELECT/WITH, наследуется RLS пользователя, statement_timeout=5s, no DDL/DML. ' +
+          'PostgreSQL диалект. Возвращает массив объектов (строки).',
+        inputSchema: z.object({
+          query: z
+            .string()
+            .min(10)
+            .describe(
+              'SQL-запрос. Только SELECT или WITH. Пример: ' +
+                '"SELECT EXTRACT(YEAR FROM departure_date) y, COUNT(*) c FROM shipments WHERE departure_date IS NOT NULL GROUP BY 1 ORDER BY 1"',
+            ),
+          purpose: z.string().optional().describe('Краткое описание что считаешь — для логов и пользователя'),
+        }),
+        execute: async ({ query }) => {
+          const { data, error } = await supabase.rpc('execute_readonly_sql', { query })
+          if (error) {
+            return { error: error.message, hint: 'Перепиши запрос или используй другой tool' }
+          }
+          const rows = Array.isArray(data) ? data : []
+          const MAX_ROWS = 200
+          return {
+            count: rows.length,
+            rows: rows.slice(0, MAX_ROWS),
+            ...(rows.length > MAX_ROWS
+              ? { truncated: true, note: `Показано ${MAX_ROWS} из ${rows.length}. Добавь LIMIT/агрегацию.` }
+              : {}),
+          }
+        },
       }),
     },
   })

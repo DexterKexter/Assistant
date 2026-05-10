@@ -19,6 +19,7 @@ import {
   Trash2,
   Plus,
   Hash,
+  FileBarChart,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -175,6 +176,10 @@ export default function AgentPage() {
     setHydrated(true)
   }, [storageKey, hydrated, setMessages])
 
+  // Зеркало updatedAt в ref — чтобы persistence effect мог читать без re-trigger
+  const updatedAtRef = useRef<number | null>(null)
+  useEffect(() => { updatedAtRef.current = updatedAt }, [updatedAt])
+
   // ── Persist to localStorage whenever messages change (after streaming finishes) ──
   useEffect(() => {
     if (!storageKey || !hydrated) return
@@ -182,24 +187,26 @@ export default function AgentPage() {
     try {
       const cleaned = sanitizeMessages(messages.slice(-MAX_PERSISTED_MESSAGES))
       if (cleaned.length === 0) {
-        localStorage.removeItem(storageKey)
-        setUpdatedAt(null)
-        prevMessagesCount.current = 0
+        if (prevMessagesCount.current !== 0 || updatedAtRef.current !== null) {
+          localStorage.removeItem(storageKey)
+          setUpdatedAt(null)
+          prevMessagesCount.current = 0
+        }
         return
       }
-      // Обновляем updatedAt только если появились новые сообщения,
-      // чтобы TTL отсчитывался от реальной активности, а не от рендера/hydrate.
+      // Обновляем updatedAt только при росте числа сообщений,
+      // чтобы TTL отсчитывался от реальной активности, а не от каждого рендера.
       const grew = cleaned.length > prevMessagesCount.current
-      const now = Date.now()
-      const nextUpdatedAt = grew ? now : (updatedAt ?? now)
+      const baseUpdatedAt = updatedAtRef.current
+      const nextUpdatedAt = grew ? Date.now() : (baseUpdatedAt ?? Date.now())
       const payload: StoredChat = { messages: cleaned, updatedAt: nextUpdatedAt }
       localStorage.setItem(storageKey, JSON.stringify(payload))
-      if (grew) setUpdatedAt(now)
       prevMessagesCount.current = cleaned.length
+      if (grew && nextUpdatedAt !== baseUpdatedAt) setUpdatedAt(nextUpdatedAt)
     } catch (e) {
       console.warn('Failed to persist chat history:', e)
     }
-  }, [messages, storageKey, hydrated, isLoading, updatedAt])
+  }, [messages, storageKey, hydrated, isLoading])
 
   // Auto scroll
   useEffect(() => {
@@ -353,9 +360,35 @@ export default function AgentPage() {
   )
 }
 
+/* ── Полный отчёт за текущий месяц — промпт для агента ── */
+function buildMonthlyReportPrompt(): string {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth() + 1
+  const monthName = now.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
+  const fromDate = `${y}-${String(m).padStart(2, '0')}-01`
+  const lastDay = new Date(y, m, 0).getDate()
+  const toDate = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  return `Подготовь полный подробный отчёт за ${monthName} (${fromDate}…${toDate}).
+
+Включи:
+1. **Сводка по статусам**: количество загруженных, в пути, на границе, доставленных за период (count_shipments по статусам с from_date/to_date).
+2. **Динамика по дням** или неделям: сколько отправлений в каждый день/неделю — графиком (line или area).
+3. **Топ-10 направлений** за месяц — top_routes с from_date/to_date — графиком (bar).
+4. **Топ-10 клиентов** по количеству перевозок (через execute_sql: GROUP BY client_id, JOIN clients, ORDER BY count DESC LIMIT 10) — графиком (bar).
+5. **Топ перевозчиков** активных в этом месяце (через execute_sql: GROUP BY carrier_id LIMIT 10) — графиком.
+6. **Распределение РФ vs КЗ** по клиентам с перевозками этого месяца — графиком (pie).
+7. **Финансы**: выручка, расходы, прибыль за период (finance_summary).
+8. **Сравнение с прошлым месяцем**: количество перевозок и выручка — насколько вырос/упал? (через execute_sql).
+9. **Ключевые инсайты** — короткое резюме что бросается в глаза (тренды, аномалии, рекомендации).
+
+Каждую секцию делай компактной — заголовок, 1-2 ключевых числа, график, 1 строка интерпретации. В конце общее резюме месяца.`
+}
+
 /* ── Empty state with quick prompts ── */
 function EmptyState({ onPrompt, userName }: { onPrompt: (t: string) => void; userName?: string | null }) {
   const firstName = userName?.split(' ')[0]
+  const monthLabel = new Date().toLocaleDateString('ru-RU', { month: 'long' })
   return (
     <div className="h-full flex flex-col items-center justify-center px-4 py-10">
       <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-200 mb-5">
@@ -373,7 +406,28 @@ function EmptyState({ onPrompt, userName }: { onPrompt: (t: string) => void; use
         <span>История хранится локально и очищается через 7 дней неактивности</span>
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-8 w-full max-w-2xl">
+      {/* Featured: Полный отчёт за месяц */}
+      <button
+        onClick={() => onPrompt(buildMonthlyReportPrompt())}
+        className="mt-7 w-full max-w-2xl flex items-center gap-4 px-5 py-4 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50 hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-200/40 hover:-translate-y-0.5 text-left transition-all group"
+      >
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0 shadow-md shadow-indigo-300/40">
+          <FileBarChart className="w-5 h-5 text-white" strokeWidth={2} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-bold text-slate-900 capitalize">
+            Полный отчёт за {monthLabel}
+          </p>
+          <p className="text-[12px] text-slate-500 mt-0.5">
+            Загрузки, перевозки, доставки, топ клиенты и маршруты, финансы, графики
+          </p>
+        </div>
+        <span className="text-[11px] font-semibold text-indigo-600 bg-white border border-indigo-200 rounded-full px-2.5 py-1 shadow-sm shrink-0">
+          Сделать
+        </span>
+      </button>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 w-full max-w-2xl">
         {QUICK_PROMPTS.map((p) => (
           <button
             key={p.label}
@@ -480,6 +534,7 @@ const TOOL_LABELS: Record<string, string> = {
   count_shipments: 'Подсчёт',
   smart_search: 'Нечёткий поиск',
   semantic_search: 'Семантический поиск',
+  execute_sql: 'SQL-запрос',
   search_shipments: 'Поиск перевозок',
   get_shipment: 'Детали перевозки',
   list_clients: 'Список клиентов',
@@ -487,6 +542,7 @@ const TOOL_LABELS: Record<string, string> = {
   finance_summary: 'Финансы',
   top_routes: 'Маршруты',
   render_chart: 'График',
+  execute_sql: 'SQL-запрос',
   create_shipment: 'Создание перевозки',
   update_shipment: 'Обновление перевозки',
   create_client: 'Создание клиента',
