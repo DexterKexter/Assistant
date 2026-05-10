@@ -257,7 +257,8 @@ html[data-fullscreen="true"] header[data-app-header] {
 }
 
 /* Hide mobile bottom nav while a chat is open so the message input stays visible */
-html[data-chat-open="true"] nav[data-mobile-nav] {
+html[data-chat-open="true"] nav[data-mobile-nav],
+html[data-fullscreen="true"] nav[data-mobile-nav] {
   display: none;
 }
 
