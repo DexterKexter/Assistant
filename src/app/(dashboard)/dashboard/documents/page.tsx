@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Search, FileText, Image as ImageIcon, ExternalLink, X, Clock, CheckCircle2, Receipt, Camera } from 'lucide-react'
 import type { Shipment } from '@/types/database'
@@ -61,15 +61,28 @@ export default function DocumentsPage() {
       })
   }, [])
 
-  const contracts = shipments.filter(s => s.contract_pdf)
-  const withPhotos = shipments.filter(s => s.photos?.length)
+  const { contracts, withPhotos } = useMemo(() => {
+    const c: Shipment[] = []
+    const p: Shipment[] = []
+    for (const s of shipments) {
+      if (s.contract_pdf) c.push(s)
+      if (s.photos?.length) p.push(s)
+    }
+    return { contracts: c, withPhotos: p }
+  }, [shipments])
 
-  const q = search.toLowerCase()
-  const filterFn = (s: Shipment) => {
-    if (!search) return true
-    return (s.container_number || '').toLowerCase().includes(q) ||
+  const { filteredContracts, filteredPhotos, filteredAll } = useMemo(() => {
+    if (!search) return { filteredContracts: contracts, filteredPhotos: withPhotos, filteredAll: allShipments }
+    const q = search.toLowerCase()
+    const filt = (s: Shipment) =>
+      (s.container_number || '').toLowerCase().includes(q) ||
       ((s.client as unknown as { name: string })?.name || '').toLowerCase().includes(q)
-  }
+    return {
+      filteredContracts: contracts.filter(filt),
+      filteredPhotos: withPhotos.filter(filt),
+      filteredAll: allShipments.filter(filt),
+    }
+  }, [contracts, withPhotos, allShipments, search])
 
   return (
     <div className="space-y-8 md:space-y-5">
@@ -101,9 +114,9 @@ export default function DocumentsPage() {
               </div>
               {/* Desktop: vertical scroll list */}
               <div className="hidden md:block max-h-[400px] overflow-y-auto">
-                {contracts.filter(filterFn).length === 0 ? (
+                {filteredContracts.length === 0 ? (
                   <p className="text-[13px] text-slate-400 py-8 text-center">Нет договоров</p>
-                ) : contracts.filter(filterFn).map(s => (
+                ) : filteredContracts.map(s => (
                   <div key={s.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 cursor-pointer transition-colors"
                     onClick={() => openShipment(s.id)}>
                     <div className="min-w-0 flex-1">
@@ -120,11 +133,11 @@ export default function DocumentsPage() {
               </div>
               {/* Mobile: horizontal carousel */}
               <div className="md:hidden overflow-x-auto snap-x snap-mandatory">
-                {contracts.filter(filterFn).length === 0 ? (
+                {filteredContracts.length === 0 ? (
                   <p className="text-[13px] text-slate-400 py-8 text-center">Нет договоров</p>
                 ) : (
                   <div className="flex gap-2.5 py-2 px-1">
-                    {contracts.filter(filterFn).map(s => (
+                    {filteredContracts.map(s => (
                       <button
                         key={s.id}
                         onClick={() => openShipment(s.id)}
@@ -154,9 +167,9 @@ export default function DocumentsPage() {
               </div>
               {/* Desktop: vertical scroll list */}
               <div className="hidden md:block max-h-[400px] overflow-y-auto">
-                {withPhotos.filter(filterFn).length === 0 ? (
+                {filteredPhotos.length === 0 ? (
                   <p className="text-[13px] text-slate-400 py-8 text-center">Нет фото</p>
-                ) : withPhotos.filter(filterFn).map(s => (
+                ) : filteredPhotos.map(s => (
                   <div key={s.id} className="flex items-center gap-3 px-4 py-2 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 cursor-pointer transition-colors"
                     onClick={() => openShipment(s.id)}>
                     <div className="w-12 h-9 rounded-lg overflow-hidden bg-slate-100 shrink-0">
@@ -172,11 +185,11 @@ export default function DocumentsPage() {
               </div>
               {/* Mobile: horizontal carousel */}
               <div className="md:hidden overflow-x-auto snap-x snap-mandatory">
-                {withPhotos.filter(filterFn).length === 0 ? (
+                {filteredPhotos.length === 0 ? (
                   <p className="text-[13px] text-slate-400 py-8 text-center">Нет фото</p>
                 ) : (
                   <div className="flex gap-2.5">
-                    {withPhotos.filter(filterFn).map(s => (
+                    {filteredPhotos.map(s => (
                       <button
                         key={s.id}
                         onClick={() => openShipment(s.id)}
@@ -252,7 +265,7 @@ export default function DocumentsPage() {
 
           {/* Status table — full width (desktop table + mobile cards) */}
           {(() => {
-            const filtered = allShipments.filter(filterFn)
+            const filtered = filteredAll
             const totalPages = Math.max(1, Math.ceil(filtered.length / STATUS_PAGE_SIZE))
             const page = Math.min(statusPage, totalPages)
             const pageStart = (page - 1) * STATUS_PAGE_SIZE

@@ -31,18 +31,32 @@ export default function ClientsPage() {
   useEffect(() => {
     const supabase = createClient()
     const load = async () => {
-      // Fetch clients and their latest shipment dates
-      const { data: clientsData } = await supabase.from('clients').select('id, name, phone, is_russia').order('name')
-      const { data: shipmentsData } = await supabase.from('shipments').select('client_id, departure_date').order('departure_date', { ascending: false })
+      const [{ data: clientsData }, { data: shipmentsData }] = await Promise.all([
+        supabase.from('clients').select('id, name, phone, is_russia').order('name'),
+        supabase.from('shipments').select('client_id, departure_date').not('client_id', 'is', null),
+      ])
 
       if (!clientsData) { setLoading(false); return }
 
-      const now = new Date()
+      // Build index: client_id → { count, latestDate } in single O(n) pass
+      const index = new Map<string, { count: number; latest: string | null }>()
+      for (const s of shipmentsData || []) {
+        if (!s.client_id || !s.departure_date) continue
+        const entry = index.get(s.client_id)
+        if (!entry) {
+          index.set(s.client_id, { count: 1, latest: s.departure_date })
+        } else {
+          entry.count++
+          if (s.departure_date > (entry.latest || '')) entry.latest = s.departure_date
+        }
+      }
+
+      const nowMs = Date.now()
       const enriched: ClientWithActivity[] = clientsData.map(c => {
-        const clientShipments = (shipmentsData || []).filter(s => s.client_id === c.id && s.departure_date)
-        const latest = clientShipments[0]?.departure_date || null
-        const daysSince = latest ? Math.floor((now.getTime() - new Date(latest).getTime()) / 86400000) : null
-        return { ...c, lastShipmentDate: latest, daysSince, shipmentCount: clientShipments.length }
+        const entry = index.get(c.id)
+        const latest = entry?.latest || null
+        const daysSince = latest ? Math.floor((nowMs - new Date(latest).getTime()) / 86400000) : null
+        return { ...c, lastShipmentDate: latest, daysSince, shipmentCount: entry?.count || 0 }
       })
 
       setClients(enriched)
@@ -80,12 +94,20 @@ export default function ClientsPage() {
     return result
   }, [clients, search, tab, sortBy, sortDir])
 
-  const tabs: { key: ActivityTab; label: string; count: number }[] = useMemo(() => [
-    { key: 'all', label: 'Все', count: clients.length },
-    { key: 'active', label: 'Активные', count: clients.filter(c => c.daysSince !== null && c.daysSince < 90).length },
-    { key: 'moderate', label: 'Умеренные', count: clients.filter(c => c.daysSince !== null && c.daysSince >= 90 && c.daysSince <= 365).length },
-    { key: 'inactive', label: 'Неактивные', count: clients.filter(c => c.daysSince === null || c.daysSince > 365).length },
-  ], [clients])
+  const tabs: { key: ActivityTab; label: string; count: number }[] = useMemo(() => {
+    let active = 0, moderate = 0, inactive = 0
+    for (const c of clients) {
+      if (c.daysSince === null || c.daysSince > 365) inactive++
+      else if (c.daysSince < 90) active++
+      else if (c.daysSince <= 365) moderate++
+    }
+    return [
+      { key: 'all', label: 'Все', count: clients.length },
+      { key: 'active', label: 'Активные', count: active },
+      { key: 'moderate', label: 'Умеренные', count: moderate },
+      { key: 'inactive', label: 'Неактивные', count: inactive },
+    ]
+  }, [clients])
 
   function getRank(count: number): { label: string; emoji: string; color: string; bg: string } {
     if (count >= 100) return { label: 'Зверь', emoji: '🦁', color: 'text-red-600', bg: 'bg-red-50' }
@@ -97,12 +119,16 @@ export default function ClientsPage() {
   }
 
   const rankStats = useMemo(() => {
-    const beast = clients.filter(c => c.shipmentCount >= 100).length
-    const diamond = clients.filter(c => c.shipmentCount >= 50 && c.shipmentCount < 100).length
-    const gold = clients.filter(c => c.shipmentCount >= 20 && c.shipmentCount < 50).length
-    const silver = clients.filter(c => c.shipmentCount >= 10 && c.shipmentCount < 20).length
-    const bronze = clients.filter(c => c.shipmentCount >= 3 && c.shipmentCount < 10).length
-    const newbie = clients.filter(c => c.shipmentCount < 3).length
+    let beast = 0, diamond = 0, gold = 0, silver = 0, bronze = 0, newbie = 0
+    for (const c of clients) {
+      const n = c.shipmentCount
+      if (n >= 100) beast++
+      else if (n >= 50) diamond++
+      else if (n >= 20) gold++
+      else if (n >= 10) silver++
+      else if (n >= 3) bronze++
+      else newbie++
+    }
     return [
       { label: 'Зверь', emoji: '🦁', count: beast, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', threshold: 'от 100 перевозок' },
       { label: 'Бриллиант', emoji: '💎', count: diamond, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-200', threshold: 'от 50 перевозок' },

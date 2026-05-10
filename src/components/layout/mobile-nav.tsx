@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutGrid, Ship, Users, CheckSquare, MessageSquare,
   Menu as MenuIcon, X, BarChart3, Truck, Wallet, FileText,
-  Shield, Settings, LogOut, User, Save,
+  Shield, Settings, LogOut, User, Save, Sparkles,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useUnreadCount } from '@/lib/useMessages'
@@ -27,6 +27,7 @@ const menuSections = [
   {
     label: 'Разделы',
     items: [
+      { href: '/dashboard/agent', label: 'AI Ассистент', icon: Sparkles },
       { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
       { href: '/dashboard/carriers', label: 'Перевозчики', icon: Truck },
       { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },

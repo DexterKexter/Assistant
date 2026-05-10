@@ -12,8 +12,14 @@
 ## Расположение файлов
 - Рабочая папка: `C:\Users\Omen\Desktop\Assistant`
 - Git репо: `/tmp/assistant-init` (для пуша на GitHub нужно копировать src туда)
-- `.env.local` — Supabase URL + anon key
+- `.env.local` — Supabase URL + anon key, `AI_GATEWAY_API_KEY` для AI ассистента
 - `.claude/launch.json` — dev сервер конфигурация (npm run dev, port 3000)
+
+## AI Ассистент
+- Страница: `/dashboard/agent` — чат с AI для управления базой
+- API роут: `src/app/api/agent/route.ts` — использует Vercel AI Gateway (модель `anthropic/claude-sonnet-4-5`)
+- Tools: `get_stats`, `search_shipments`, `get_shipment`, `list_clients`, `list_carriers`, `finance_summary`, `top_routes`
+- Требует `AI_GATEWAY_API_KEY` в `.env.local` — получить на https://vercel.com/dashboard/ai/api-keys
 
 ## Для деплоя
 ```bash

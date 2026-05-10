@@ -81,28 +81,39 @@ function getCoord(name: string) {
   return null
 }
 
-/* ── Precompute SVG positions once ── */
+/* ── Precompute SVG positions once — at module load ── */
 const svgPosCache = new Map<string, { x: number; y: number }>()
+const baseMap = new DottedMap({ map: mapJson as any })
+const baseMapPoints = baseMap.getPoints().map((p: any) => ({ x: p.x as number, y: p.y as number }))
+// Precompute single SVG path for all dots (one DOM node vs. thousands of <circle> elements)
+const mapDotsPath = baseMapPoints
+  .map(d => `M${d.x.toFixed(2)},${d.y.toFixed(2)}m-0.38,0a0.38,0.38 0 1,0 0.76,0a0.38,0.38 0 1,0 -0.76,0`)
+  .join('')
 
-function buildSvgPosCache() {
-  if (svgPosCache.size > 0) return
-  // Add all known coords as pins to one map and extract positions
-  const entries = Object.entries(COORDS)
-  for (const [name, coord] of entries) {
+// Build cache once — lat/lng → x/y projection using map dimensions
+;(function initSvgPosCache() {
+  for (const [name, coord] of Object.entries(COORDS)) {
     const map = new DottedMap({ map: mapJson as any })
     map.addPin({ lat: coord.lat, lng: coord.lng, svgOptions: { color: '#000', radius: 0.1 } })
     const pts = map.getPoints()
     const pin = pts.find((p: any) => p.lat !== undefined && Math.abs(p.lat - coord.lat) < 1.5)
     if (pin) svgPosCache.set(name, { x: pin.x, y: pin.y })
   }
+})()
+
+// Lowercase lookup map for fuzzy matching (avoid recomputing toLowerCase on every call)
+const svgPosCacheLower = new Map<string, { key: string; pos: { x: number; y: number } }>()
+for (const [key, pos] of svgPosCache.entries()) {
+  svgPosCacheLower.set(key.toLowerCase(), { key, pos })
 }
 
 function getSvgPos(name: string): { x: number; y: number } | null {
-  buildSvgPosCache()
   if (svgPosCache.has(name)) return svgPosCache.get(name)!
-  // Try fuzzy match
-  for (const [key, pos] of svgPosCache.entries()) {
-    if (name.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(name.toLowerCase())) return pos
+  const lower = name.toLowerCase()
+  const direct = svgPosCacheLower.get(lower)
+  if (direct) return direct.pos
+  for (const [keyLower, { pos }] of svgPosCacheLower) {
+    if (lower.includes(keyLower) || keyLower.includes(lower)) return pos
   }
   return null
 }
@@ -176,12 +187,6 @@ export function DashboardMap({ aggregates }: Props) {
     return map
   }, [filtered])
 
-  /* Base map dots */
-  const mapDots = useMemo(() => {
-    const map = new DottedMap({ map: mapJson as any })
-    return map.getPoints().map((p: any) => ({ x: p.x as number, y: p.y as number }))
-  }, [])
-
   /* Current routes & tooltip position */
   const activeOrigin = origins.find(o => o.name === selectedOrigin)
   const activeRoutes = selectedOrigin ? (routesByOrigin.get(selectedOrigin) || []) : []
@@ -217,12 +222,13 @@ export function DashboardMap({ aggregates }: Props) {
         {/* SVG Map */}
         <div ref={containerRef} className="relative flex-1 min-w-0 overflow-hidden pt-8 px-4 pb-4">
           <svg ref={svgRef} viewBox="0 0 198 100" className="w-full h-auto block" xmlns="http://www.w3.org/2000/svg">
-            {/* Base dots — single path for performance */}
-            <g opacity={selectedOrigin ? 0.35 : 0.6}>
-              {mapDots.map((d, i) => (
-                <circle key={i} cx={d.x} cy={d.y} r={0.38} fill="#b0b8c8" />
-              ))}
-            </g>
+            {/* Base dots — single path for performance (avoids thousands of DOM nodes) */}
+            <path
+              d={mapDotsPath}
+              fill="#b0b8c8"
+              opacity={selectedOrigin ? 0.35 : 0.6}
+            />
+
 
             {/* Route curves — only when hovered */}
             {activeOrigin && activeRoutes.map((r, i) => (

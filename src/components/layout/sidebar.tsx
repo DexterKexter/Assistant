@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   CheckSquare,
+  Sparkles,
 } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 import { useUnreadCount } from '@/lib/useMessages'
@@ -28,6 +29,7 @@ import { useMyTaskCount } from '@/lib/useTasks'
 
 const mainItems = [
   { href: '/dashboard', label: 'Обзор', icon: LayoutGrid },
+  { href: '/dashboard/agent', label: 'AI Ассистент', icon: Sparkles },
   { href: '/dashboard/shipments', label: 'Перевозки', icon: Ship },
   { href: '/dashboard/reports', label: 'Отчёты', icon: BarChart3 },
 ]

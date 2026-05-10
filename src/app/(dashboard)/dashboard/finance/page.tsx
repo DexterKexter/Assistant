@@ -29,12 +29,16 @@ export default function FinancePage() {
   const supabase = createClient()
 
   const fetchData = async () => {
-    let query = supabase.from('transactions').select('*, client:clients(name)').order('date', { ascending: false })
+    let query = supabase
+      .from('transactions')
+      .select('id, type, amount, currency, description, category, date, client:clients(name)')
+      .order('date', { ascending: false })
+      .limit(200)
     if (filter !== 'all') query = query.eq('type', filter)
     const [{ data: t }, { data: c }, { data: cont }] = await Promise.all([
       query,
-      supabase.from('clients').select('id, name').order('name'),
-      supabase.from('shipments').select('id, container_number').order('container_number'),
+      supabase.from('clients').select('id, name').order('name').limit(300),
+      supabase.from('shipments').select('id, container_number').order('container_number', { ascending: false }).limit(500),
     ])
     setTransactions((t as unknown as Transaction[]) || [])
     setClients(c || [])
@@ -43,8 +47,14 @@ export default function FinancePage() {
 
   useEffect(() => { fetchData() }, [filter])
 
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const { totalIncome, totalExpense } = (() => {
+    let inc = 0, exp = 0
+    for (const t of transactions) {
+      if (t.type === 'income') inc += t.amount
+      else if (t.type === 'expense') exp += t.amount
+    }
+    return { totalIncome: inc, totalExpense: exp }
+  })()
   const balance = totalIncome - totalExpense
 
   const handleAdd = async (e: React.FormEvent) => {

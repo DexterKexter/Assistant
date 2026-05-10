@@ -143,17 +143,24 @@ export default function ShipmentsPage() {
 
   const fetchPage = async (from: number, append: boolean) => {
     if (append) setLoadingMore(true)
-    const { data, count } = await supabase
+    let query = supabase
       .from('shipments')
       .select('id, container_number, container_size, container_type, origin, destination_station, destination_city, departure_date, arrival_date, delivery_date, is_completed, client_id, carrier_id, sender_name, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)', { count: 'estimated' })
+
+    if (carrierFilter) query = query.eq('carrier_id', carrierFilter)
+    if (clientFilter) query = query.eq('client_id', clientFilter)
+    if (dateFrom) query = query.gte('departure_date', dateFrom)
+    if (dateTo) query = query.lte('departure_date', dateTo)
+    if (statusFilter === 'delivered') query = query.eq('is_completed', true)
+    else if (statusFilter === 'in_transit') query = query.eq('is_completed', false).not('departure_date', 'is', null).is('arrival_date', null)
+    else if (statusFilter === 'border') query = query.eq('is_completed', false).not('arrival_date', 'is', null).is('delivery_date', null)
+
+    const { data, count } = await query
       .order('departure_date', { ascending: false, nullsFirst: false })
       .range(from, from + PAGE_SIZE - 1)
+
     const rows = (data as unknown as Shipment[]) || []
-    if (append) {
-      setShipments(prev => [...prev, ...rows])
-    } else {
-      setShipments(rows)
-    }
+    setShipments(append ? prev => [...prev, ...rows] : rows)
     setTotalCount(count || 0)
     setHasMore(rows.length === PAGE_SIZE)
     setLoading(false)
@@ -172,6 +179,14 @@ export default function ShipmentsPage() {
     }
     init()
   }, [])
+
+  // Refetch when server-side filters change (debounced via filter state changes only)
+  useEffect(() => {
+    if (loading) return
+    setLoading(true)
+    fetchPage(0, false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, carrierFilter, clientFilter, dateFrom, dateTo])
 
   const loadMore = () => {
     if (loadingMore || !hasMore) return
@@ -233,30 +248,18 @@ export default function ShipmentsPage() {
 
   const setNew = (k: string, v: string) => setNewRow(prev => ({ ...prev, [k]: v }))
 
+  // Status/carrier/client/date filters are applied server-side. Only search is client-side (on loaded rows).
   const filtered = useMemo(() => {
-    let results = shipments
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter(s =>
-        (s.container_number || '').toLowerCase().includes(q) ||
-        ((s.client as unknown as { name: string })?.name || '').toLowerCase().includes(q) ||
-        ((s.carrier as unknown as { name: string })?.name || '').toLowerCase().includes(q) ||
-        (s.sender_name || '').toLowerCase().includes(q) ||
-        ((s.recipient as unknown as { name: string })?.name || '').toLowerCase().includes(q)
-      )
-    }
-    if (statusFilter !== 'all') {
-      results = results.filter(s => {
-        const isRu = (s.client as unknown as { is_russia?: boolean })?.is_russia || false
-        return getShipmentStatus(s, isRu).key === statusFilter
-      })
-    }
-    if (carrierFilter) results = results.filter(s => s.carrier_id === carrierFilter)
-    if (clientFilter) results = results.filter(s => s.client_id === clientFilter)
-    if (dateFrom) results = results.filter(s => s.departure_date && s.departure_date >= dateFrom)
-    if (dateTo) results = results.filter(s => s.departure_date && s.departure_date <= dateTo)
-    return results
-  }, [shipments, search, statusFilter, carrierFilter, clientFilter, dateFrom, dateTo])
+    if (!search) return shipments
+    const q = search.toLowerCase()
+    return shipments.filter(s =>
+      (s.container_number || '').toLowerCase().includes(q) ||
+      ((s.client as unknown as { name: string })?.name || '').toLowerCase().includes(q) ||
+      ((s.carrier as unknown as { name: string })?.name || '').toLowerCase().includes(q) ||
+      (s.sender_name || '').toLowerCase().includes(q) ||
+      ((s.recipient as unknown as { name: string })?.name || '').toLowerCase().includes(q)
+    )
+  }, [shipments, search])
 
   const activeFiltersCount = [carrierFilter, clientFilter, dateFrom, dateTo].filter(Boolean).length
   const clearFilters = () => { setCarrierFilter(''); setClientFilter(''); setDateFrom(''); setDateTo('') }

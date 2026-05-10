@@ -72,46 +72,55 @@ export default function MessagesPage() {
     if (!memberships?.length) { setConversations([]); setLoading(false); return }
 
     const ids = memberships.map(m => m.conversation_id)
-    const { data: convs } = await supabase
-      .from('conversations')
-      .select('*')
-      .in('id', ids)
-      .order('updated_at', { ascending: false })
+    // Batch: fetch all conversations, all their members (for all convs), and last messages in parallel
+    const [{ data: convs }, { data: allMembers }] = await Promise.all([
+      supabase
+        .from('conversations')
+        .select('id, type, name, created_at, updated_at, created_by')
+        .in('id', ids)
+        .order('updated_at', { ascending: false }),
+      supabase
+        .from('conversation_members')
+        .select('conversation_id, profile_id, last_read_at, profile:profiles(id, full_name, email, avatar_url)')
+        .in('conversation_id', ids),
+    ])
 
     if (!convs) { setLoading(false); return }
 
-    // Enrich with members, last message, unread count
+    // Group members by conversation_id for O(1) lookup
+    const membersByConv = new Map<string, any[]>()
+    for (const m of allMembers || []) {
+      const arr = membersByConv.get(m.conversation_id) || []
+      arr.push(m)
+      membersByConv.set(m.conversation_id, arr)
+    }
+
+    // Enrich last-message + unread count per conversation (parallel, but still N queries each)
     const enriched: Conversation[] = await Promise.all(convs.map(async (c) => {
-      const { data: members } = await supabase
-        .from('conversation_members')
-        .select('*, profile:profiles(*)')
-        .eq('conversation_id', c.id)
-
-      const { data: msgs } = await supabase
-        .from('messages')
-        .select('*, sender:profiles(*)')
-        .eq('conversation_id', c.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      const myMembership = members?.find(m => m.profile_id === profile.id)
-      let unread = 0
-      if (myMembership) {
-        const { count } = await supabase
+      const members = membersByConv.get(c.id) || []
+      const myMembership = members.find((m: any) => m.profile_id === profile.id)
+      const [{ data: msgs }, unreadRes] = await Promise.all([
+        supabase
           .from('messages')
-          .select('*', { count: 'exact', head: true })
+          .select('*, sender:profiles(*)')
           .eq('conversation_id', c.id)
-          .gt('created_at', myMembership.last_read_at)
-          .neq('sender_id', profile.id)
-        unread = count || 0
-      }
-
+          .order('created_at', { ascending: false })
+          .limit(1),
+        myMembership
+          ? supabase
+              .from('messages')
+              .select('id', { count: 'exact', head: true })
+              .eq('conversation_id', c.id)
+              .gt('created_at', myMembership.last_read_at)
+              .neq('sender_id', profile.id)
+          : Promise.resolve({ count: 0 } as any),
+      ])
       return {
         ...c,
-        members: members || [],
+        members,
         last_message: msgs?.[0] || undefined,
-        unread_count: unread,
-      }
+        unread_count: unreadRes.count || 0,
+      } as Conversation
     }))
 
     setConversations(enriched)
@@ -707,7 +716,7 @@ function NewConversationDialog({ profile, onClose, onCreated }: {
 
   useEffect(() => {
     const timer = setTimeout(async () => {
-      let query = supabase.from('profiles').select('*').neq('id', profile.id).limit(20)
+      let query = supabase.from('profiles').select('id, full_name, email, role, phone, onboarding_completed, created_at, updated_at').neq('id', profile.id).limit(20)
       if (search.trim()) query = query.ilike('full_name', `%${search}%`)
       const { data } = await query
       setUsers(data || [])

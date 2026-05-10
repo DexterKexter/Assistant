@@ -23,18 +23,21 @@ export function useUnreadCount() {
         .eq('profile_id', user.id)
 
       if (!memberships || !mountedRef.current) return
+      if (memberships.length === 0) { setCount(0); return }
 
-      let total = 0
-      for (const m of memberships) {
-        const { count: c } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('conversation_id', m.conversation_id)
-          .gt('created_at', m.last_read_at)
-          .neq('sender_id', user.id)
-        total += c || 0
-      }
-      if (mountedRef.current) setCount(total)
+      // Run all unread counts in parallel instead of sequentially
+      const counts = await Promise.all(
+        memberships.map(m =>
+          supabase
+            .from('messages')
+            .select('id', { count: 'exact', head: true })
+            .eq('conversation_id', m.conversation_id)
+            .gt('created_at', m.last_read_at)
+            .neq('sender_id', user.id)
+            .then(({ count }) => count || 0)
+        )
+      )
+      if (mountedRef.current) setCount(counts.reduce((s, c) => s + c, 0))
       } catch { /* auth lock contention */ }
     }
 

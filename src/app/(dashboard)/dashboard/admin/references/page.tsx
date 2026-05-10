@@ -48,7 +48,7 @@ export default function ReferencesPage() {
     const supabase = createClient()
     const { data } = await supabase
       .from('reference_items')
-      .select('*')
+      .select('id, category, name')
       .order('name')
     setItems((data as RefItem[]) || [])
     setLoading(false)

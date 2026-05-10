@@ -122,7 +122,7 @@ export function useMyTaskCount() {
       if (taskIds.length === 0) { if (mountedRef.current) setCount(0); return }
       const { count: c } = await supabase
         .from('tasks')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .in('id', taskIds)
         .neq('status', 'done')
       if (mountedRef.current) setCount(c || 0)

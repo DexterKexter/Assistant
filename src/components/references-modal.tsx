@@ -32,7 +32,7 @@ export function ReferencesModal({ onClose }: { onClose: () => void }) {
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.from('reference_items').select('*').order('name')
+    supabase.from('reference_items').select('id, category, name').order('name')
       .then(({ data }) => { setItems((data as RefItem[]) || []); setLoading(false) })
   }, [])
 

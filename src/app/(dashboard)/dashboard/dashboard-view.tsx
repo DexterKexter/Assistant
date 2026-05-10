@@ -7,7 +7,10 @@ import { Ship, ArrowRight, MapPin, Truck, Clock, CheckCircle2 } from 'lucide-rea
 import { type Shipment } from '@/types/database'
 import type { OriginAgg } from '@/components/dashboard-map'
 
-const DashboardMap = dynamic(() => import('@/components/dashboard-map').then(m => ({ default: m.DashboardMap })), { ssr: false })
+const DashboardMap = dynamic(() => import('@/components/dashboard-map').then(m => ({ default: m.DashboardMap })), {
+  ssr: false,
+  loading: () => <div className="h-[280px] md:h-[360px] bg-slate-50 animate-pulse" />,
+})
 
 export interface DashboardData {
   cur: { loaded: number; inTransit: number; onBorder: number; delivered: number }

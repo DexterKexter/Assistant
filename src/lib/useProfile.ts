@@ -13,7 +13,7 @@ function doFetch(): Promise<Profile | null> {
     if (!user) return null
     return supabase
       .from('profiles')
-      .select('*')
+      .select('id, role, full_name, phone, email, onboarding_completed, created_at, updated_at')
       .eq('id', user.id)
       .single()
       .then(({ data }) => data as Profile | null)
