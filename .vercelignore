@@ -1,0 +1,6 @@
+Drift
+Drift/**
+node_modules
+.next
+.git
+*.webp
