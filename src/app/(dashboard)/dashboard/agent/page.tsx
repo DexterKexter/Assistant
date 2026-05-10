@@ -4,6 +4,7 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useProfile } from '@/lib/useProfile'
+import { useShipmentModal } from '@/lib/shipment-modal'
 import { cn } from '@/lib/utils'
 import {
   Send,
@@ -17,6 +18,7 @@ import {
   Truck,
   Trash2,
   Plus,
+  Hash,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -68,6 +70,12 @@ export default function AgentPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const isLoading = status === 'submitted' || status === 'streaming'
+
+  // ── Hide mobile bottom nav while on this page (input is at the bottom) ──
+  useEffect(() => {
+    document.documentElement.setAttribute('data-chat-open', 'true')
+    return () => document.documentElement.removeAttribute('data-chat-open')
+  }, [])
 
   // ── Hydrate from localStorage on mount (once profile is available) ──
   useEffect(() => {
@@ -868,7 +876,12 @@ function BlockRenderer({ block }: { block: Block }) {
 }
 
 /* Inline: bold, code, links — supports nested e.g. **[text](url)** */
+// Match /dashboard/shipments/<uuid> and capture the id
+const SHIPMENT_HREF = /^\/dashboard\/shipments\/([0-9a-f-]{8,})\/?$/i
+
 function Inline({ text }: { text: string }) {
+  const { openShipment } = useShipmentModal()
+
   type Tok = { type: 'text' | 'b' | 'code' | 'a'; content: string; href?: string }
   const tokens: Tok[] = []
   // Order matters: link first so [text](url) wins inside **...**.
@@ -902,7 +915,23 @@ function Inline({ text }: { text: string }) {
               {t.content}
             </code>
           )
-        if (t.type === 'a')
+        if (t.type === 'a') {
+          // Shipment links open the global modal instead of full navigation
+          const m = t.href && SHIPMENT_HREF.exec(t.href)
+          if (m) {
+            const id = m[1]
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openShipment(id) }}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 -my-0.5 rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-medium text-[13px] cursor-pointer transition-colors"
+              >
+                <Hash className="w-3 h-3 opacity-70" />
+                {t.content}
+              </button>
+            )
+          }
           return (
             <a
               key={i}
@@ -912,6 +941,7 @@ function Inline({ text }: { text: string }) {
               {t.content}
             </a>
           )
+        }
         return <span key={i}>{t.content}</span>
       })}
     </>
