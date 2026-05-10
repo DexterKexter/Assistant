@@ -55,6 +55,30 @@ function getInitials(name: string | null | undefined) {
 // localStorage key (per-user)
 const STORAGE_KEY_PREFIX = 'agent-chat-history:'
 const MAX_PERSISTED_MESSAGES = 100 // safety cap
+const CHAT_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 дней неактивности
+const TTL_WARNING_MS = 24 * 60 * 60 * 1000 // показывать плашку когда осталось <24ч
+
+type StoredChat = { messages: any[]; updatedAt: number }
+
+/** Read+migrate stored chat. Returns null if expired / invalid / empty. */
+function readStoredChat(key: string): StoredChat | null {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    // Backward compat: старый формат хранил голый массив
+    if (Array.isArray(parsed)) return { messages: parsed, updatedAt: Date.now() }
+    if (!parsed || !Array.isArray(parsed.messages)) return null
+    if (typeof parsed.updatedAt !== 'number') return { messages: parsed.messages, updatedAt: Date.now() }
+    if (Date.now() - parsed.updatedAt > CHAT_TTL_MS) {
+      localStorage.removeItem(key)
+      return null
+    }
+    return parsed as StoredChat
+  } catch {
+    return null
+  }
+}
 
 /** Strip parts that are mid-stream and would put useChat into a bad state on reload.
  *  Drops:
@@ -96,32 +120,35 @@ export default function AgentPage() {
   })
 
   const [input, setInput] = useState('')
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const prevMessagesCount = useRef(0)
 
   const isLoading = status === 'submitted' || status === 'streaming'
 
-  // ── Hide mobile bottom nav while on this page (input is at the bottom) ──
+  // ── Fullscreen mode: скрываем верхний header и мобильный bottom-nav ──
   useEffect(() => {
     document.documentElement.setAttribute('data-chat-open', 'true')
-    return () => document.documentElement.removeAttribute('data-chat-open')
+    document.documentElement.setAttribute('data-fullscreen', 'true')
+    return () => {
+      document.documentElement.removeAttribute('data-chat-open')
+      document.documentElement.removeAttribute('data-fullscreen')
+    }
   }, [])
 
   // ── Hydrate from localStorage on mount (once profile is available) ──
   useEffect(() => {
     if (!storageKey || hydrated) return
-    try {
-      const raw = localStorage.getItem(storageKey)
-      if (raw) {
-        const saved = JSON.parse(raw)
-        if (Array.isArray(saved) && saved.length > 0) {
-          // Sanitize again on read in case older save was unclean
-          const clean = sanitizeMessages(saved)
-          if (clean.length > 0) setMessages(clean)
-        }
+    const stored = readStoredChat(storageKey)
+    if (stored) {
+      const clean = sanitizeMessages(stored.messages)
+      if (clean.length > 0) {
+        setMessages(clean)
+        setUpdatedAt(stored.updatedAt)
+        // Чтобы persistence-effect не считал hydrate ростом и не обновлял updatedAt
+        prevMessagesCount.current = clean.length
       }
-    } catch (e) {
-      console.warn('Failed to restore chat history:', e)
     }
     setHydrated(true)
   }, [storageKey, hydrated, setMessages])
@@ -134,13 +161,23 @@ export default function AgentPage() {
       const cleaned = sanitizeMessages(messages.slice(-MAX_PERSISTED_MESSAGES))
       if (cleaned.length === 0) {
         localStorage.removeItem(storageKey)
-      } else {
-        localStorage.setItem(storageKey, JSON.stringify(cleaned))
+        setUpdatedAt(null)
+        prevMessagesCount.current = 0
+        return
       }
+      // Обновляем updatedAt только если появились новые сообщения,
+      // чтобы TTL отсчитывался от реальной активности, а не от рендера/hydrate.
+      const grew = cleaned.length > prevMessagesCount.current
+      const now = Date.now()
+      const nextUpdatedAt = grew ? now : (updatedAt ?? now)
+      const payload: StoredChat = { messages: cleaned, updatedAt: nextUpdatedAt }
+      localStorage.setItem(storageKey, JSON.stringify(payload))
+      if (grew) setUpdatedAt(now)
+      prevMessagesCount.current = cleaned.length
     } catch (e) {
       console.warn('Failed to persist chat history:', e)
     }
-  }, [messages, storageKey, hydrated, isLoading])
+  }, [messages, storageKey, hydrated, isLoading, updatedAt])
 
   // Auto scroll
   useEffect(() => {
@@ -161,11 +198,22 @@ export default function AgentPage() {
 
   function handleClear() {
     setMessages([])
+    setUpdatedAt(null)
     if (storageKey) {
       try { localStorage.removeItem(storageKey) } catch {}
     }
     inputRef.current?.focus()
   }
+
+  // Сколько осталось до автоочистки и форматированный текст для плашки
+  const expiryInfo = useMemo(() => {
+    if (!updatedAt || messages.length === 0) return null
+    const remaining = updatedAt + CHAT_TTL_MS - Date.now()
+    if (remaining <= 0) return null
+    if (remaining > TTL_WARNING_MS) return null
+    const hours = Math.max(1, Math.round(remaining / (60 * 60 * 1000)))
+    return { hours }
+  }, [updatedAt, messages.length])
 
   return (
     <div className="absolute inset-0 flex flex-col overflow-hidden bg-white">
@@ -181,6 +229,16 @@ export default function AgentPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {expiryInfo && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-medium"
+              title={`История очистится через ~${expiryInfo.hours} ч неактивности`}
+            >
+              <span>⏰</span>
+              <span className="hidden sm:inline">Очистка через ~{expiryInfo.hours} ч</span>
+              <span className="sm:hidden">~{expiryInfo.hours}ч</span>
+            </div>
+          )}
           {messages.length > 0 && (
             <button
               onClick={handleClear}
@@ -277,6 +335,11 @@ function EmptyState({ onPrompt, userName }: { onPrompt: (t: string) => void; use
       </h2>
       <p className="text-[14px] text-slate-500 text-center mt-1.5 max-w-md">
         Задавайте вопросы о перевозках, клиентах, финансах. Я найду ответ в базе данных.
+      </p>
+
+      <p className="text-[11px] text-slate-400 text-center mt-3 max-w-md flex items-center gap-1.5 justify-center">
+        <span>🔒</span>
+        <span>История хранится локально и очищается через 7 дней неактивности</span>
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-8 w-full max-w-2xl">

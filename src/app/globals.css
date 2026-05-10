@@ -142,6 +142,11 @@
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
+/* ---- Fullscreen pages: скрываем верхний header (например /dashboard/agent) ---- */
+html[data-fullscreen="true"] header[data-app-header] {
+  display: none;
+}
+
 /* ---- Shimmer Text (for AI thinking phrases) ---- */
 @keyframes shimmer-text {
   0% { background-position: 200% 50%; }

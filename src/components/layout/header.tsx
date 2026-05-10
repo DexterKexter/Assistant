@@ -84,7 +84,7 @@ export function Header() {
 
   return (
     <>
-      <header className="hidden md:flex h-[56px] items-center gap-3 md:gap-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-sm px-3 md:px-6">
+      <header data-app-header className="hidden md:flex h-[56px] items-center gap-3 md:gap-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-sm px-3 md:px-6">
         {/* Date + rates */}
         <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
           <div className="flex items-center gap-2 text-[13px] text-slate-600">
