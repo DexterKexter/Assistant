@@ -74,27 +74,61 @@ export async function POST(req: Request) {
       }),
 
       search_shipments: tool({
-        description: 'Поиск перевозок по фильтрам: статус, клиент, перевозчик, направление, период дат. Возвращает первые 20 результатов.',
+        description:
+          'Поиск перевозок по фильтрам: статус, клиент, перевозчик, направление, период дат. ' +
+          'Фильтры по клиенту/перевозчику работают на уровне БД (full DB scope), не только по последним 20. ' +
+          'Возвращает count и срез до limit (по умолчанию 50, максимум 200).',
         inputSchema: z.object({
-          status: z.enum(['loading', 'in_transit', 'at_border', 'delivered']).optional().describe('Статус перевозки'),
-          client_name: z.string().optional().describe('Часть имени клиента'),
-          carrier_name: z.string().optional().describe('Часть имени перевозчика'),
-          origin: z.string().optional().describe('Откуда (часть названия)'),
-          destination: z.string().optional().describe('Город или станция назначения (часть названия)'),
-          container_number: z.string().optional().describe('Часть номера контейнера'),
-          from_date: z.string().optional().describe('Дата отправления от (YYYY-MM-DD)'),
-          to_date: z.string().optional().describe('Дата отправления до (YYYY-MM-DD)'),
-          limit: z.number().optional().default(20),
+          status: z.enum(['loading', 'in_transit', 'at_border', 'delivered']).optional(),
+          client_name: z.string().optional().describe('Часть имени клиента (ilike)'),
+          carrier_name: z.string().optional().describe('Часть имени перевозчика (ilike)'),
+          origin: z.string().optional(),
+          destination: z.string().optional().describe('Город или станция назначения'),
+          container_number: z.string().optional(),
+          from_date: z.string().optional().describe('YYYY-MM-DD'),
+          to_date: z.string().optional().describe('YYYY-MM-DD'),
+          is_russia: z.boolean().optional().describe('Только клиенты из РФ'),
+          limit: z.number().int().min(1).max(200).optional().default(50),
         }),
         execute: async (args) => {
-          let q = supabase.from('shipments').select(`
-            id, container_number, container_size, container_type,
-            origin, destination_city, destination_station,
-            departure_date, arrival_date, delivery_date, is_completed,
-            sender_name, price, delivery_cost,
-            client:clients(id, name, is_russia),
-            carrier:carriers(id, name)
-          `).order('departure_date', { ascending: false }).limit(args.limit ?? 20)
+          // ── Resolve client_name / carrier_name to IDs server-side first ──
+          let clientIds: string[] | null = null
+          if (args.client_name) {
+            const { data } = await supabase
+              .from('clients').select('id').ilike('name', `%${args.client_name}%`).limit(200)
+            clientIds = (data || []).map((r) => r.id)
+            if (clientIds.length === 0) return { count: 0, shipments: [], note: `Клиент "${args.client_name}" не найден` }
+          }
+          let carrierIds: string[] | null = null
+          if (args.carrier_name) {
+            const { data } = await supabase
+              .from('carriers').select('id').ilike('name', `%${args.carrier_name}%`).limit(200)
+            carrierIds = (data || []).map((r) => r.id)
+            if (carrierIds.length === 0) return { count: 0, shipments: [], note: `Перевозчик "${args.carrier_name}" не найден` }
+          }
+          let russiaClientIds: string[] | null = null
+          if (args.is_russia !== undefined) {
+            const { data } = await supabase
+              .from('clients').select('id').eq('is_russia', args.is_russia).limit(1000)
+            russiaClientIds = (data || []).map((r) => r.id)
+            if (russiaClientIds.length === 0) return { count: 0, shipments: [] }
+          }
+
+          const limit = Math.min(Math.max(args.limit ?? 50, 1), 200)
+
+          let q = supabase
+            .from('shipments')
+            .select(
+              `id, container_number, container_size, container_type,
+               origin, destination_city, destination_station,
+               departure_date, arrival_date, delivery_date, is_completed,
+               sender_name, price, delivery_cost,
+               client:clients(id, name, is_russia),
+               carrier:carriers(id, name)`,
+              { count: 'exact' },
+            )
+            .order('departure_date', { ascending: false, nullsFirst: false })
+            .limit(limit)
 
           if (args.status === 'loading') q = q.is('departure_date', null).eq('is_completed', false)
           if (args.status === 'in_transit') q = q.not('departure_date', 'is', null).is('arrival_date', null).is('delivery_date', null).eq('is_completed', false)
@@ -105,19 +139,20 @@ export async function POST(req: Request) {
           if (args.destination) q = q.or(`destination_city.ilike.%${args.destination}%,destination_station.ilike.%${args.destination}%`)
           if (args.from_date) q = q.gte('departure_date', args.from_date)
           if (args.to_date) q = q.lte('departure_date', args.to_date)
+          if (clientIds) q = q.in('client_id', clientIds)
+          if (carrierIds) q = q.in('carrier_id', carrierIds)
+          if (russiaClientIds) q = q.in('client_id', russiaClientIds)
 
-          const { data, error } = await q
+          const { data, error, count } = await q
           if (error) return { error: error.message }
-          let rows = data || []
-          if (args.client_name) {
-            const needle = args.client_name.toLowerCase()
-            rows = rows.filter((r: any) => r.client?.name?.toLowerCase().includes(needle))
+          return {
+            count: count ?? data?.length ?? 0,
+            returned: data?.length ?? 0,
+            shipments: data || [],
+            ...(count && data && count > data.length
+              ? { note: `Всего по фильтрам: ${count}. Показано: ${data.length}. Уточни запрос или увеличь limit (макс 200).` }
+              : {}),
           }
-          if (args.carrier_name) {
-            const needle = args.carrier_name.toLowerCase()
-            rows = rows.filter((r: any) => r.carrier?.name?.toLowerCase().includes(needle))
-          }
-          return { count: rows.length, shipments: rows }
         },
       }),
 
@@ -145,19 +180,31 @@ export async function POST(req: Request) {
       }),
 
       list_clients: tool({
-        description: 'Список клиентов с количеством перевозок',
+        description: 'Список клиентов. По умолчанию возвращает первые 100. Без фильтров — total count считается отдельно.',
         inputSchema: z.object({
           search: z.string().optional(),
           is_russia: z.boolean().optional().describe('Только клиенты из РФ'),
-          limit: z.number().optional().default(30),
+          limit: z.number().int().min(1).max(500).optional().default(100),
         }),
         execute: async ({ search, is_russia, limit }) => {
-          let q = supabase.from('clients').select('id, name, is_russia, phone, address').limit(limit ?? 30)
+          const cap = Math.min(Math.max(limit ?? 100, 1), 500)
+          let q = supabase
+            .from('clients')
+            .select('id, name, is_russia, phone, address', { count: 'exact' })
+            .order('name')
+            .limit(cap)
           if (search) q = q.ilike('name', `%${search}%`)
           if (is_russia !== undefined) q = q.eq('is_russia', is_russia)
-          const { data, error } = await q
+          const { data, error, count } = await q
           if (error) return { error: error.message }
-          return { count: data?.length ?? 0, clients: data }
+          return {
+            count: count ?? data?.length ?? 0,
+            returned: data?.length ?? 0,
+            clients: data,
+            ...(count && data && count > data.length
+              ? { note: `Всего по фильтрам: ${count}. Показано: ${data.length}.` }
+              : {}),
+          }
         },
       }),
 
@@ -179,22 +226,32 @@ export async function POST(req: Request) {
       }),
 
       finance_summary: tool({
-        description: 'Финансовая сводка: суммарная выручка, расходы, прибыль за период',
+        description: 'Финансовая сводка: суммарная выручка, расходы, прибыль за период. Считает по ВСЕЙ базе (с пагинацией).',
         inputSchema: z.object({
           from_date: z.string().optional().describe('YYYY-MM-DD'),
           to_date: z.string().optional().describe('YYYY-MM-DD'),
         }),
         execute: async ({ from_date, to_date }) => {
-          let q = supabase.from('shipments').select('price, delivery_cost, customs_cost, additional_cost, invoice_amount, departure_date')
-          if (from_date) q = q.gte('departure_date', from_date)
-          if (to_date) q = q.lte('departure_date', to_date)
-          const { data, error } = await q
-          if (error) return { error: error.message }
-          const sum = (k: string) => (data || []).reduce((a: number, r: any) => a + (Number(r[k]) || 0), 0)
+          // Page through all rows — Supabase REST caps at 1000 per request.
+          const all: any[] = []
+          for (let page = 0; page < 20; page++) { // up to 20k rows
+            let q = supabase
+              .from('shipments')
+              .select('price, delivery_cost, customs_cost, additional_cost, invoice_amount, departure_date')
+              .range(page * 1000, page * 1000 + 999)
+            if (from_date) q = q.gte('departure_date', from_date)
+            if (to_date) q = q.lte('departure_date', to_date)
+            const { data, error } = await q
+            if (error) return { error: error.message }
+            if (!data || data.length === 0) break
+            all.push(...data)
+            if (data.length < 1000) break
+          }
+          const sum = (k: string) => all.reduce((a: number, r: any) => a + (Number(r[k]) || 0), 0)
           const revenue = sum('price') || sum('invoice_amount')
           const costs = sum('delivery_cost') + sum('customs_cost') + sum('additional_cost')
           return {
-            count: data?.length ?? 0,
+            count: all.length,
             revenue,
             costs,
             profit: revenue - costs,
@@ -204,16 +261,34 @@ export async function POST(req: Request) {
       }),
 
       top_routes: tool({
-        description: 'Топ направлений: куда едут контейнеры',
-        inputSchema: z.object({ limit: z.number().optional().default(10) }),
-        execute: async ({ limit }) => {
-          const { data } = await supabase.from('shipments').select('origin, destination_city, destination_station')
+        description: 'Топ направлений: куда едут контейнеры. Считает по ВСЕЙ базе (с пагинацией).',
+        inputSchema: z.object({
+          limit: z.number().int().min(1).max(50).optional().default(10),
+          from_date: z.string().optional().describe('YYYY-MM-DD'),
+          to_date: z.string().optional().describe('YYYY-MM-DD'),
+        }),
+        execute: async ({ limit, from_date, to_date }) => {
+          const all: any[] = []
+          for (let page = 0; page < 20; page++) {
+            let q = supabase
+              .from('shipments')
+              .select('origin, destination_city, destination_station, departure_date')
+              .range(page * 1000, page * 1000 + 999)
+            if (from_date) q = q.gte('departure_date', from_date)
+            if (to_date) q = q.lte('departure_date', to_date)
+            const { data, error } = await q
+            if (error) return { error: error.message }
+            if (!data || data.length === 0) break
+            all.push(...data)
+            if (data.length < 1000) break
+          }
           const map = new Map<string, number>()
-          for (const r of data || []) {
+          for (const r of all) {
             const key = `${r.origin || '?'} → ${r.destination_city || r.destination_station || '?'}`
             map.set(key, (map.get(key) || 0) + 1)
           }
           return {
+            total_shipments: all.length,
             routes: Array.from(map.entries())
               .map(([route, count]) => ({ route, count }))
               .sort((a, b) => b.count - a.count)
