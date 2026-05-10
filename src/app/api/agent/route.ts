@@ -34,7 +34,14 @@ const SYSTEM_PROMPT = `Ты — AI ассистент для логистиче�
 - bar для сравнений и топов
 - line/area для трендов по времени
 - pie для долей и распределений
-После графика дай короткое 1-2-предложений резюме что видно на нём.`
+После графика дай короткое 1-2-предложений резюме что видно на нём.
+
+ИЗМЕНЕНИЯ В БАЗЕ:
+- create_shipment, create_client, create_carrier, update_shipment — вызывай ТОЛЬКО когда пользователь явно просит создать/изменить ("создай перевозку", "добавь клиента", "поставь дату прибытия").
+- Перед созданием перевозки кратко покажи что собираешься создать (список полей) и подтверди в одном сообщении ("Создаю перевозку: ...").
+- При update_shipment всегда указывай явно какое поле меняется и на какое значение.
+- Если не хватает обязательных полей (container_number, client) — переспроси у пользователя, не выдумывай.
+- После создания — покажи ссылку на новую перевозку формата [номер_контейнера](/dashboard/shipments/{id}).`
 
 export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json()
@@ -212,6 +219,182 @@ export async function POST(req: Request) {
               .sort((a, b) => b.count - a.count)
               .slice(0, limit ?? 10),
           }
+        },
+      }),
+
+      create_shipment: tool({
+        description:
+          'Создать новую перевозку. Передавай имена клиента/перевозчика — я найду их в базе. ' +
+          'Если найдено несколько совпадений или не найдено — верну ошибку с подсказкой.',
+        inputSchema: z.object({
+          container_number: z.string().describe('Номер контейнера, например MSKU1234567'),
+          client_name: z.string().describe('Имя клиента (поиск по подстроке)'),
+          carrier_name: z.string().optional().describe('Имя перевозчика'),
+          sender_name: z.string().optional().describe('Имя отправителя (свободный текст)'),
+          container_size: z.union([z.literal(20), z.literal(40)]).optional(),
+          container_type: z.string().optional().describe('Выкупной / Возвратный / Собственный / Малшы'),
+          origin: z.string().optional().describe('Откуда (Дубай, Чингдао, Корея...)'),
+          destination_city: z.string().optional().describe('Конечный город (Алматы, Москва...)'),
+          destination_station: z.string().optional().describe('Погранпереход (Актау Порт, Алтынколь, Сары-агаш, Темир-Баба)'),
+          departure_date: z.string().optional().describe('Дата отправления YYYY-MM-DD'),
+          arrival_date: z.string().optional().describe('Дата прибытия на границу YYYY-MM-DD'),
+          delivery_date: z.string().optional().describe('Дата доставки YYYY-MM-DD'),
+          price: z.number().optional().describe('Цена для клиента (USD)'),
+          delivery_cost: z.number().optional().describe('Стоимость доставки (USD)'),
+          customs_cost: z.number().optional().describe('Таможня (USD)'),
+          cargo_description: z.string().optional(),
+          notes: z.string().optional(),
+        }),
+        execute: async (args) => {
+          // Resolve client
+          let client_id: string | null = null
+          if (args.client_name) {
+            const { data: clients } = await supabase
+              .from('clients').select('id, name').ilike('name', `%${args.client_name}%`).limit(3)
+            if (!clients?.length) {
+              return { error: `Клиент "${args.client_name}" не найден. Создай его сначала через create_client или уточни имя.` }
+            }
+            if (clients.length > 1) {
+              const exact = clients.find((c) => c.name.toLowerCase() === args.client_name.toLowerCase())
+              if (exact) client_id = exact.id
+              else return { error: `Несколько клиентов: ${clients.map((c) => c.name).join(', ')}. Уточни имя.` }
+            } else {
+              client_id = clients[0].id
+            }
+          }
+          // Resolve carrier
+          let carrier_id: string | null = null
+          if (args.carrier_name) {
+            const { data: carriers } = await supabase
+              .from('carriers').select('id, name').ilike('name', `%${args.carrier_name}%`).limit(3)
+            if (!carriers?.length) {
+              return { error: `Перевозчик "${args.carrier_name}" не найден. Создай через create_carrier или уточни.` }
+            }
+            if (carriers.length > 1) {
+              const exact = carriers.find((c) => c.name.toLowerCase() === args.carrier_name!.toLowerCase())
+              if (exact) carrier_id = exact.id
+              else return { error: `Несколько перевозчиков: ${carriers.map((c) => c.name).join(', ')}. Уточни.` }
+            } else {
+              carrier_id = carriers[0].id
+            }
+          }
+
+          const insert: Record<string, unknown> = {
+            container_number: args.container_number,
+            container_size: args.container_size ?? null,
+            container_type: args.container_type ?? null,
+            client_id,
+            carrier_id,
+            sender_name: args.sender_name ?? null,
+            origin: args.origin ?? null,
+            destination_city: args.destination_city ?? null,
+            destination_station: args.destination_station ?? null,
+            departure_date: args.departure_date ?? null,
+            arrival_date: args.arrival_date ?? null,
+            delivery_date: args.delivery_date ?? null,
+            price: args.price ?? null,
+            delivery_cost: args.delivery_cost ?? null,
+            customs_cost: args.customs_cost ?? null,
+            cargo_description: args.cargo_description ?? null,
+            notes: args.notes ?? null,
+            is_completed: false,
+          }
+          const { data, error } = await supabase
+            .from('shipments').insert(insert).select('id, container_number').single()
+          if (error) return { error: `Не удалось создать: ${error.message}` }
+          return {
+            success: true,
+            id: data.id,
+            container_number: data.container_number,
+            link: `/dashboard/shipments/${data.id}`,
+            message: `Перевозка ${data.container_number} создана`,
+          }
+        },
+      }),
+
+      update_shipment: tool({
+        description:
+          'Обновить поля существующей перевозки (даты, цены, статус и т.п.). Передавай id или container_number и только те поля что меняются.',
+        inputSchema: z.object({
+          id: z.string().optional().describe('UUID перевозки'),
+          container_number: z.string().optional().describe('Альтернатива id — найдём по точному совпадению'),
+          fields: z.object({
+            container_size: z.union([z.literal(20), z.literal(40)]).optional(),
+            container_type: z.string().optional(),
+            origin: z.string().optional(),
+            destination_city: z.string().optional(),
+            destination_station: z.string().optional(),
+            departure_date: z.string().nullable().optional(),
+            arrival_date: z.string().nullable().optional(),
+            delivery_date: z.string().nullable().optional(),
+            price: z.number().nullable().optional(),
+            delivery_cost: z.number().nullable().optional(),
+            customs_cost: z.number().nullable().optional(),
+            additional_cost: z.number().nullable().optional(),
+            invoice_amount: z.number().nullable().optional(),
+            is_completed: z.boolean().optional(),
+            notes: z.string().nullable().optional(),
+            cargo_description: z.string().nullable().optional(),
+          }).describe('Только меняющиеся поля'),
+        }),
+        execute: async ({ id, container_number, fields }) => {
+          let target_id = id
+          if (!target_id && container_number) {
+            const { data } = await supabase.from('shipments').select('id').eq('container_number', container_number).limit(1).single()
+            if (!data) return { error: `Перевозка ${container_number} не найдена` }
+            target_id = data.id
+          }
+          if (!target_id) return { error: 'Нужен id или container_number' }
+          const cleaned: Record<string, unknown> = {}
+          for (const [k, v] of Object.entries(fields)) {
+            if (v !== undefined) cleaned[k] = v
+          }
+          if (Object.keys(cleaned).length === 0) return { error: 'Нет полей для обновления' }
+          const { data, error } = await supabase
+            .from('shipments').update(cleaned).eq('id', target_id).select('id, container_number').single()
+          if (error) return { error: error.message }
+          return {
+            success: true,
+            id: data.id,
+            container_number: data.container_number,
+            link: `/dashboard/shipments/${data.id}`,
+            updated_fields: Object.keys(cleaned),
+            message: `Обновлено: ${Object.keys(cleaned).join(', ')}`,
+          }
+        },
+      }),
+
+      create_client: tool({
+        description: 'Создать нового клиента. Используй когда клиент не найден перед созданием перевозки.',
+        inputSchema: z.object({
+          name: z.string().describe('Полное имя клиента'),
+          is_russia: z.boolean().optional().default(false).describe('Из РФ?'),
+          phone: z.string().optional(),
+          address: z.string().optional(),
+        }),
+        execute: async (args) => {
+          const { data, error } = await supabase
+            .from('clients')
+            .insert({
+              name: args.name,
+              is_russia: args.is_russia ?? false,
+              phone: args.phone ?? null,
+              address: args.address ?? null,
+            })
+            .select('id, name, is_russia').single()
+          if (error) return { error: error.message }
+          return { success: true, id: data.id, name: data.name, message: `Клиент ${data.name} создан` }
+        },
+      }),
+
+      create_carrier: tool({
+        description: 'Создать нового перевозчика.',
+        inputSchema: z.object({ name: z.string() }),
+        execute: async (args) => {
+          const { data, error } = await supabase
+            .from('carriers').insert({ name: args.name }).select('id, name').single()
+          if (error) return { error: error.message }
+          return { success: true, id: data.id, name: data.name, message: `Перевозчик ${data.name} создан` }
         },
       }),
 

@@ -350,23 +350,45 @@ const TOOL_LABELS: Record<string, string> = {
   finance_summary: 'Финансы',
   top_routes: 'Маршруты',
   render_chart: 'График',
+  create_shipment: 'Создание перевозки',
+  update_shipment: 'Обновление перевозки',
+  create_client: 'Создание клиента',
+  create_carrier: 'Создание перевозчика',
 }
+
+const MUTATION_TOOLS = new Set(['create_shipment', 'update_shipment', 'create_client', 'create_carrier'])
 
 function ToolCallChip({ tool }: { tool: { name: string; state: string; result?: any } }) {
   const isRunning = tool.state === 'input-streaming' || tool.state === 'input-available'
   const isDone = tool.state === 'output-available' || tool.state === 'output-error'
+  const isMutation = MUTATION_TOOLS.has(tool.name)
+  const hasError = isDone && tool.result?.error
   const label = TOOL_LABELS[tool.name] || tool.name
 
   return (
-    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-600 max-w-fit">
+    <div
+      className={cn(
+        'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-medium max-w-fit border',
+        hasError
+          ? 'bg-rose-50 border-rose-200 text-rose-700'
+          : isMutation
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+          : 'bg-white border-slate-200 text-slate-600'
+      )}
+    >
       {isRunning ? (
-        <Loader2 className="w-3 h-3 text-indigo-500 animate-spin" />
+        <Loader2 className={cn('w-3 h-3 animate-spin', isMutation ? 'text-emerald-500' : 'text-indigo-500')} />
+      ) : hasError ? (
+        <span className="text-rose-500 font-bold">!</span>
       ) : (
-        <Wrench className="w-3 h-3 text-emerald-500" />
+        <Wrench className={cn('w-3 h-3', isMutation ? 'text-emerald-600' : 'text-emerald-500')} />
       )}
       <span>{label}</span>
-      {isDone && tool.result?.count !== undefined && (
+      {isDone && !hasError && tool.result?.count !== undefined && (
         <span className="text-slate-400">· {tool.result.count}</span>
+      )}
+      {isDone && tool.result?.success && (
+        <span className="text-emerald-600">✓</span>
       )}
     </div>
   )
@@ -845,18 +867,20 @@ function BlockRenderer({ block }: { block: Block }) {
   )
 }
 
-/* Inline: bold, code, links */
+/* Inline: bold, code, links — supports nested e.g. **[text](url)** */
 function Inline({ text }: { text: string }) {
-  // Tokenize: **bold**, `code`, [label](url)
-  const tokens: { type: 'text' | 'b' | 'code' | 'a'; content: string; href?: string }[] = []
-  const regex = /(\*\*([^*]+)\*\*)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)]+)\))/g
+  type Tok = { type: 'text' | 'b' | 'code' | 'a'; content: string; href?: string }
+  const tokens: Tok[] = []
+  // Order matters: link first so [text](url) wins inside **...**.
+  // We strip outer **bold** wrapping after links are pulled out.
+  const regex = /(`([^`]+)`)|(\[([^\]]+)\]\(([^)\s]+)\))|(\*\*([^*]+)\*\*)/g
   let last = 0
   let m: RegExpExecArray | null
   while ((m = regex.exec(text)) !== null) {
     if (m.index > last) tokens.push({ type: 'text', content: text.slice(last, m.index) })
-    if (m[1]) tokens.push({ type: 'b', content: m[2] })
-    else if (m[3]) tokens.push({ type: 'code', content: m[4] })
-    else if (m[5]) tokens.push({ type: 'a', content: m[6], href: m[7] })
+    if (m[1]) tokens.push({ type: 'code', content: m[2] })
+    else if (m[3]) tokens.push({ type: 'a', content: m[4], href: m[5] })
+    else if (m[6]) tokens.push({ type: 'b', content: m[7] })
     last = m.index + m[0].length
   }
   if (last < text.length) tokens.push({ type: 'text', content: text.slice(last) })
@@ -864,9 +888,30 @@ function Inline({ text }: { text: string }) {
   return (
     <>
       {tokens.map((t, i) => {
-        if (t.type === 'b') return <strong key={i} className="font-semibold">{t.content}</strong>
-        if (t.type === 'code') return <code key={i} className="px-1 py-0.5 rounded bg-slate-200/60 text-slate-700 text-[12px] font-mono">{t.content}</code>
-        if (t.type === 'a') return <a key={i} href={t.href} className="text-indigo-600 hover:text-indigo-700 underline underline-offset-2 font-medium">{t.content}</a>
+        if (t.type === 'b') {
+          // Recursively render so links/code inside bold work
+          return (
+            <strong key={i} className="font-semibold">
+              <Inline text={t.content} />
+            </strong>
+          )
+        }
+        if (t.type === 'code')
+          return (
+            <code key={i} className="px-1 py-0.5 rounded bg-slate-200/60 text-slate-700 text-[12px] font-mono">
+              {t.content}
+            </code>
+          )
+        if (t.type === 'a')
+          return (
+            <a
+              key={i}
+              href={t.href}
+              className="text-indigo-600 hover:text-indigo-700 underline underline-offset-2 font-medium"
+            >
+              {t.content}
+            </a>
+          )
         return <span key={i}>{t.content}</span>
       })}
     </>
