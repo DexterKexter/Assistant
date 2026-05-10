@@ -33,8 +33,14 @@ function getInitials(name: string | null | undefined) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
+// localStorage key (per-user)
+const STORAGE_KEY_PREFIX = 'agent-chat-history:'
+const MAX_PERSISTED_MESSAGES = 100 // safety cap
+
 export default function AgentPage() {
   const { profile } = useProfile()
+  const storageKey = profile?.id ? `${STORAGE_KEY_PREFIX}${profile.id}` : null
+  const [hydrated, setHydrated] = useState(false)
 
   const { messages, sendMessage, status, stop, setMessages, error } = useChat({
     transport: new DefaultChatTransport({ api: '/api/agent' }),
@@ -45,6 +51,40 @@ export default function AgentPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const isLoading = status === 'submitted' || status === 'streaming'
+
+  // ── Hydrate from localStorage on mount (once profile is available) ──
+  useEffect(() => {
+    if (!storageKey || hydrated) return
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (raw) {
+        const saved = JSON.parse(raw)
+        if (Array.isArray(saved) && saved.length > 0) {
+          setMessages(saved)
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to restore chat history:', e)
+    }
+    setHydrated(true)
+  }, [storageKey, hydrated, setMessages])
+
+  // ── Persist to localStorage whenever messages change (after streaming finishes) ──
+  useEffect(() => {
+    if (!storageKey || !hydrated) return
+    if (isLoading) return // don't write mid-stream — write when stable
+    try {
+      // Cap to last N messages and strip ephemeral fields if any
+      const toSave = messages.slice(-MAX_PERSISTED_MESSAGES)
+      if (toSave.length === 0) {
+        localStorage.removeItem(storageKey)
+      } else {
+        localStorage.setItem(storageKey, JSON.stringify(toSave))
+      }
+    } catch (e) {
+      console.warn('Failed to persist chat history:', e)
+    }
+  }, [messages, storageKey, hydrated, isLoading])
 
   // Auto scroll
   useEffect(() => {
@@ -65,6 +105,9 @@ export default function AgentPage() {
 
   function handleClear() {
     setMessages([])
+    if (storageKey) {
+      try { localStorage.removeItem(storageKey) } catch {}
+    }
     inputRef.current?.focus()
   }
 
