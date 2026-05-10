@@ -56,6 +56,36 @@ function getInitials(name: string | null | undefined) {
 const STORAGE_KEY_PREFIX = 'agent-chat-history:'
 const MAX_PERSISTED_MESSAGES = 100 // safety cap
 
+/** Strip parts that are mid-stream and would put useChat into a bad state on reload.
+ *  Drops:
+ *  - text parts with state === 'streaming'  (incomplete text)
+ *  - tool parts whose state isn't 'output-available' / 'output-error'  (tool didn't finish)
+ *  - 'step-start' bookkeeping markers
+ *  Skips messages whose every meaningful part was dropped. */
+function sanitizeMessages(messages: any[]): any[] {
+  const out: any[] = []
+  for (const m of messages) {
+    if (!m) continue
+    const cleanedParts = (m.parts || []).filter((p: any) => {
+      if (!p || typeof p.type !== 'string') return false
+      if (p.type === 'step-start') return false
+      if (p.type === 'text') {
+        // Keep only finished text (or text without state, e.g. user messages)
+        return p.state === undefined || p.state === 'done'
+      }
+      if (p.type.startsWith('tool-')) {
+        return p.state === 'output-available' || p.state === 'output-error'
+      }
+      // Reasoning, source, file, etc.: keep if it has terminal-ish state
+      if (p.state && p.state !== 'done' && p.state !== 'output-available') return false
+      return true
+    })
+    if (cleanedParts.length === 0) continue
+    out.push({ ...m, parts: cleanedParts })
+  }
+  return out
+}
+
 export default function AgentPage() {
   const { profile } = useProfile()
   const storageKey = profile?.id ? `${STORAGE_KEY_PREFIX}${profile.id}` : null
@@ -85,7 +115,9 @@ export default function AgentPage() {
       if (raw) {
         const saved = JSON.parse(raw)
         if (Array.isArray(saved) && saved.length > 0) {
-          setMessages(saved)
+          // Sanitize again on read in case older save was unclean
+          const clean = sanitizeMessages(saved)
+          if (clean.length > 0) setMessages(clean)
         }
       }
     } catch (e) {
@@ -99,12 +131,11 @@ export default function AgentPage() {
     if (!storageKey || !hydrated) return
     if (isLoading) return // don't write mid-stream — write when stable
     try {
-      // Cap to last N messages and strip ephemeral fields if any
-      const toSave = messages.slice(-MAX_PERSISTED_MESSAGES)
-      if (toSave.length === 0) {
+      const cleaned = sanitizeMessages(messages.slice(-MAX_PERSISTED_MESSAGES))
+      if (cleaned.length === 0) {
         localStorage.removeItem(storageKey)
       } else {
-        localStorage.setItem(storageKey, JSON.stringify(toSave))
+        localStorage.setItem(storageKey, JSON.stringify(cleaned))
       }
     } catch (e) {
       console.warn('Failed to persist chat history:', e)
