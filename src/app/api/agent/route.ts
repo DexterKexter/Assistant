@@ -1,4 +1,4 @@
-import { streamText, tool, convertToModelMessages, stepCountIs, type UIMessage } from 'ai'
+import { streamText, tool, convertToModelMessages, stepCountIs, embed, type UIMessage } from 'ai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
@@ -40,8 +40,21 @@ const SYSTEM_PROMPT = `Ты — AI ассистент для логистиче�
 
 ПРАВИЛО: если пользователь спрашивает "сколько X" — НЕ запрашивай строки через search_shipments, используй count_shipments или get_stats/db_overview. Это в 10 раз быстрее и точнее.
 
-НЕЧЁТКИЙ ПОИСК (pg_trgm):
-Все имена клиентов/перевозчиков ищутся через триграммы — опечатки, частичные слова и разный регистр обрабатываются автоматически. Если пользователь дал размытый запрос ("перевозки в москау", "лора", "стеклинев") — сразу используй search_shipments с client_name/carrier_name (или smart_search для свободного текста). Если совсем ничего не нашлось — попробуй smart_search с разными вариациями.
+ПОИСК — три уровня, выбирай по смыслу запроса:
+
+1. ТОЧНЫЕ ПОЛЯ + НЕЧЁТКОСТЬ (pg_trgm) → search_shipments / count_shipments / smart_search
+   Когда: запрос про конкретные имена, номера, маршруты ("перевозки клиента Стеклинев", "контейнер MSKU1234567", "грузы в Алмаату").
+   Опечатки, частичные слова, разный регистр обрабатываются автоматически.
+
+2. СМЫСЛОВОЙ ПОИСК (embeddings via semantic_search) →
+   Когда: запрос про СУТЬ, а не точные слова ("дорогие перевозки", "контейнеры с электроникой",
+   "недавние отправки", "что-то похожее на этот груз", "проблемные контейнеры").
+   Понимает синонимы и концепции — не нужны точные слова из базы.
+
+3. АГРЕГАТЫ → db_overview / count_shipments / top_routes / finance_summary
+   Когда: нужны цифры/распределения по всей базе.
+
+Стратегия: если первый поиск дал 0 результатов — попробуй другой уровень. Не сдавайся на первом fail.
 
 Когда показываешь перевозку — давай ссылку формата [CONTAINER_NUM](/dashboard/shipments/{id}) чтобы пользователь мог открыть её одним кликом.
 
@@ -286,6 +299,69 @@ export async function POST(req: Request) {
               ? { note: `Всего по фильтрам: ${count}. Показано: ${data.length}. Уточни запрос или увеличь limit (макс 200).` }
               : {}),
           }
+        },
+      }),
+
+      semantic_search: tool({
+        description:
+          'Семантический поиск по СМЫСЛУ через эмбеддинги (pgvector + OpenAI). ' +
+          'Используй для запросов где важна суть, а не точное совпадение слов: ' +
+          '"перевозки с дорогим грузом", "контейнеры с электроникой", "недавние отправки в РФ", ' +
+          '"что-то похожее на этот контейнер". Возвращает топ-N релевантных по cosine similarity. ' +
+          'Если запрос про конкретные имена/номера — лучше используй smart_search или search_shipments.',
+        inputSchema: z.object({
+          query: z.string().describe('Свободный смысловой запрос на русском'),
+          limit: z.number().int().min(1).max(50).optional().default(15),
+          min_similarity: z.number().min(0).max(1).optional().default(0.3).describe('Минимальная релевантность 0..1'),
+        }),
+        execute: async ({ query, limit, min_similarity }) => {
+          // 1. Получить эмбеддинг запроса
+          let queryEmbedding: number[]
+          try {
+            const { embedding } = await embed({
+              model: openrouter.textEmbeddingModel('openai/text-embedding-3-small'),
+              value: query,
+            })
+            queryEmbedding = embedding
+          } catch (e: any) {
+            return { error: `Не удалось получить эмбеддинг: ${e?.message || e}` }
+          }
+
+          // 2. Передать в RPC
+          const { data, error } = await supabase.rpc('semantic_search_shipments', {
+            query_embedding: queryEmbedding,
+            match_threshold: min_similarity ?? 0.3,
+            match_count: limit ?? 15,
+          })
+          if (error) return { error: error.message }
+          if (!data?.length) return { count: 0, results: [], note: `Нет перевозок семантически близких к "${query}". Попробуй смягчить запрос или используй smart_search/search_shipments.` }
+
+          // 3. Обогатить клиентами/перевозчиками
+          const clientIds = [...new Set(data.map((r: any) => r.client_id).filter(Boolean))]
+          const carrierIds = [...new Set(data.map((r: any) => r.carrier_id).filter(Boolean))]
+          const [clientsRes, carriersRes] = await Promise.all([
+            clientIds.length ? supabase.from('clients').select('id, name, is_russia').in('id', clientIds) : Promise.resolve({ data: [] } as any),
+            carrierIds.length ? supabase.from('carriers').select('id, name').in('id', carrierIds) : Promise.resolve({ data: [] } as any),
+          ])
+          const clientMap = new Map((clientsRes.data || []).map((c: any) => [c.id, c]))
+          const carrierMap = new Map((carriersRes.data || []).map((c: any) => [c.id, c]))
+
+          const results = data.map((r: any) => ({
+            id: r.id,
+            container_number: r.container_number,
+            origin: r.origin,
+            destination_city: r.destination_city,
+            destination_station: r.destination_station,
+            departure_date: r.departure_date,
+            is_completed: r.is_completed,
+            cargo_description: r.cargo_description,
+            sender_name: r.sender_name,
+            price: r.price,
+            client: r.client_id ? clientMap.get(r.client_id) : null,
+            carrier: r.carrier_id ? carrierMap.get(r.carrier_id) : null,
+            relevance: Math.round(r.similarity * 100) / 100,
+          }))
+          return { count: results.length, results }
         },
       }),
 
