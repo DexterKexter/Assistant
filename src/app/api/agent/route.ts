@@ -28,6 +28,18 @@ const SYSTEM_PROMPT = `Ты — AI ассистент для логистиче�
 
 Используй инструменты для запросов в базу. Отвечай кратко, по делу, на русском. Используй markdown для форматирования: жирный текст, списки, таблицы. Сегодняшняя дата: ${new Date().toISOString().split('T')[0]}.
 
+ВАЖНО — РАБОТА С ПОЛНОЙ БАЗОЙ:
+Все tools работают по ВСЕЙ базе (с пагинацией внутри), не только по последним N записям. Используй правильные tools:
+
+1. Вопросы про общую картину/структуру/распределение → db_overview (один вызов даёт всё: счётчики таблиц, статусы, распределение по годам/месяцам).
+2. "Сколько перевозок где-то?" → count_shipments (быстрее search_shipments, не возвращает строки).
+3. Топ-направления, аналитика маршрутов → top_routes (по всей базе).
+4. Финансы за период → finance_summary (по всей базе).
+5. Список перевозчиков с активностью → list_carriers.
+6. Поиск конкретных строк (детали, контейнеры, клиенты) → search_shipments или list_clients. Эти tools возвращают count (всего по фильтрам) и returned (показано). Если показано меньше чем total — ОБЯЗАТЕЛЬНО упомяни total и предложи уточнить запрос.
+
+ПРАВИЛО: если пользователь спрашивает "сколько X" — НЕ запрашивай строки через search_shipments, используй count_shipments или get_stats/db_overview. Это в 10 раз быстрее и точнее.
+
 Когда показываешь перевозку — давай ссылку формата [CONTAINER_NUM](/dashboard/shipments/{id}) чтобы пользователь мог открыть её одним кликом.
 
 Когда данные нагляднее показать визуально (тренды по месяцам, топ маршрутов, доли клиентов РФ/КЗ, динамика финансов) — вызывай render_chart. Бери данные из других tools, агрегируй до 20 точек, выбирай:
@@ -70,6 +82,126 @@ export async function POST(req: Request) {
             at_border: atBorder.count ?? 0,
             delivered: delivered.count ?? 0,
           }
+        },
+      }),
+
+      db_overview: tool({
+        description:
+          'Полный обзор базы: счётчики ВСЕХ таблиц (shipments, clients, carriers, senders), распределение перевозок ' +
+          'по статусам, по странам клиентов (РФ/КЗ), по годам и месяцам. Считает по ВСЕЙ базе через count/aggregations. ' +
+          'ВСЕГДА используй этот tool первым когда вопрос про общую картину, статистику, структуру базы.',
+        inputSchema: z.object({}),
+        execute: async () => {
+          const [
+            shipTotal, ru, kz, carriersC, clientsC, sendersC, recipsC,
+            inTransit, atBorder, delivered, loading,
+          ] = await Promise.all([
+            supabase.from('shipments').select('id', { count: 'exact', head: true }),
+            supabase.from('clients').select('id', { count: 'exact', head: true }).eq('is_russia', true),
+            supabase.from('clients').select('id', { count: 'exact', head: true }).eq('is_russia', false),
+            supabase.from('carriers').select('id', { count: 'exact', head: true }),
+            supabase.from('clients').select('id', { count: 'exact', head: true }),
+            supabase.from('senders').select('id', { count: 'exact', head: true }),
+            supabase.from('recipients').select('id', { count: 'exact', head: true }),
+            supabase.from('shipments').select('id', { count: 'exact', head: true }).not('departure_date', 'is', null).is('arrival_date', null).is('delivery_date', null).eq('is_completed', false),
+            supabase.from('shipments').select('id', { count: 'exact', head: true }).not('arrival_date', 'is', null).is('delivery_date', null).eq('is_completed', false),
+            supabase.from('shipments').select('id', { count: 'exact', head: true }).or('is_completed.eq.true,delivery_date.not.is.null'),
+            supabase.from('shipments').select('id', { count: 'exact', head: true }).is('departure_date', null).eq('is_completed', false),
+          ])
+
+          // By year (paginated full scan)
+          const all: { departure_date: string | null }[] = []
+          for (let page = 0; page < 20; page++) {
+            const { data } = await supabase.from('shipments').select('departure_date').range(page * 1000, page * 1000 + 999)
+            if (!data || data.length === 0) break
+            all.push(...data)
+            if (data.length < 1000) break
+          }
+          const byYear: Record<string, number> = {}
+          const byMonth: Record<string, number> = {}
+          for (const r of all) {
+            const d = r.departure_date
+            if (!d) { byYear['—'] = (byYear['—'] || 0) + 1; continue }
+            const y = d.slice(0, 4)
+            const ym = d.slice(0, 7)
+            byYear[y] = (byYear[y] || 0) + 1
+            byMonth[ym] = (byMonth[ym] || 0) + 1
+          }
+
+          return {
+            tables: {
+              shipments: shipTotal.count ?? 0,
+              clients: clientsC.count ?? 0,
+              clients_russia: ru.count ?? 0,
+              clients_kazakhstan: kz.count ?? 0,
+              carriers: carriersC.count ?? 0,
+              senders: sendersC.count ?? 0,
+              recipients: recipsC.count ?? 0,
+            },
+            shipments_by_status: {
+              loading: loading.count ?? 0,
+              in_transit: inTransit.count ?? 0,
+              at_border: atBorder.count ?? 0,
+              delivered: delivered.count ?? 0,
+            },
+            shipments_by_year: byYear,
+            shipments_by_month: Object.fromEntries(
+              Object.entries(byMonth).sort((a, b) => a[0].localeCompare(b[0])),
+            ),
+          }
+        },
+      }),
+
+      count_shipments: tool({
+        description:
+          'Точное количество перевозок по фильтрам по ВСЕЙ базе. Используй когда нужна цифра, не сами строки. ' +
+          'Дешевле и быстрее чем search_shipments если строки не нужны.',
+        inputSchema: z.object({
+          status: z.enum(['loading', 'in_transit', 'at_border', 'delivered']).optional(),
+          client_name: z.string().optional(),
+          carrier_name: z.string().optional(),
+          origin: z.string().optional(),
+          destination: z.string().optional(),
+          from_date: z.string().optional().describe('YYYY-MM-DD'),
+          to_date: z.string().optional().describe('YYYY-MM-DD'),
+          is_russia: z.boolean().optional(),
+        }),
+        execute: async (args) => {
+          let clientIds: string[] | null = null
+          if (args.client_name) {
+            const { data } = await supabase.from('clients').select('id').ilike('name', `%${args.client_name}%`).limit(200)
+            clientIds = (data || []).map((r) => r.id)
+            if (clientIds.length === 0) return { count: 0, note: `Клиент "${args.client_name}" не найден` }
+          }
+          let carrierIds: string[] | null = null
+          if (args.carrier_name) {
+            const { data } = await supabase.from('carriers').select('id').ilike('name', `%${args.carrier_name}%`).limit(200)
+            carrierIds = (data || []).map((r) => r.id)
+            if (carrierIds.length === 0) return { count: 0, note: `Перевозчик "${args.carrier_name}" не найден` }
+          }
+          let russiaClientIds: string[] | null = null
+          if (args.is_russia !== undefined) {
+            const { data } = await supabase.from('clients').select('id').eq('is_russia', args.is_russia).limit(1000)
+            russiaClientIds = (data || []).map((r) => r.id)
+            if (russiaClientIds.length === 0) return { count: 0 }
+          }
+
+          let q = supabase.from('shipments').select('id', { count: 'exact', head: true })
+          if (args.status === 'loading') q = q.is('departure_date', null).eq('is_completed', false)
+          if (args.status === 'in_transit') q = q.not('departure_date', 'is', null).is('arrival_date', null).is('delivery_date', null).eq('is_completed', false)
+          if (args.status === 'at_border') q = q.not('arrival_date', 'is', null).is('delivery_date', null).eq('is_completed', false)
+          if (args.status === 'delivered') q = q.or('is_completed.eq.true,delivery_date.not.is.null')
+          if (args.origin) q = q.ilike('origin', `%${args.origin}%`)
+          if (args.destination) q = q.or(`destination_city.ilike.%${args.destination}%,destination_station.ilike.%${args.destination}%`)
+          if (args.from_date) q = q.gte('departure_date', args.from_date)
+          if (args.to_date) q = q.lte('departure_date', args.to_date)
+          if (clientIds) q = q.in('client_id', clientIds)
+          if (carrierIds) q = q.in('carrier_id', carrierIds)
+          if (russiaClientIds) q = q.in('client_id', russiaClientIds)
+
+          const { count, error } = await q
+          if (error) return { error: error.message }
+          return { count: count ?? 0 }
         },
       }),
 

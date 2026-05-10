@@ -382,6 +382,8 @@ function MessageBubble({ message, userInitials }: { message: any; userInitials: 
 /* ── Tool call chip ── */
 const TOOL_LABELS: Record<string, string> = {
   get_stats: 'Статистика',
+  db_overview: 'Обзор базы',
+  count_shipments: 'Подсчёт',
   search_shipments: 'Поиск перевозок',
   get_shipment: 'Детали перевозки',
   list_clients: 'Список клиентов',
