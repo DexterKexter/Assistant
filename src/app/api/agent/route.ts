@@ -61,7 +61,7 @@ export async function POST(req: Request) {
 
   const modelMessages = await convertToModelMessages(messages)
   const result = streamText({
-    model: openrouter.chat('anthropic/claude-haiku-4.5'),
+    model: openrouter.chat('deepseek/deepseek-chat-v3.1'),
     system: SYSTEM_PROMPT,
     messages: modelMessages,
     stopWhen: stepCountIs(8),
