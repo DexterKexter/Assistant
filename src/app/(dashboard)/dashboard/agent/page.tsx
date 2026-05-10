@@ -137,6 +137,28 @@ export default function AgentPage() {
     }
   }, [])
 
+  // ── On-screen keyboard tracking (iOS Safari fallback) ──
+  // Когда экранная клавиатура открыта, visualViewport.height < innerHeight.
+  // Записываем разницу в --keyboard-h, и контейнер агента приподнимает
+  // нижнюю границу на эту величину — поле ввода прилипает к клавиатуре.
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const root = document.documentElement
+    const update = () => {
+      const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      root.style.setProperty('--keyboard-h', `${Math.round(offset)}px`)
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+      root.style.removeProperty('--keyboard-h')
+    }
+  }, [])
+
   // ── Hydrate from localStorage on mount (once profile is available) ──
   useEffect(() => {
     if (!storageKey || hydrated) return
@@ -216,7 +238,10 @@ export default function AgentPage() {
   }, [updatedAt, messages.length])
 
   return (
-    <div className="absolute inset-0 flex flex-col overflow-hidden bg-white">
+    <div
+      className="absolute inset-0 flex flex-col overflow-hidden bg-white transition-[bottom] duration-150 ease-out"
+      style={{ bottom: 'var(--keyboard-h, 0px)' }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-slate-100 shrink-0 h-[56px]">
         <div className="flex items-center gap-3">
