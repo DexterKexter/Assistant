@@ -183,7 +183,7 @@ export async function POST(req: Request) {
           }
           let russiaClientIds: string[] | null = null
           if (args.is_russia !== undefined) {
-            const { data } = await supabase.from('clients').select('id').eq('is_russia', args.is_russia).limit(1000)
+            const { data } = await supabase.from('clients').select('id').eq('is_russia', args.is_russia).limit(5000)
             russiaClientIds = (data || []).map((r) => r.id)
             if (russiaClientIds.length === 0) return { count: 0 }
           }
@@ -263,7 +263,7 @@ export async function POST(req: Request) {
           let russiaClientIds: string[] | null = null
           if (args.is_russia !== undefined) {
             const { data } = await supabase
-              .from('clients').select('id').eq('is_russia', args.is_russia).limit(1000)
+              .from('clients').select('id').eq('is_russia', args.is_russia).limit(5000)
             russiaClientIds = (data || []).map((r) => r.id)
             if (russiaClientIds.length === 0) return { count: 0, shipments: [] }
           }
@@ -472,91 +472,40 @@ export async function POST(req: Request) {
       }),
 
       list_carriers: tool({
-        description: 'Список перевозчиков с количеством их перевозок в пути',
+        description: 'Список перевозчиков с количеством их перевозок в пути и общим количеством. Один SQL — без N+1.',
         inputSchema: z.object({}),
         execute: async () => {
-          const { data: carriers } = await supabase.from('carriers').select('id, name')
-          if (!carriers) return { carriers: [] }
-          const enriched = await Promise.all(carriers.map(async (c) => {
-            const { count } = await supabase
-              .from('shipments').select('id', { count: 'exact', head: true })
-              .eq('carrier_id', c.id)
-              .not('departure_date', 'is', null).is('delivery_date', null).eq('is_completed', false)
-            return { ...c, in_transit: count ?? 0 }
-          }))
-          return { carriers: enriched.sort((a, b) => b.in_transit - a.in_transit) }
+          const { data, error } = await supabase.rpc('agent_carrier_activity')
+          if (error) return { error: error.message }
+          return { carriers: data ?? [] }
         },
       }),
 
       finance_summary: tool({
-        description: 'Финансовая сводка: суммарная выручка, расходы, прибыль за период. Считает по ВСЕЙ базе (с пагинацией).',
+        description: 'Финансовая сводка: выручка, расходы, прибыль за период. Один SQL-aggregation, мгновенно.',
         inputSchema: z.object({
           from_date: z.string().optional().describe('YYYY-MM-DD'),
           to_date: z.string().optional().describe('YYYY-MM-DD'),
         }),
         execute: async ({ from_date, to_date }) => {
-          // Page through all rows — Supabase REST caps at 1000 per request.
-          const all: any[] = []
-          for (let page = 0; page < 20; page++) { // up to 20k rows
-            let q = supabase
-              .from('shipments')
-              .select('price, delivery_cost, customs_cost, additional_cost, invoice_amount, departure_date')
-              .range(page * 1000, page * 1000 + 999)
-            if (from_date) q = q.gte('departure_date', from_date)
-            if (to_date) q = q.lte('departure_date', to_date)
-            const { data, error } = await q
-            if (error) return { error: error.message }
-            if (!data || data.length === 0) break
-            all.push(...data)
-            if (data.length < 1000) break
-          }
-          const sum = (k: string) => all.reduce((a: number, r: any) => a + (Number(r[k]) || 0), 0)
-          const revenue = sum('price') || sum('invoice_amount')
-          const costs = sum('delivery_cost') + sum('customs_cost') + sum('additional_cost')
-          return {
-            count: all.length,
-            revenue,
-            costs,
-            profit: revenue - costs,
-            currency: 'USD',
-          }
+          const { data, error } = await supabase.rpc('agent_finance_summary', {
+            from_date: from_date ?? null,
+            to_date: to_date ?? null,
+          })
+          if (error) return { error: error.message }
+          return data
         },
       }),
 
       top_routes: tool({
-        description: 'Топ направлений: куда едут контейнеры. Считает по ВСЕЙ базе (с пагинацией).',
+        description: 'Топ направлений по всей базе. Один SQL-GROUP BY, без пагинации.',
         inputSchema: z.object({
           limit: z.number().int().min(1).max(50).optional().default(10),
-          from_date: z.string().optional().describe('YYYY-MM-DD'),
-          to_date: z.string().optional().describe('YYYY-MM-DD'),
         }),
-        execute: async ({ limit, from_date, to_date }) => {
-          const all: any[] = []
-          for (let page = 0; page < 20; page++) {
-            let q = supabase
-              .from('shipments')
-              .select('origin, destination_city, destination_station, departure_date')
-              .range(page * 1000, page * 1000 + 999)
-            if (from_date) q = q.gte('departure_date', from_date)
-            if (to_date) q = q.lte('departure_date', to_date)
-            const { data, error } = await q
-            if (error) return { error: error.message }
-            if (!data || data.length === 0) break
-            all.push(...data)
-            if (data.length < 1000) break
-          }
-          const map = new Map<string, number>()
-          for (const r of all) {
-            const key = `${r.origin || '?'} → ${r.destination_city || r.destination_station || '?'}`
-            map.set(key, (map.get(key) || 0) + 1)
-          }
-          return {
-            total_shipments: all.length,
-            routes: Array.from(map.entries())
-              .map(([route, count]) => ({ route, count }))
-              .sort((a, b) => b.count - a.count)
-              .slice(0, limit ?? 10),
-          }
+        execute: async ({ limit }) => {
+          const { data, error } = await supabase.rpc('agent_top_routes', { limit_n: limit ?? 10 })
+          if (error) return { error: error.message }
+          return { routes: data ?? [] }
         },
       }),
 

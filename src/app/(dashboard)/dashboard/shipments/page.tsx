@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
@@ -39,8 +39,11 @@ function RoutePoint({ label, flag, date, onChange, variant, canEdit }: {
   }
 
   const hasDate = !!date
-  const colorByVariant = variant === 'origin' ? 'text-indigo-600' : variant === 'border' ? 'text-amber-600' : 'text-emerald-600'
-  const nameColor = hasDate ? `${colorByVariant} font-semibold` : 'text-slate-400'
+  const dotByVariant =
+    variant === 'origin' ? 'bg-indigo-500 ring-indigo-100' :
+    variant === 'border' ? 'bg-amber-500 ring-amber-100' :
+    'bg-emerald-500 ring-emerald-100'
+  const labelColor = hasDate ? 'text-slate-800 font-medium' : 'text-slate-400'
 
   return (
     <button
@@ -48,17 +51,22 @@ function RoutePoint({ label, flag, date, onChange, variant, canEdit }: {
       onClick={handleClick}
       disabled={!canEdit || hasDate}
       title={hasDate ? `${label} · ${fmtDate(date)}` : canEdit ? `Добавить дату для ${label}` : label}
-      className={`inline-flex items-center gap-1 text-[12px] shrink-0 min-w-0 transition-colors ${
-        !hasDate && canEdit ? 'hover:text-indigo-500 cursor-pointer' : ''
+      className={`group/rp inline-flex flex-col items-start gap-0.5 text-[12px] shrink-0 min-w-0 transition-all ${
+        !hasDate && canEdit ? 'cursor-pointer' : ''
       } ${saving ? 'opacity-50' : ''}`}
     >
-      {flag && <span className="shrink-0">{flag}</span>}
-      <span className={`truncate max-w-[90px] ${nameColor}`}>{label}</span>
-      {hasDate && (
-        <span className="ml-0.5 inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-[11px] font-semibold text-slate-600 shrink-0 tabular-nums">
+      <span className="inline-flex items-center gap-1.5 min-w-0">
+        <span className={`w-2 h-2 rounded-full ring-4 shrink-0 ${hasDate ? dotByVariant : 'bg-slate-200 ring-slate-50'}`} />
+        {flag && <span className="shrink-0 text-[13px] leading-none">{flag}</span>}
+        <span className={`truncate max-w-[100px] text-[12.5px] ${labelColor} ${!hasDate && canEdit ? 'group-hover/rp:text-indigo-500' : ''}`}>{label}</span>
+      </span>
+      {hasDate ? (
+        <span className="ml-[14px] text-[10.5px] font-semibold text-slate-500 tabular-nums tracking-tight">
           {fmtDate(date)?.slice(0, 5)}
         </span>
-      )}
+      ) : canEdit ? (
+        <span className="ml-[14px] text-[10.5px] text-slate-300 italic">+ дата</span>
+      ) : null}
       <input id={inputId} type="date" className="sr-only" onChange={handleDateChange} onClick={e => e.stopPropagation()} />
     </button>
   )
@@ -89,6 +97,16 @@ function getFlag(city: string | null): string {
     if (city.toLowerCase().includes(k.toLowerCase())) return v
   }
   return ''
+}
+
+// Русские числительные: 1 перевозка, 2 перевозки, 5 перевозок
+function pluralRu(n: number, one: string, few: string, many: string): string {
+  const m10 = n % 10
+  const m100 = n % 100
+  if (m100 >= 11 && m100 <= 14) return many
+  if (m10 === 1) return one
+  if (m10 >= 2 && m10 <= 4) return few
+  return many
 }
 
 function Hl({ text, q }: { text: string; q: string }) {
@@ -403,54 +421,101 @@ export default function ShipmentsPage() {
       )}
 
       {/* Desktop Table */}
-      <div className={`hidden md:block bg-white rounded-xl border border-slate-100 overflow-hidden ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>
+      <div className={`hidden md:block rounded-2xl bg-white ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_8px_24px_-12px_rgba(15,23,42,0.08)] overflow-hidden ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-        <table className="w-full table-fixed min-w-[800px]">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/60">
-              <th className="text-left pl-4 pr-1 py-2.5 text-[12px] font-semibold text-slate-500 w-[14%]">Контейнер</th>
-              <th className="text-left px-1 py-2.5 text-[12px] font-semibold text-slate-500 w-[8%]">Загрузка</th>
-              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Клиент</th>
-              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500">Перевозчик</th>
-              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500" colSpan={3}>Маршрут</th>
-              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500 w-[6%]">Дней</th>
-              <th className="text-left px-2 py-2.5 text-[12px] font-semibold text-slate-500 w-[9%]">Статус</th>
+        <table className="w-full table-fixed min-w-[880px]">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-gradient-to-b from-slate-50/95 to-slate-50/80 backdrop-blur-sm border-b border-slate-200/70">
+              <th className="text-left pl-5 pr-2 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[15%]">Контейнер</th>
+              <th className="text-left px-2 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[8%]">Дата</th>
+              <th className="text-left px-3 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[16%]">Клиент</th>
+              <th className="text-left px-3 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[12%]">Перевозчик</th>
+              <th className="text-left px-3 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em]" colSpan={3}>Маршрут</th>
+              <th className="text-center px-2 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[7%]">Срок</th>
+              <th className="text-left pl-2 pr-5 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[10%]">Статус</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={9} className="px-5 py-3"><div className="space-y-2">{[...Array(6)].map((_, i) => <div key={i} className="skeleton h-10 w-full" />)}</div></td></tr>
+              <tr><td colSpan={9} className="px-5 py-4"><div className="space-y-2.5">{[...Array(8)].map((_, i) => <div key={i} className="skeleton h-12 w-full rounded-lg" />)}</div></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={9} className="px-5 py-16 text-center">
-                <Ship className="w-10 h-10 text-slate-200 mx-auto mb-3" strokeWidth={1.5} />
+              <tr><td colSpan={9} className="px-5 py-20 text-center">
+                <Ship className="w-12 h-12 text-slate-200 mx-auto mb-3" strokeWidth={1.3} />
                 <p className="text-[14px] text-slate-400 font-medium">Не найдено</p>
+                <p className="text-[12px] text-slate-300 mt-1">Попробуйте изменить фильтры</p>
               </td></tr>
-            ) : (
-              <>
-                {filtered.map((s, idx) => {
-                  const isRussia = (s.client as unknown as { is_russia?: boolean })?.is_russia || false
-                  const status = getShipmentStatus(s, isRussia)
+            ) : (() => {
+              let lastMonth = ''
+              const monthCounts: Record<string, number> = {}
+              for (const s of filtered) {
+                const k = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : '—'
+                monthCounts[k] = (monthCounts[k] || 0) + 1
+              }
+              return filtered.map((s) => {
+                const isRussia = (s.client as unknown as { is_russia?: boolean })?.is_russia || false
+                const status = getShipmentStatus(s, isRussia)
+                const curMonth = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : '—'
+                const showHeader = curMonth !== lastMonth
+                if (showHeader) lastMonth = curMonth
 
-                  return (
-                    <tr key={s.id} className={`border-b border-slate-50 cursor-pointer hover:bg-indigo-50/30 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
-                      onClick={() => openShipment(s.id)}>
-                      <td className="pl-4 pr-1 py-2.5">
-                        <p className="text-[13px] font-semibold text-slate-800 font-mono"><Hl text={s.container_number || '—'} q={search} /></p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          {s.container_size ? <span className={`inline-block rounded px-1.5 py-px text-[9px] font-semibold ${s.container_size === 20 ? 'bg-blue-50 text-blue-500' : 'bg-violet-50 text-violet-500'}`}>{s.container_size}ft</span> : null}
-                          {s.container_type ? <span className={`inline-block rounded px-1.5 py-px text-[9px] font-semibold ${
-                            s.container_type === 'Выкупной' ? 'bg-amber-50 text-amber-600' :
-                            s.container_type === 'Возвратный' ? 'bg-emerald-50 text-emerald-600' :
-                            s.container_type === 'Собственный' ? 'bg-indigo-50 text-indigo-600' :
-                            'bg-slate-100 text-slate-500'
-                          }`}>{s.container_type}</span> : null}
+                return (
+                  <Fragment key={s.id}>
+                    {showHeader && (
+                      <tr className="bg-slate-50/40">
+                        <td colSpan={9} className="px-5 py-1.5">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-[0.08em]">{curMonth}</span>
+                            <span className="text-[11px] text-slate-400 tabular-nums">·  {monthCounts[curMonth]} {pluralRu(monthCounts[curMonth], 'перевозка', 'перевозки', 'перевозок')}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    <tr
+                      className="group/row relative border-b border-slate-100/70 cursor-pointer transition-all duration-150 hover:bg-gradient-to-r hover:from-indigo-50/40 hover:to-transparent"
+                      onClick={() => openShipment(s.id)}
+                    >
+                      {/* Container */}
+                      <td className="pl-5 pr-2 py-3.5 relative">
+                        <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-indigo-400 to-violet-500 opacity-0 group-hover/row:opacity-100 transition-opacity rounded-r" />
+                        <p className="text-[13.5px] font-bold text-slate-900 font-mono tracking-tight tabular-nums">
+                          <Hl text={s.container_number || '—'} q={search} />
+                        </p>
+                        <div className="flex items-center gap-1 mt-1">
+                          {s.container_size ? (
+                            <span className={`inline-block rounded-[5px] px-1.5 py-px text-[10px] font-semibold ring-1 ring-inset ${s.container_size === 20 ? 'bg-sky-50 text-sky-700 ring-sky-200/60' : 'bg-violet-50 text-violet-700 ring-violet-200/60'}`}>
+                              {s.container_size}ft
+                            </span>
+                          ) : null}
+                          {s.container_type ? (
+                            <span className={`inline-block rounded-[5px] px-1.5 py-px text-[10px] font-semibold ring-1 ring-inset ${
+                              s.container_type === 'Выкупной' ? 'bg-amber-50 text-amber-700 ring-amber-200/60' :
+                              s.container_type === 'Возвратный' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200/60' :
+                              s.container_type === 'Собственный' ? 'bg-indigo-50 text-indigo-700 ring-indigo-200/60' :
+                              'bg-slate-100 text-slate-600 ring-slate-200/60'
+                            }`}>
+                              {s.container_type}
+                            </span>
+                          ) : null}
                         </div>
                       </td>
-                      <td className="px-1 py-2.5 text-[12px] text-slate-500 tabular-nums whitespace-nowrap">{fmtDate(s.departure_date)}</td>
-                      <td className="px-3 py-2.5 text-[12px] font-medium text-slate-700 max-w-[140px] truncate"><Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} /></td>
-                      <td className="px-3 py-2.5 text-[12px] text-slate-600 max-w-[120px] truncate"><Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} /></td>
-                      <td className="px-3 py-2.5" colSpan={3} onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between gap-2 text-[12px] min-w-0 w-full">
+                      {/* Date */}
+                      <td className="px-2 py-3.5 text-[12.5px] text-slate-600 tabular-nums font-medium whitespace-nowrap">
+                        {fmtDate(s.departure_date) || <span className="text-slate-300">—</span>}
+                      </td>
+                      {/* Client */}
+                      <td className="px-3 py-3.5">
+                        <p className="text-[13px] font-semibold text-slate-800 truncate">
+                          <Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} />
+                        </p>
+                        {isRussia && <p className="text-[10.5px] text-rose-500 font-medium mt-0.5">🇷🇺 РФ</p>}
+                      </td>
+                      {/* Carrier */}
+                      <td className="px-3 py-3.5 text-[12.5px] text-slate-500 truncate">
+                        <Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} />
+                      </td>
+                      {/* Route */}
+                      <td className="px-3 py-3.5" colSpan={3} onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between gap-1 min-w-0 w-full">
                           <RoutePoint
                             label={s.origin || '—'}
                             flag={getFlag(s.origin)}
@@ -459,7 +524,7 @@ export default function ShipmentsPage() {
                             canEdit={canEdit}
                             onChange={(d) => updateDate(s.id, 'departure_date', d)}
                           />
-                          <div className="flex-1 h-px bg-slate-200/70 min-w-[16px]" />
+                          <div className="flex-1 min-w-[14px] mt-[3px] h-[1.5px] bg-gradient-to-r from-indigo-100 via-amber-100 to-emerald-100" />
                           <RoutePoint
                             label={s.destination_station || '—'}
                             date={s.arrival_date}
@@ -467,7 +532,7 @@ export default function ShipmentsPage() {
                             canEdit={canEdit}
                             onChange={(d) => updateDate(s.id, 'arrival_date', d)}
                           />
-                          <div className="flex-1 h-px bg-slate-200/70 min-w-[16px]" />
+                          <div className="flex-1 min-w-[14px] mt-[3px] h-[1.5px] bg-gradient-to-r from-amber-100 to-emerald-100" />
                           <RoutePoint
                             label={s.destination_city || '—'}
                             flag={getFlag(s.destination_city)}
@@ -478,26 +543,50 @@ export default function ShipmentsPage() {
                           />
                         </div>
                       </td>
-                      <td className="px-2 py-2.5">
+                      {/* Days */}
+                      <td className="px-2 py-3.5 text-center">
                         {(() => {
-                          if (status.key === 'delivered') return <span className="text-[11px] text-emerald-500 font-medium">✓</span>
+                          if (status.key === 'delivered') return (
+                            <span className="inline-flex items-center justify-center w-7 h-6 rounded-md bg-emerald-50 text-emerald-600 text-[11px] font-bold ring-1 ring-emerald-200/60">✓</span>
+                          )
                           if (!s.departure_date) return <span className="text-[11px] text-slate-300">—</span>
                           const days = Math.floor((Date.now() - new Date(s.departure_date).getTime()) / 86400000)
                           const isLong = days > 45
-                          return <span className={`text-[11px] font-semibold tabular-nums ${isLong ? 'text-red-500' : 'text-slate-600'}`}>{days}д</span>
+                          const isWarn = days > 30 && !isLong
+                          const cls = isLong
+                            ? 'bg-red-50 text-red-600 ring-red-200/60'
+                            : isWarn
+                              ? 'bg-amber-50 text-amber-700 ring-amber-200/60'
+                              : 'bg-slate-50 text-slate-600 ring-slate-200/60'
+                          return (
+                            <span className={`inline-flex items-center justify-center min-w-[34px] px-1.5 h-6 rounded-md text-[11px] font-bold tabular-nums ring-1 ${cls}`}>
+                              {days}д
+                            </span>
+                          )
                         })()}
                       </td>
-                      <td className="px-3 py-2">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap" style={{ background: status.color + '15', color: status.color }}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${status.key === 'in_transit' ? 'dot-pulse' : ''}`} style={{ background: status.color }} />
+                      {/* Status */}
+                      <td className="pl-2 pr-5 py-3.5">
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2.5 py-[3px] rounded-full text-[11px] font-semibold whitespace-nowrap ring-1 ring-inset"
+                          style={{
+                            background: status.color + '12',
+                            color: status.color,
+                            borderColor: status.color + '20',
+                          }}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${status.key === 'in_transit' ? 'dot-pulse' : ''}`}
+                            style={{ background: status.color }}
+                          />
                           {status.label}
                         </span>
                       </td>
                     </tr>
-                  )
-                })}
-              </>
-            )}
+                  </Fragment>
+                )
+              })
+            })()}
           </tbody>
         </table>
         </div>
