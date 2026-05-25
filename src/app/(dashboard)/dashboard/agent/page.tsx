@@ -542,7 +542,6 @@ const TOOL_LABELS: Record<string, string> = {
   finance_summary: 'Финансы',
   top_routes: 'Маршруты',
   render_chart: 'График',
-  execute_sql: 'SQL-запрос',
   create_shipment: 'Создание перевозки',
   update_shipment: 'Обновление перевозки',
   create_client: 'Создание клиента',
