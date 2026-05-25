@@ -73,6 +73,75 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
     await supabase.from('shipments').update(update).eq('id', shipment.id)
     setShipment({ ...shipment, ...update } as Shipment)
   }
+
+  const loadLookups = async () => {
+    if (lookups) return lookups
+    const supabase = createClient()
+    const [{ data: cl }, { data: ca }, { data: re }, { data: se }, { data: refData }] = await Promise.all([
+      supabase.from('clients').select('id, name').order('name'),
+      supabase.from('carriers').select('id, name').order('name'),
+      supabase.from('recipients').select('id, name').order('name'),
+      supabase.from('senders').select('id, name').order('name'),
+      supabase.from('reference_items').select('category, name').order('name'),
+    ])
+    const refs: Record<string, string[]> = {}
+    ;(refData || []).forEach((r: { category: string; name: string }) => {
+      if (!refs[r.category]) refs[r.category] = []
+      refs[r.category].push(r.name)
+    })
+    const loaded: Lookups = { clients: cl || [], carriers: ca || [], recipients: re || [], senders: se || [], refs }
+    setLookups(loaded)
+    return loaded
+  }
+
+  const startInlineEdit = async (field: string) => {
+    if (!shipment || editing || isCreateMode) return
+    await loadLookups()
+    const current = (shipment as unknown as Record<string, unknown>)[field]
+    setInlineValue(current == null ? '' : String(current))
+    setInlineField(field)
+  }
+
+  const cancelInline = () => {
+    setInlineField(null)
+    setInlineValue('')
+  }
+
+  const saveInline = async (overrideValue?: string) => {
+    if (!shipment || !inlineField) return
+    const value = overrideValue !== undefined ? overrideValue : inlineValue
+    const field = inlineField
+
+    const numFields = ['container_size', 'delivery_cost', 'price', 'invoice_amount', 'client_payment', 'customs_cost', 'weight_tons', 'additional_cost']
+    const dateFields = ['departure_date', 'arrival_date', 'delivery_date']
+    const fkFields = ['client_id', 'carrier_id', 'recipient_id', 'sender_id']
+
+    let parsed: unknown = value
+    if (numFields.includes(field)) parsed = value === '' ? null : Number(value)
+    else if (dateFields.includes(field)) parsed = value === '' ? null : value
+    else if (fkFields.includes(field)) parsed = value === '' ? null : value
+    else if (value === '') parsed = null
+
+    const update: Record<string, unknown> = { [field]: parsed }
+    if (field === 'delivery_date' && parsed) update.is_completed = true
+
+    const supabase = createClient()
+    const { error } = await supabase.from('shipments').update(update).eq('id', shipment.id)
+    if (error) {
+      alert(`Не удалось сохранить: ${error.message}`)
+      return
+    }
+
+    const { data } = await supabase
+      .from('shipments')
+      .select('*, recipient:recipients(name), client:clients(name, is_russia), sender:senders(name), carrier:carriers(name)')
+      .eq('id', shipment.id)
+      .single()
+    if (data) setShipment(data as unknown as Shipment)
+
+    setInlineField(null)
+    setInlineValue('')
+  }
   const [fileDocName, setFileDocName] = useState('')
   const [showFileUpload, setShowFileUpload] = useState(false)
   const [previewPdf, setPreviewPdf] = useState<{ url: string; name: string } | null>(null)
@@ -92,6 +161,8 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   const [showDelete, setShowDelete] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [inlineField, setInlineField] = useState<string | null>(null)
+  const [inlineValue, setInlineValue] = useState('')
 
   const supabase = createClient()
 
@@ -293,7 +364,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   // Shared input styles
   const inputCls = 'w-full text-[13px] border border-slate-200 rounded-md px-2 py-1.5 text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 transition-all'
 
-  // EditField: renders DetailIcon in view, input in edit
+  // EditField: renders DetailIcon in view, input in edit (or inline edit on empty click)
   function EditField({ icon, label, field, type = 'text', options, refCategory, displayValue, bold }: {
     icon: React.ReactNode; label: string; field: string;
     type?: 'text' | 'number' | 'date' | 'select' | 'ref';
@@ -301,14 +372,38 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
     refCategory?: string;
     displayValue?: string; bold?: boolean
   }) {
-    if (!editing) {
+    const isInline = inlineField === field
+    const showInput = editing || isInline
+
+    if (!showInput) {
       const val = displayValue ?? String((shipment as unknown as Record<string, unknown>)[field] || '—')
+      const isEmpty = val === '—' || val === ''
+      if (canEdit && isEmpty && !isCreateMode) {
+        return (
+          <button
+            type="button"
+            onClick={() => startInlineEdit(field)}
+            className="flex items-center gap-2 w-full text-left rounded-lg p-1 -m-1 hover:bg-indigo-50/50 transition-colors group"
+          >
+            <div className="w-6 h-6 rounded-md bg-slate-50 group-hover:bg-indigo-100 text-slate-400 group-hover:text-indigo-500 flex items-center justify-center shrink-0 transition-colors">{icon}</div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-slate-400 leading-tight">{label}</p>
+              <p className="text-[12.5px] text-indigo-500 group-hover:text-indigo-600 mt-0.5 leading-tight font-medium">+ добавить</p>
+            </div>
+          </button>
+        )
+      }
       return <DetailIcon icon={icon} label={label} value={val} bold={bold} />
     }
-    const raw = draft[field] ?? ''
+
+    const raw = isInline ? inlineValue : (draft[field] ?? '')
     const refOptions = refCategory && lookups?.refs[refCategory]
       ? lookups.refs[refCategory].map(n => ({ value: n, label: n }))
       : []
+    const handleChange = (v: string) => {
+      if (isInline) setInlineValue(v)
+      else setField(field, v)
+    }
     return (
       <div className="flex items-center gap-2">
         <div className="w-6 h-6 rounded-md bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">{icon}</div>
@@ -318,22 +413,31 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
             <SearchableSelect
               options={options}
               value={String(raw)}
-              onChange={v => setField(field, v)}
+              onChange={v => { handleChange(v); if (isInline) saveInline(v) }}
               placeholder="— Не выбрано —"
+              autoFocus={isInline}
             />
           ) : type === 'ref' && refCategory ? (
             <SearchableSelect
               options={refOptions}
               value={String(raw)}
-              onChange={v => setField(field, v)}
+              onChange={v => { handleChange(v); if (isInline) saveInline(v) }}
               placeholder="— Выберите —"
+              autoFocus={isInline}
             />
           ) : (
             <input
               type={type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'}
               className={inputCls}
               value={String(raw)}
-              onChange={e => setField(field, e.target.value)}
+              autoFocus={isInline}
+              onChange={e => handleChange(e.target.value)}
+              onBlur={() => { if (isInline) saveInline() }}
+              onKeyDown={e => {
+                if (!isInline) return
+                if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur() }
+                if (e.key === 'Escape') { cancelInline() }
+              }}
             />
           )}
         </div>

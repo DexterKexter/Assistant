@@ -330,7 +330,18 @@ export default function ShipmentsPage() {
       </div>
 
       {/* New shipment sheet */}
-      {addingNew && lookups && (
+      {addingNew && lookups && (() => {
+        const size = newRow.container_size || '40'
+        const type = newRow.container_type || 'Выкупной'
+        const typeColors: Record<string, { bg: string; ring: string; text: string; door: string }> = {
+          'Выкупной':    { bg: 'from-indigo-500 to-indigo-700',     ring: 'ring-indigo-300',  text: 'text-indigo-700',  door: 'bg-indigo-900' },
+          'Возвратный':  { bg: 'from-amber-500 to-amber-600',       ring: 'ring-amber-300',   text: 'text-amber-700',   door: 'bg-amber-900' },
+          'Собственный': { bg: 'from-emerald-500 to-emerald-600',   ring: 'ring-emerald-300', text: 'text-emerald-700', door: 'bg-emerald-900' },
+          'Малшы':       { bg: 'from-violet-500 to-violet-600',     ring: 'ring-violet-300',  text: 'text-violet-700',  door: 'bg-violet-900' },
+        }
+        const c = typeColors[type] || typeColors['Выкупной']
+        const containerMaxW = size === '40' ? 'max-w-[420px]' : 'max-w-[210px]'
+        return (
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center md:p-4" onClick={cancelNew}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
           <div
@@ -346,72 +357,149 @@ export default function ShipmentsPage() {
                 <X className="w-4 h-4 text-slate-500" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-              <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Контейнер *</p>
-                <div className="flex gap-1">
-                  <input type="text" value={newRow.container_number || ''} onChange={e => setNew('container_number', e.target.value)}
-                    placeholder="XXXX0000000" autoFocus className={inpCls + ' flex-1 font-mono font-bold'} />
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+              {/* === Container hero === */}
+              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5 items-center bg-white/50 rounded-2xl p-4 ring-1 ring-white/80">
+                {/* Visual */}
+                <div className="flex items-center justify-center min-h-[140px]">
+                  <div className={`relative w-full ${containerMaxW} transition-all duration-300 ease-out`}>
+                    <div className={`relative h-24 rounded-md bg-gradient-to-b ${c.bg} ring-1 ${c.ring} shadow-[0_8px_24px_-8px_rgba(15,23,42,0.35)] overflow-hidden`}>
+                      {/* Corrugation lines */}
+                      <div className="absolute inset-0 flex flex-col justify-around pointer-events-none">
+                        {[...Array(7)].map((_, i) => (
+                          <div key={i} className="h-px bg-black/15" />
+                        ))}
+                      </div>
+                      {/* Doors right side */}
+                      <div className={`absolute top-1.5 bottom-1.5 right-1.5 w-3 ${c.door} rounded-sm opacity-40`} />
+                      <div className={`absolute top-1.5 bottom-1.5 right-5 w-px bg-black/20`} />
+                      {/* Size badge */}
+                      <div className="absolute top-2 left-3 px-2 py-0.5 rounded bg-white/95 text-[10px] font-bold tracking-wide text-slate-700 shadow-sm">
+                        {size}ft
+                      </div>
+                      {/* Container number on side */}
+                      {newRow.container_number && (
+                        <div className="absolute bottom-2 left-3 right-9 px-1 py-0.5 rounded bg-black/30 text-[11px] font-mono font-bold text-white tracking-wider truncate">
+                          {newRow.container_number}
+                        </div>
+                      )}
+                    </div>
+                    {/* Ground shadow */}
+                    <div className="mx-4 h-1 rounded-full bg-slate-900/10 blur-sm" />
+                  </div>
+                </div>
+
+                {/* Number + size + type + date */}
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Номер контейнера *</p>
+                    <input
+                      type="text"
+                      value={newRow.container_number || ''}
+                      onChange={e => setNew('container_number', e.target.value.toUpperCase())}
+                      placeholder="XXXX0000000"
+                      autoFocus
+                      className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-[15px] font-mono font-bold tracking-wider text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 placeholder:text-slate-300 placeholder:font-normal placeholder:tracking-normal"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Размер</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['20', '40'].map(s => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setNew('container_size', s)}
+                          className={`h-10 rounded-lg border text-[13px] font-semibold transition-all ${
+                            size === s
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                              : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                          }`}
+                        >
+                          {s} ft
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Тип</p>
+                      <select value={type} onChange={e => setNew('container_type', e.target.value)} className="w-full h-10 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300">
+                        <option value="Выкупной">Выкупной</option>
+                        <option value="Возвратный">Возвратный</option>
+                        <option value="Собственный">Собственный</option>
+                        <option value="Малшы">Малшы</option>
+                      </select>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Дата загрузки</p>
+                      <input type="date" value={newRow.departure_date || ''} onChange={e => setNew('departure_date', e.target.value)} className="w-full h-10 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300" />
+                    </div>
+                  </div>
                 </div>
               </div>
+
+              {/* === Участники === */}
               <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Размер / Тип</p>
-                <div className="flex gap-1">
-                  <select value={newRow.container_size || '40'} onChange={e => setNew('container_size', e.target.value)} className={inpCls + ' flex-1'}>
-                    <option value="20">20ft</option>
-                    <option value="40">40ft</option>
-                  </select>
-                  <select value={newRow.container_type || ''} onChange={e => setNew('container_type', e.target.value)} className={inpCls + ' flex-1'}>
-                    <option value="Выкупной">Выкупной</option>
-                    <option value="Возвратный">Возвратный</option>
-                    <option value="Собственный">Собственный</option>
-                    <option value="Малшы">Малшы</option>
-                  </select>
+                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-2 px-1">Участники</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <p className="text-[12px] text-slate-500 font-medium mb-1">Клиент</p>
+                    <SearchableSelect options={lookups.clients.map(c => ({ value: c.id, label: c.name }))} value={newRow.client_id || ''} onChange={v => setNew('client_id', v)} placeholder="Выберите..." />
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-slate-500 font-medium mb-1">Получатель</p>
+                    <SearchableSelect options={lookups.recipients.map(r => ({ value: r.id, label: r.name }))} value={newRow.recipient_id || ''} onChange={v => setNew('recipient_id', v)} placeholder="Выберите..." />
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-slate-500 font-medium mb-1">Перевозчик</p>
+                    <SearchableSelect options={lookups.carriers.map(c => ({ value: c.id, label: c.name }))} value={newRow.carrier_id || ''} onChange={v => setNew('carrier_id', v)} placeholder="Выберите..." />
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-slate-500 font-medium mb-1">Отправитель</p>
+                    <SearchableSelect options={(lookups.refs.sender || []).map(n => ({ value: n, label: n }))} value={newRow.sender_name || ''} onChange={v => setNew('sender_name', v)} placeholder="Выберите..." />
+                  </div>
                 </div>
               </div>
+
+              {/* === Маршрут === */}
               <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Дата загрузки</p>
-                <input type="date" value={newRow.departure_date || ''} onChange={e => setNew('departure_date', e.target.value)} className={inpCls + ' w-full'} />
+                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-2 px-1">Маршрут</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <p className="text-[12px] text-slate-500 font-medium mb-1">Откуда</p>
+                    <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.origin || ''} onChange={v => setNew('origin', v)} placeholder="Выберите..." />
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-slate-500 font-medium mb-1">Погранпереход</p>
+                    <SearchableSelect options={(lookups.refs.station || []).map(n => ({ value: n, label: n }))} value={newRow.destination_station || ''} onChange={v => setNew('destination_station', v)} placeholder="Выберите..." />
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-slate-500 font-medium mb-1">Город назначения</p>
+                    <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.destination_city || ''} onChange={v => setNew('destination_city', v)} placeholder="Выберите..." />
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-slate-500 font-medium mb-1">Товар</p>
+                    <SearchableSelect options={(lookups.refs.cargo || []).map(n => ({ value: n, label: n }))} value={newRow.cargo_description || ''} onChange={v => setNew('cargo_description', v)} placeholder="Выберите..." />
+                  </div>
+                </div>
               </div>
+
+              {/* === Финансы === */}
               <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Клиент</p>
-                <SearchableSelect options={lookups.clients.map(c => ({ value: c.id, label: c.name }))} value={newRow.client_id || ''} onChange={v => setNew('client_id', v)} placeholder="Выберите..." />
-              </div>
-              <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Получатель</p>
-                <SearchableSelect options={lookups.recipients.map(r => ({ value: r.id, label: r.name }))} value={newRow.recipient_id || ''} onChange={v => setNew('recipient_id', v)} placeholder="Выберите..." />
-              </div>
-              <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Перевозчик</p>
-                <SearchableSelect options={lookups.carriers.map(c => ({ value: c.id, label: c.name }))} value={newRow.carrier_id || ''} onChange={v => setNew('carrier_id', v)} placeholder="Выберите..." />
-              </div>
-              <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Отправитель</p>
-                <SearchableSelect options={(lookups.refs.sender || []).map(n => ({ value: n, label: n }))} value={newRow.sender_name || ''} onChange={v => setNew('sender_name', v)} placeholder="Выберите..." />
-              </div>
-              <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Товар</p>
-                <SearchableSelect options={(lookups.refs.cargo || []).map(n => ({ value: n, label: n }))} value={newRow.cargo_description || ''} onChange={v => setNew('cargo_description', v)} placeholder="Выберите..." />
-              </div>
-              <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Откуда</p>
-                <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.origin || ''} onChange={v => setNew('origin', v)} placeholder="Выберите..." />
-              </div>
-              <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Погранпереход</p>
-                <SearchableSelect options={(lookups.refs.station || []).map(n => ({ value: n, label: n }))} value={newRow.destination_station || ''} onChange={v => setNew('destination_station', v)} placeholder="Выберите..." />
-              </div>
-              <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Город назначения</p>
-                <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.destination_city || ''} onChange={v => setNew('destination_city', v)} placeholder="Выберите..." />
-              </div>
-              <div>
-                <p className="text-[12px] text-slate-500 font-medium mb-1">Стоимость доставки</p>
-                <input type="number" placeholder="0" className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300 w-full" value={newRow.delivery_cost || ''} onChange={e => setNew('delivery_cost', e.target.value || '')} />
+                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-2 px-1">Финансы</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <p className="text-[12px] text-slate-500 font-medium mb-1">Стоимость доставки</p>
+                    <input type="number" placeholder="0" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300" value={newRow.delivery_cost || ''} onChange={e => setNew('delivery_cost', e.target.value || '')} />
+                  </div>
+                </div>
               </div>
             </div>
-            </div>
+
             <div className="px-5 pt-3 pb-3 flex items-center gap-2 border-t border-white/60 bg-white/20">
               <button onClick={cancelNew} className="flex-1 h-10 rounded-xl border border-white/80 bg-white/60 text-slate-600 text-[13px] font-medium active:bg-white/90 transition-colors">
                 Отмена
@@ -426,7 +514,8 @@ export default function ShipmentsPage() {
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Desktop Table */}
       <div className={`hidden md:block rounded-2xl bg-white ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_8px_24px_-12px_rgba(15,23,42,0.08)] overflow-hidden ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>

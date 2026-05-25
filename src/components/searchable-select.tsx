@@ -14,9 +14,10 @@ interface Props {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  autoFocus?: boolean
 }
 
-export function SearchableSelect({ options, value, onChange, placeholder = 'Выберите...' }: Props) {
+export function SearchableSelect({ options, value, onChange, placeholder = 'Выберите...', autoFocus }: Props) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [coords, setCoords] = useState<{ top: number; left: number; width: number; openUp: boolean } | null>(null)
@@ -133,6 +134,7 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
           type="text"
           value={query}
           placeholder={placeholder}
+          autoFocus={autoFocus}
           onChange={e => { setQuery(e.target.value); setOpen(true) }}
           onFocus={e => { setOpen(true); e.target.select() }}
           onKeyDown={handleKeyDown}
