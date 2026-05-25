@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save } from 'lucide-react'
+import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send } from 'lucide-react'
 import { ReferencesModal } from '@/components/references-modal'
 import { SearchableSelect } from '@/components/searchable-select'
 import { getShipmentStatus, type Shipment } from '@/types/database'
@@ -424,19 +424,36 @@ export default function ShipmentsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="col-span-4">
                       <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Тип</p>
-                      <select value={type} onChange={e => setNew('container_type', e.target.value)} className="w-full h-10 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300">
-                        <option value="Выкупной">Выкупной</option>
-                        <option value="Возвратный">Возвратный</option>
-                        <option value="Собственный">Собственный</option>
-                        <option value="Малшы">Малшы</option>
-                      </select>
+                      <div className="flex flex-wrap gap-1">
+                        {([
+                          { value: 'Выкупной',    activeCls: 'bg-indigo-500 text-white border-indigo-500' },
+                          { value: 'Возвратный',  activeCls: 'bg-amber-500 text-white border-amber-500' },
+                          { value: 'Собственный', activeCls: 'bg-emerald-500 text-white border-emerald-500' },
+                          { value: 'Малшы',       activeCls: 'bg-violet-500 text-white border-violet-500' },
+                        ]).map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setNew('container_type', opt.value)}
+                            className={`h-7 rounded-full border text-[11px] font-medium transition-all px-2.5 ${
+                              type === opt.value ? opt.activeCls : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                            }`}
+                          >
+                            {opt.value}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div>
+                    <div className="col-span-2">
                       <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Дата загрузки</p>
                       <input type="date" value={newRow.departure_date || ''} onChange={e => setNew('departure_date', e.target.value)} className="w-full h-10 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300" />
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Товар</p>
+                      <SearchableSelect options={(lookups.refs.cargo || []).map(n => ({ value: n, label: n }))} value={newRow.cargo_description || ''} onChange={v => setNew('cargo_description', v)} placeholder="Выберите..." />
                     </div>
                   </div>
                 </div>
@@ -445,22 +462,40 @@ export default function ShipmentsPage() {
               {/* === Участники === */}
               <div>
                 <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-2 px-1">Участники</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div>
-                    <p className="text-[12px] text-slate-500 font-medium mb-1">Клиент</p>
-                    <SearchableSelect options={lookups.clients.map(c => ({ value: c.id, label: c.name }))} value={newRow.client_id || ''} onChange={v => setNew('client_id', v)} placeholder="Выберите..." />
+                <div className="bg-white/60 rounded-2xl p-4 ring-1 ring-white/80">
+                  {/* Icons aligned with selects below (4 cols) */}
+                  <div className="hidden sm:grid grid-cols-4 gap-3 mb-3">
+                    <div className="flex flex-col items-center">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.client_id ? 'bg-indigo-500 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
+                        <User className="w-4 h-4" />
+                      </div>
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Клиент</p>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.recipient_id ? 'bg-violet-500 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Получатель</p>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.carrier_id ? 'bg-amber-500 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
+                        <Truck className="w-4 h-4" />
+                      </div>
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Перевозчик</p>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.sender_name ? 'bg-emerald-500 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
+                        <Send className="w-4 h-4" />
+                      </div>
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Отправитель</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[12px] text-slate-500 font-medium mb-1">Получатель</p>
-                    <SearchableSelect options={lookups.recipients.map(r => ({ value: r.id, label: r.name }))} value={newRow.recipient_id || ''} onChange={v => setNew('recipient_id', v)} placeholder="Выберите..." />
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-slate-500 font-medium mb-1">Перевозчик</p>
-                    <SearchableSelect options={lookups.carriers.map(c => ({ value: c.id, label: c.name }))} value={newRow.carrier_id || ''} onChange={v => setNew('carrier_id', v)} placeholder="Выберите..." />
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-slate-500 font-medium mb-1">Отправитель</p>
-                    <SearchableSelect options={(lookups.refs.sender || []).map(n => ({ value: n, label: n }))} value={newRow.sender_name || ''} onChange={v => setNew('sender_name', v)} placeholder="Выберите..." />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <SearchableSelect options={lookups.clients.map(c => ({ value: c.id, label: c.name }))} value={newRow.client_id || ''} onChange={v => setNew('client_id', v)} placeholder="Клиент" />
+                    <SearchableSelect options={lookups.recipients.map(r => ({ value: r.id, label: r.name }))} value={newRow.recipient_id || ''} onChange={v => setNew('recipient_id', v)} placeholder="Получатель" />
+                    <SearchableSelect options={lookups.carriers.map(c => ({ value: c.id, label: c.name }))} value={newRow.carrier_id || ''} onChange={v => setNew('carrier_id', v)} placeholder="Перевозчик" />
+                    <SearchableSelect options={(lookups.refs.sender || []).map(n => ({ value: n, label: n }))} value={newRow.sender_name || ''} onChange={v => setNew('sender_name', v)} placeholder="Отправитель" />
                   </div>
                 </div>
               </div>
@@ -468,33 +503,61 @@ export default function ShipmentsPage() {
               {/* === Маршрут === */}
               <div>
                 <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-2 px-1">Маршрут</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div>
-                    <p className="text-[12px] text-slate-500 font-medium mb-1">Откуда</p>
-                    <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.origin || ''} onChange={v => setNew('origin', v)} placeholder="Выберите..." />
+                <div className="bg-white/60 rounded-2xl p-4 ring-1 ring-white/80">
+                  {/* Timeline icons aligned with selects below (4 cols) */}
+                  <div className="hidden sm:block relative mb-3">
+                    {/* Connector lines between adjacent route icons (1-2 and 2-3) */}
+                    <div
+                      className={`absolute top-5 h-0.5 ${newRow.origin && newRow.destination_station ? 'bg-slate-400' : 'bg-slate-200'}`}
+                      style={{ left: 'calc(12.5% + 20px)', right: 'calc(62.5% + 20px)' }}
+                    />
+                    <div
+                      className={`absolute top-5 h-0.5 ${newRow.destination_station && newRow.destination_city ? 'bg-slate-400' : 'bg-slate-200'}`}
+                      style={{ left: 'calc(37.5% + 20px)', right: 'calc(37.5% + 20px)' }}
+                    />
+                    <div className="grid grid-cols-4 gap-3 relative">
+                      <div className="flex flex-col items-center">
+                        <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.origin ? 'bg-slate-800 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
+                          <Ship className="w-4 h-4" />
+                        </div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Откуда</p>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.destination_station ? 'bg-slate-600 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
+                          <Filter className="w-4 h-4" />
+                        </div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Граница</p>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.destination_city ? 'bg-emerald-500 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
+                          <Ship className="w-4 h-4" />
+                        </div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Доставка</p>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.delivery_cost ? 'bg-indigo-500 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
+                          <DollarSign className="w-4 h-4" />
+                        </div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Стоимость</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[12px] text-slate-500 font-medium mb-1">Погранпереход</p>
-                    <SearchableSelect options={(lookups.refs.station || []).map(n => ({ value: n, label: n }))} value={newRow.destination_station || ''} onChange={v => setNew('destination_station', v)} placeholder="Выберите..." />
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-slate-500 font-medium mb-1">Город назначения</p>
-                    <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.destination_city || ''} onChange={v => setNew('destination_city', v)} placeholder="Выберите..." />
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-slate-500 font-medium mb-1">Товар</p>
-                    <SearchableSelect options={(lookups.refs.cargo || []).map(n => ({ value: n, label: n }))} value={newRow.cargo_description || ''} onChange={v => setNew('cargo_description', v)} placeholder="Выберите..." />
-                  </div>
-                </div>
-              </div>
 
-              {/* === Финансы === */}
-              <div>
-                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-2 px-1">Финансы</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div>
-                    <p className="text-[12px] text-slate-500 font-medium mb-1">Стоимость доставки</p>
-                    <input type="number" placeholder="0" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300" value={newRow.delivery_cost || ''} onChange={e => setNew('delivery_cost', e.target.value || '')} />
+                  {/* Selects + cost on same row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.origin || ''} onChange={v => setNew('origin', v)} placeholder="Пункт отправления" />
+                    <SearchableSelect options={(lookups.refs.station || []).map(n => ({ value: n, label: n }))} value={newRow.destination_station || ''} onChange={v => setNew('destination_station', v)} placeholder="Погранпереход" />
+                    <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.destination_city || ''} onChange={v => setNew('destination_city', v)} placeholder="Пункт доставки" />
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[13px] font-medium pointer-events-none">$</span>
+                      <input
+                        type="number"
+                        placeholder="Стоимость доставки"
+                        value={newRow.delivery_cost || ''}
+                        onChange={e => setNew('delivery_cost', e.target.value || '')}
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-6 pr-2.5 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
