@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, Search, X } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 
 interface Option {
   value: string
@@ -18,20 +18,29 @@ interface Props {
 
 export function SearchableSelect({ options, value, onChange, placeholder = 'Выберите...' }: Props) {
   const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
+  const [query, setQuery] = useState('')
   const [coords, setCoords] = useState<{ top: number; left: number; width: number; openUp: boolean } | null>(null)
+  const [highlight, setHighlight] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLButtonElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const popRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const selected = options.find(o => o.value === value)
 
-  const filtered = search
-    ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
-    : options
+  // Sync displayed query with selected label when input isn't being edited
+  useEffect(() => {
+    if (typeof document !== 'undefined' && document.activeElement !== inputRef.current) {
+      setQuery(selected?.label || '')
+    }
+  }, [value, selected?.label])
 
-  // Close on outside click (accounting for the portalled popover)
+  // If query matches current selection or is empty, show all; otherwise filter
+  const filtered = !query || query === selected?.label
+    ? options
+    : options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
+
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
@@ -39,18 +48,18 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
       if (ref.current?.contains(t)) return
       if (popRef.current?.contains(t)) return
       setOpen(false)
+      setQuery(selected?.label || '')
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [open])
+  }, [open, selected?.label])
 
-  // Reposition popover on scroll/resize while open
   useLayoutEffect(() => {
     if (!open) return
     const update = () => {
-      if (!btnRef.current) return
-      const r = btnRef.current.getBoundingClientRect()
-      const popHeight = 260
+      if (!wrapperRef.current) return
+      const r = wrapperRef.current.getBoundingClientRect()
+      const popHeight = 220
       const spaceBelow = window.innerHeight - r.bottom
       const openUp = spaceBelow < popHeight && r.top > popHeight
       const margin = 8
@@ -72,33 +81,95 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
     }
   }, [open])
 
+  // Reset highlight when query changes
   useEffect(() => {
-    if (open && inputRef.current) inputRef.current.focus()
-  }, [open])
+    setHighlight(0)
+  }, [query])
+
+  // Keep highlighted item in view
+  useEffect(() => {
+    if (!open || !listRef.current) return
+    const el = listRef.current.children[highlight] as HTMLElement | undefined
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [highlight, open])
+
+  const handleSelect = (opt: Option) => {
+    onChange(opt.value)
+    setQuery(opt.label)
+    setOpen(false)
+    inputRef.current?.blur()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (!open) setOpen(true)
+      setHighlight(h => Math.min(h + 1, filtered.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlight(h => Math.max(h - 1, 0))
+    } else if (e.key === 'Enter') {
+      if (open && filtered[highlight]) {
+        e.preventDefault()
+        handleSelect(filtered[highlight])
+      }
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+      setQuery(selected?.label || '')
+      inputRef.current?.blur()
+    }
+  }
 
   return (
     <div ref={ref} className="relative">
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full h-9 flex items-center justify-between text-[13px] border border-slate-200 rounded-lg px-2.5 text-slate-800 bg-white hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 transition-all text-left"
+      <div
+        ref={wrapperRef}
+        className={`w-full h-9 flex items-center text-[13px] border rounded-lg px-2.5 bg-white transition-all ${
+          open ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-slate-200 hover:border-slate-300'
+        }`}
       >
-        <span className={selected ? 'text-slate-800 truncate' : 'text-slate-400 truncate'}>
-          {selected ? selected.label : placeholder}
-        </span>
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          placeholder={placeholder}
+          onChange={e => { setQuery(e.target.value); setOpen(true) }}
+          onFocus={e => { setOpen(true); e.target.select() }}
+          onKeyDown={handleKeyDown}
+          className="flex-1 min-w-0 bg-transparent outline-none text-slate-800 placeholder:text-slate-400"
+        />
         <div className="flex items-center gap-1 shrink-0 ml-1">
           {value && (
-            <span
-              onClick={(e) => { e.stopPropagation(); onChange(''); setOpen(false) }}
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                onChange('')
+                setQuery('')
+                inputRef.current?.focus()
+              }}
               className="w-3.5 h-3.5 rounded-full hover:bg-slate-100 flex items-center justify-center"
             >
               <X className="w-2.5 h-2.5 text-slate-400" />
-            </span>
+            </button>
           )}
-          <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              if (open) {
+                setOpen(false)
+                inputRef.current?.blur()
+              } else {
+                inputRef.current?.focus()
+              }
+            }}
+            className="w-3.5 h-3.5 flex items-center justify-center"
+          >
+            <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+          </button>
         </div>
-      </button>
+      </div>
 
       {open && coords && typeof document !== 'undefined' && createPortal(
         <div
@@ -111,33 +182,21 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
             width: coords.width,
           }}
         >
-          {options.length > 5 && (
-            <div className="p-1.5 border-b border-slate-100">
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Поиск..."
-                  className="w-full text-[12px] border border-slate-100 rounded-md pl-6 pr-2 py-1 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-slate-50"
-                />
-              </div>
-            </div>
-          )}
-          <div className="max-h-48 overflow-y-auto py-1">
+          <div ref={listRef} className="max-h-48 overflow-y-auto py-1">
             {filtered.length === 0 ? (
               <p className="text-[12px] text-slate-400 px-3 py-2 text-center">Не найдено</p>
             ) : (
-              filtered.map(o => (
+              filtered.map((o, idx) => (
                 <button
                   key={o.value}
                   type="button"
-                  onClick={() => { onChange(o.value); setOpen(false); setSearch('') }}
+                  onMouseDown={(e) => { e.preventDefault(); handleSelect(o) }}
+                  onMouseEnter={() => setHighlight(idx)}
                   className={`w-full text-left px-3 py-1.5 text-[12px] transition-colors ${
                     o.value === value
                       ? 'bg-indigo-50 text-indigo-700 font-medium'
+                      : idx === highlight
+                      ? 'bg-slate-50 text-slate-700'
                       : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >

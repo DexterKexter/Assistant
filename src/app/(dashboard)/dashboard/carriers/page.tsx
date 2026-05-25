@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Truck, Clock, DollarSign } from 'lucide-react'
+import { Search, Truck, Clock, DollarSign, Plus, X, Save } from 'lucide-react'
+import { useProfile } from '@/lib/useProfile'
 import type { Carrier } from '@/types/database'
 
 type ActivityTab = 'all' | 'active' | 'moderate' | 'inactive'
@@ -20,7 +21,33 @@ export default function CarriersPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<ActivityTab>('all')
+  const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [saving, setSaving] = useState(false)
   const router = useRouter()
+  const { hasRole } = useProfile()
+  const canEdit = hasRole('admin', 'manager')
+
+  const saveNewCarrier = async () => {
+    const name = newName.trim()
+    if (!name) return
+    setSaving(true)
+    const supabase = createClient()
+    const { data, error } = await supabase.from('carriers').insert({ name }).select('id, name').single()
+    setSaving(false)
+    if (error) {
+      alert(`Не удалось добавить: ${error.message}`)
+      return
+    }
+    if (data) {
+      setCarriers(prev => [
+        { ...data, shipmentCount: 0, avgDeliveryCost: null, lastShipmentDate: null, daysSince: null },
+        ...prev,
+      ])
+    }
+    setNewName('')
+    setAdding(false)
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -96,7 +123,45 @@ export default function CarriersPage() {
           <input type="text" placeholder="Поиск..." value={search} onChange={e => setSearch(e.target.value)}
             className="w-full h-9 rounded-lg bg-white border border-slate-200 pl-9 pr-3 text-[12px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/20 transition-all" />
         </div>
+        {canEdit && (
+          <button onClick={() => setAdding(true)} className="h-9 flex items-center gap-1.5 px-3 bg-slate-900 text-white rounded-lg text-[12px] font-medium hover:bg-slate-800 transition-colors shrink-0">
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Новый</span>
+          </button>
+        )}
       </div>
+
+      {adding && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => !saving && setAdding(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div onClick={e => e.stopPropagation()} className="relative w-full max-w-md rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+              <p className="text-[14px] font-semibold text-slate-900">Новый перевозчик</p>
+              <button onClick={() => !saving && setAdding(false)} className="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center">
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-[12px] text-slate-500 font-medium mb-1">Название *</p>
+              <input
+                type="text"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveNewCarrier() }}
+                autoFocus
+                placeholder="Например, FOB GLOBAL CARGO"
+                className="w-full h-10 rounded-lg border border-slate-200 px-3 text-[13px] text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+              />
+            </div>
+            <div className="px-5 pb-4 flex items-center gap-2">
+              <button onClick={() => setAdding(false)} disabled={saving} className="flex-1 h-9 rounded-lg border border-slate-200 text-slate-600 text-[13px] font-medium hover:bg-slate-50 disabled:opacity-50">Отмена</button>
+              <button onClick={saveNewCarrier} disabled={saving || !newName.trim()} className="flex-1 h-9 rounded-lg bg-slate-900 text-white text-[13px] font-semibold hover:bg-slate-800 disabled:opacity-50 flex items-center justify-center gap-1.5">
+                <Save className="w-3.5 h-3.5" /> {saving ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-2">{[...Array(6)].map((_, i) => <div key={i} className="skeleton h-14 rounded-xl" />)}</div>

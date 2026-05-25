@@ -266,7 +266,13 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   const handleDelete = async () => {
     if (!shipment || deleteConfirm !== shipment.container_number) return
     setDeleting(true)
-    await supabase.from('shipments').delete().eq('id', shipment.id)
+    const { error } = await supabase.from('shipments').delete().eq('id', shipment.id)
+    if (error) {
+      console.error('Delete error:', error)
+      alert(`Не удалось удалить: ${error.message}`)
+      setDeleting(false)
+      return
+    }
     setDeleting(false)
     onClose()
     window.location.reload()

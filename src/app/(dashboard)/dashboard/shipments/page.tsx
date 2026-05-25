@@ -379,12 +379,20 @@ export default function ShipmentsPage() {
                 <SearchableSelect options={lookups.clients.map(c => ({ value: c.id, label: c.name }))} value={newRow.client_id || ''} onChange={v => setNew('client_id', v)} placeholder="Выберите..." />
               </div>
               <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Получатель</p>
+                <SearchableSelect options={lookups.recipients.map(r => ({ value: r.id, label: r.name }))} value={newRow.recipient_id || ''} onChange={v => setNew('recipient_id', v)} placeholder="Выберите..." />
+              </div>
+              <div>
                 <p className="text-[12px] text-slate-500 font-medium mb-1">Перевозчик</p>
                 <SearchableSelect options={lookups.carriers.map(c => ({ value: c.id, label: c.name }))} value={newRow.carrier_id || ''} onChange={v => setNew('carrier_id', v)} placeholder="Выберите..." />
               </div>
               <div>
                 <p className="text-[12px] text-slate-500 font-medium mb-1">Отправитель</p>
                 <SearchableSelect options={(lookups.refs.sender || []).map(n => ({ value: n, label: n }))} value={newRow.sender_name || ''} onChange={v => setNew('sender_name', v)} placeholder="Выберите..." />
+              </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Товар</p>
+                <SearchableSelect options={(lookups.refs.cargo || []).map(n => ({ value: n, label: n }))} value={newRow.cargo_description || ''} onChange={v => setNew('cargo_description', v)} placeholder="Выберите..." />
               </div>
               <div>
                 <p className="text-[12px] text-slate-500 font-medium mb-1">Откуда</p>

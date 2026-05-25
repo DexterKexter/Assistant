@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Users, Clock, Diamond, Award, Medal, Star, Circle } from 'lucide-react'
+import { Search, Users, Clock, Diamond, Award, Medal, Star, Circle, Plus, X, Save } from 'lucide-react'
+import { useProfile } from '@/lib/useProfile'
 import type { Client } from '@/types/database'
 
 type ActivityTab = 'all' | 'active' | 'moderate' | 'inactive'
@@ -21,7 +22,37 @@ export default function ClientsPage() {
   const [tab, setTab] = useState<ActivityTab>('all')
   const [sortBy, setSortBy] = useState<'name' | 'daysSince' | 'shipmentCount'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [adding, setAdding] = useState(false)
+  const [newClient, setNewClient] = useState<{ name: string; phone: string; is_russia: boolean }>({ name: '', phone: '', is_russia: false })
+  const [saving, setSaving] = useState(false)
   const router = useRouter()
+  const { hasRole } = useProfile()
+  const canEdit = hasRole('admin', 'manager')
+
+  const saveNewClient = async () => {
+    const name = newClient.name.trim()
+    if (!name) return
+    setSaving(true)
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('clients')
+      .insert({ name, phone: newClient.phone.trim() || null, is_russia: newClient.is_russia })
+      .select('id, name, phone, is_russia')
+      .single()
+    setSaving(false)
+    if (error) {
+      alert(`Не удалось добавить: ${error.message}`)
+      return
+    }
+    if (data) {
+      setClients(prev => [
+        { ...data, lastShipmentDate: null, daysSince: null, shipmentCount: 0 },
+        ...prev,
+      ])
+    }
+    setNewClient({ name: '', phone: '', is_russia: false })
+    setAdding(false)
+  }
 
   const toggleSort = (field: 'name' | 'daysSince' | 'shipmentCount') => {
     if (sortBy === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -31,32 +62,23 @@ export default function ClientsPage() {
   useEffect(() => {
     const supabase = createClient()
     const load = async () => {
-      const [{ data: clientsData }, { data: shipmentsData }] = await Promise.all([
-        supabase.from('clients').select('id, name, phone, is_russia').order('name'),
-        supabase.from('shipments').select('client_id, departure_date').not('client_id', 'is', null),
-      ])
-
-      if (!clientsData) { setLoading(false); return }
-
-      // Build index: client_id → { count, latestDate } in single O(n) pass
-      const index = new Map<string, { count: number; latest: string | null }>()
-      for (const s of shipmentsData || []) {
-        if (!s.client_id || !s.departure_date) continue
-        const entry = index.get(s.client_id)
-        if (!entry) {
-          index.set(s.client_id, { count: 1, latest: s.departure_date })
-        } else {
-          entry.count++
-          if (s.departure_date > (entry.latest || '')) entry.latest = s.departure_date
-        }
-      }
+      // Single RPC: server-side GROUP BY вместо загрузки всех shipments в браузер
+      const { data, error } = await supabase.rpc('clients_with_stats')
+      if (error || !data) { setLoading(false); return }
 
       const nowMs = Date.now()
-      const enriched: ClientWithActivity[] = clientsData.map(c => {
-        const entry = index.get(c.id)
-        const latest = entry?.latest || null
+      const enriched: ClientWithActivity[] = (data as any[]).map((c) => {
+        const latest = c.last_shipment_date as string | null
         const daysSince = latest ? Math.floor((nowMs - new Date(latest).getTime()) / 86400000) : null
-        return { ...c, lastShipmentDate: latest, daysSince, shipmentCount: entry?.count || 0 }
+        return {
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          is_russia: c.is_russia,
+          lastShipmentDate: latest,
+          daysSince,
+          shipmentCount: Number(c.shipment_count) || 0,
+        }
       })
 
       setClients(enriched)
@@ -199,7 +221,76 @@ export default function ClientsPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {canEdit && (
+          <button onClick={() => setAdding(true)} className="h-9 flex items-center gap-1.5 px-3 bg-slate-900 text-white rounded-lg text-[12px] font-medium hover:bg-slate-800 transition-colors shrink-0">
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Новый</span>
+          </button>
+        )}
       </div>
+
+      {adding && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => !saving && setAdding(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div onClick={e => e.stopPropagation()} className="relative w-full max-w-md rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+              <p className="text-[14px] font-semibold text-slate-900">Новый клиент</p>
+              <button onClick={() => !saving && setAdding(false)} className="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center">
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Имя *</p>
+                <input
+                  type="text"
+                  value={newClient.name}
+                  onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') saveNewClient() }}
+                  autoFocus
+                  placeholder="Например, Сергей Москва"
+                  className="w-full h-10 rounded-lg border border-slate-200 px-3 text-[13px] text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+                />
+              </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Телефон</p>
+                <input
+                  type="tel"
+                  value={newClient.phone}
+                  onChange={e => setNewClient(p => ({ ...p, phone: e.target.value }))}
+                  placeholder="+7..."
+                  className="w-full h-10 rounded-lg border border-slate-200 px-3 text-[13px] text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+                />
+              </div>
+              <div>
+                <p className="text-[12px] text-slate-500 font-medium mb-1">Регион</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewClient(p => ({ ...p, is_russia: false }))}
+                    className={`h-10 rounded-lg border text-[13px] font-medium transition-colors ${!newClient.is_russia ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                  >
+                    🇰🇿 Казахстан
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewClient(p => ({ ...p, is_russia: true }))}
+                    className={`h-10 rounded-lg border text-[13px] font-medium transition-colors ${newClient.is_russia ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                  >
+                    🇷🇺 Россия
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 pb-4 flex items-center gap-2">
+              <button onClick={() => setAdding(false)} disabled={saving} className="flex-1 h-9 rounded-lg border border-slate-200 text-slate-600 text-[13px] font-medium hover:bg-slate-50 disabled:opacity-50">Отмена</button>
+              <button onClick={saveNewClient} disabled={saving || !newClient.name.trim()} className="flex-1 h-9 rounded-lg bg-slate-900 text-white text-[13px] font-semibold hover:bg-slate-800 disabled:opacity-50 flex items-center justify-center gap-1.5">
+                <Save className="w-3.5 h-3.5" /> {saving ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-2">{[...Array(8)].map((_, i) => <div key={i} className="skeleton h-14 rounded-xl" />)}</div>
