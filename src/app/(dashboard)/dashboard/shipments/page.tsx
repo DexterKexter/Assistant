@@ -213,18 +213,66 @@ export default function ShipmentsPage() {
 
   const fetchLookups = async () => {
     if (lookups) return
-    const [{ data: cl }, { data: ca }, { data: re }, { data: refData }] = await Promise.all([
+    const [{ data: cl }, { data: ca }, { data: re }, { data: refData }, { data: stats }] = await Promise.all([
       supabase.from('clients').select('id, name').order('name'),
       supabase.from('carriers').select('id, name').order('name'),
       supabase.from('recipients').select('id, name').order('name'),
       supabase.from('reference_items').select('category, name').order('name'),
+      supabase.from('shipments').select('client_id,carrier_id,recipient_id,sender_name,origin,destination_station,destination_city,cargo_description').limit(10000),
     ])
+
+    // Count usage per value to sort by popularity
+    const counts = {
+      client_id: new Map<string, number>(),
+      carrier_id: new Map<string, number>(),
+      recipient_id: new Map<string, number>(),
+      sender_name: new Map<string, number>(),
+      origin: new Map<string, number>(),
+      destination_station: new Map<string, number>(),
+      destination_city: new Map<string, number>(),
+      cargo_description: new Map<string, number>(),
+    }
+    ;(stats || []).forEach((s: Record<string, unknown>) => {
+      ;(Object.keys(counts) as (keyof typeof counts)[]).forEach(k => {
+        const v = s[k]
+        if (v != null && v !== '') counts[k].set(String(v), (counts[k].get(String(v)) || 0) + 1)
+      })
+    })
+
+    const sortByCount = <T extends { id?: string; name: string }>(arr: T[], countMap: Map<string, number>, key: 'id' | 'name'): T[] =>
+      [...arr].sort((a, b) => {
+        const ka = key === 'id' ? (a.id || '') : a.name
+        const kb = key === 'id' ? (b.id || '') : b.name
+        return (countMap.get(kb) || 0) - (countMap.get(ka) || 0) || a.name.localeCompare(b.name)
+      })
+
+    // Group refs and sort each category by its corresponding popularity map
     const refs: Record<string, string[]> = {}
     ;(refData || []).forEach((r: { category: string; name: string }) => {
       if (!refs[r.category]) refs[r.category] = []
       refs[r.category].push(r.name)
     })
-    setLookups({ clients: cl || [], carriers: ca || [], recipients: re || [], refs })
+    // city ref is used for both origin and destination_city — combine counts
+    const cityCombined = new Map<string, number>()
+    counts.origin.forEach((v, k) => cityCombined.set(k, (cityCombined.get(k) || 0) + v))
+    counts.destination_city.forEach((v, k) => cityCombined.set(k, (cityCombined.get(k) || 0) + v))
+    const refSortKeyMap: Record<string, Map<string, number>> = {
+      city: cityCombined,
+      station: counts.destination_station,
+      sender: counts.sender_name,
+      cargo: counts.cargo_description,
+    }
+    Object.keys(refs).forEach(cat => {
+      const m = refSortKeyMap[cat]
+      if (m) refs[cat].sort((a, b) => (m.get(b) || 0) - (m.get(a) || 0) || a.localeCompare(b))
+    })
+
+    setLookups({
+      clients: sortByCount(cl || [], counts.client_id, 'id'),
+      carriers: sortByCount(ca || [], counts.carrier_id, 'id'),
+      recipients: sortByCount(re || [], counts.recipient_id, 'id'),
+      refs,
+    })
   }
 
   const updateDate = async (id: string, field: 'departure_date' | 'arrival_date' | 'delivery_date', value: string) => {
@@ -406,15 +454,15 @@ export default function ShipmentsPage() {
 
                   <div>
                     <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Размер</p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="flex gap-1">
                       {['20', '40'].map(s => (
                         <button
                           key={s}
                           type="button"
                           onClick={() => setNew('container_size', s)}
-                          className={`h-10 rounded-lg border text-[13px] font-semibold transition-all ${
+                          className={`h-7 px-3 rounded-full border text-[11px] font-medium transition-all ${
                             size === s
-                              ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                              ? 'bg-slate-900 text-white border-slate-900'
                               : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
                           }`}
                         >
