@@ -88,42 +88,44 @@ function getCoord(name: string | null): [number, number] | null {
   if (!name) return null
   const trimmed = name.trim()
   if (COORDS[trimmed]) return COORDS[trimmed]
-  // Fuzzy match
   for (const [key, val] of Object.entries(COORDS)) {
     if (trimmed.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(trimmed.toLowerCase())) return val
   }
   return null
 }
 
+import type { TransshipmentPosition } from '@/lib/shipment-route'
+
 interface Props {
   origin: string | null
+  transshipment?: string | null
+  transshipmentPosition?: TransshipmentPosition | null
   border: string | null
   destination: string | null
   departureDate?: string | null
+  transshipmentDate?: string | null
   arrivalDate?: string | null
   deliveryDate?: string | null
 }
 
-export function ShipmentMap({ origin, border, destination, departureDate, arrivalDate, deliveryDate }: Props) {
+export function ShipmentMap({ origin, transshipment, transshipmentPosition, border, destination, departureDate, transshipmentDate, arrivalDate, deliveryDate }: Props) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<L.Map | null>(null)
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return
 
-    // Wait for DOM to be ready
     const timer = setTimeout(() => {
     if (!mapRef.current) return
-    // Container must have size before leaflet can initialize — otherwise fitBounds throws _leaflet_pos
     const rect = mapRef.current.getBoundingClientRect()
     if (rect.width === 0 || rect.height === 0) return
-    // Strip any stale leaflet metadata from the container (prevents "Map container is already initialized")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const el = mapRef.current as any
     if (el._leaflet_id) delete el._leaflet_id
 
     const points: { coord: [number, number]; label: string; color: string; tooltip: string; hasDate: boolean }[] = []
     const originCoord = getCoord(origin)
+    const transshipmentCoord = transshipment?.trim() ? getCoord(transshipment) : null
     const borderCoord = getCoord(border)
     const destCoord = getCoord(destination)
 
@@ -133,9 +135,35 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
       return Math.round((end.getTime() - new Date(from).getTime()) / 86400000)
     }
 
-    // Пункт отправки: если нет даты доставки — сколько дней с отправки до сегодня
     const originDays = departureDate && !deliveryDate ? daysBetween(departureDate, null) : departureDate && deliveryDate ? daysBetween(departureDate, deliveryDate) : null
     const originDaysText = originDays !== null ? `<br/><span style="color:#93c5fd">${originDays}д ${deliveryDate ? 'всего' : 'в пути'}</span>` : ''
+
+    const transAfterBorder = transshipmentPosition === 'after_border'
+
+    const pushTransshipment = () => {
+      if (!transshipmentCoord) return
+      const fromDate = transAfterBorder ? arrivalDate : departureDate
+      const transDays = transshipmentDate && fromDate ? daysBetween(fromDate, transshipmentDate) : null
+      const fromLabel = transAfterBorder ? 'границы' : 'загрузки'
+      const transDaysText = transDays !== null ? `<br/><span style="color:#c4b5fd">${transDays}д от ${fromLabel}</span>` : ''
+      points.push({
+        coord: transshipmentCoord, label: transshipment || '', color: transshipmentDate ? '#8b5cf6' : '#d1d5db',
+        tooltip: `<b>Перевалка</b> (${transAfterBorder ? 'после границы' : 'до границы'})<br/>${transshipment}${transshipmentDate ? '<br/>' + fmt(transshipmentDate) + transDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>'}`,
+        hasDate: !!transshipmentDate,
+      })
+    }
+
+    const pushBorder = () => {
+      const borderFromDate = transAfterBorder ? departureDate : (transshipmentDate || departureDate)
+      const borderDays = arrivalDate && borderFromDate ? daysBetween(borderFromDate, arrivalDate) : null
+      const borderDaysText = borderDays !== null ? `<br/><span style="color:#fcd34d">${borderDays}д от ${!transAfterBorder && transshipmentDate ? 'перевалки' : 'загрузки'}</span>` : ''
+      if (!borderCoord) return
+      points.push({
+        coord: borderCoord, label: border || '', color: arrivalDate ? '#f59e0b' : '#d1d5db',
+        tooltip: `<b>Граница</b><br/>${border}${arrivalDate ? '<br/>' + fmt(arrivalDate) + borderDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>'}`,
+        hasDate: !!arrivalDate,
+      })
+    }
 
     if (originCoord) points.push({
       coord: originCoord, label: origin || '', color: '#6366f1',
@@ -143,19 +171,13 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
       hasDate: !!departureDate,
     })
 
-    // Граница: с отправки до границы
-    const borderDays = arrivalDate && departureDate ? daysBetween(departureDate, arrivalDate) : null
-    const borderDaysText = borderDays !== null ? `<br/><span style="color:#fcd34d">${borderDays}д от загрузки</span>` : ''
+    if (!transAfterBorder) pushTransshipment()
+    pushBorder()
+    if (transAfterBorder) pushTransshipment()
 
-    if (borderCoord) points.push({
-      coord: borderCoord, label: border || '', color: arrivalDate ? '#f59e0b' : '#d1d5db',
-      tooltip: `<b>Граница</b><br/>${border}${arrivalDate ? '<br/>' + fmt(arrivalDate) + borderDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>'}`,
-      hasDate: !!arrivalDate,
-    })
-
-    // Доставка: если дата есть — с границы до доставки, если нет — с границы до сегодня
-    const destDays = arrivalDate && deliveryDate ? daysBetween(arrivalDate, deliveryDate) : arrivalDate && !deliveryDate ? daysBetween(arrivalDate, null) : null
-    const destDaysText = destDays !== null ? `<br/><span style="color:${deliveryDate ? '#86efac' : '#fca5a5'}">${destDays}д ${deliveryDate ? 'от границы' : 'ожидание'}</span>` : ''
+    const destFromDate = transAfterBorder && transshipmentDate ? transshipmentDate : arrivalDate
+    const destDays = destFromDate && deliveryDate ? daysBetween(destFromDate, deliveryDate) : destFromDate && !deliveryDate ? daysBetween(destFromDate, null) : null
+    const destDaysText = destDays !== null ? `<br/><span style="color:${deliveryDate ? '#86efac' : '#fca5a5'}">${destDays}д ${deliveryDate ? (transAfterBorder && transshipmentDate ? 'от перевалки' : 'от границы') : 'ожидание'}</span>` : ''
 
     if (destCoord) points.push({
       coord: destCoord, label: destination || '', color: deliveryDate ? '#22c55e' : '#d1d5db',
@@ -188,7 +210,6 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
       bounds: [[-85, -180], [85, 180]],
     }).addTo(map)
 
-    // Add markers
     points.forEach((p, i) => {
       const borderStyle = p.hasDate ? `border:3px solid white` : `border:3px dashed ${p.color}`
       const bgColor = p.hasDate ? p.color : p.color
@@ -208,7 +229,6 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
       })
     })
 
-    // Draw route line and fit all points
     const latlngs = points.map(p => p.coord)
     if (points.length > 1) {
       L.polyline(latlngs, {
@@ -219,12 +239,11 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
       }).addTo(map)
     }
 
-    // Always fit bounds to show all points
     const bounds = L.latLngBounds(latlngs)
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 })
 
     mapInstance.current = map
-    }, 100) // end setTimeout
+    }, 100)
 
     return () => {
       clearTimeout(timer)
@@ -233,7 +252,7 @@ export function ShipmentMap({ origin, border, destination, departureDate, arriva
         mapInstance.current = null
       }
     }
-  }, [origin, border, destination])
+  }, [origin, transshipment, border, destination, departureDate, transshipmentDate, arrivalDate, deliveryDate])
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden h-full">

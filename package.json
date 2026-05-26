@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "env:pull": "npx vercel env pull .env.local --yes"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.179",

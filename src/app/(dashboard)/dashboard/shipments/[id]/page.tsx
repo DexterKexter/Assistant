@@ -9,7 +9,8 @@ import {
   FileText, Image as ImageIcon, Download, Truck, Clock, CheckCircle2, Circle,
   DollarSign, Wallet, Upload, ChevronLeft, ChevronRight, Plus,
 } from 'lucide-react'
-import { getShipmentStatus, getShipmentProgress, type Shipment } from '@/types/database'
+import { getShipmentStatus, getShipmentProgress, hasTransshipment, type Shipment } from '@/types/database'
+import { getTransshipmentPosition } from '@/lib/shipment-route'
 import { fmtDate } from '@/lib/utils'
 import { DetailIcon } from '@/components/detail-icon'
 import dynamic from 'next/dynamic'
@@ -185,9 +186,12 @@ export default function ShipmentDetailPage() {
         <div className="flex-1 min-h-0">
           <ShipmentMap
             origin={shipment.origin}
+            transshipment={shipment.transshipment_location}
+            transshipmentPosition={getTransshipmentPosition(shipment)}
             border={shipment.destination_station}
             destination={shipment.destination_city}
             departureDate={shipment.departure_date}
+            transshipmentDate={shipment.transshipment_date}
             arrivalDate={shipment.arrival_date}
             deliveryDate={shipment.delivery_date}
           />

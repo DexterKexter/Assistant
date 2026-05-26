@@ -57,6 +57,9 @@ export interface Shipment {
   container_type: string | null
   cargo_description: string | null
   origin: string | null
+  transshipment_location: string | null
+  transshipment_date: string | null
+  transshipment_position: string | null
   destination_station: string | null
   destination_city: string | null
   departure_date: string | null
@@ -118,8 +121,29 @@ export interface Document {
   shipment?: Shipment
 }
 
+export function hasTransshipment(s: Pick<Shipment, 'transshipment_location'>): boolean {
+  return !!(s.transshipment_location?.trim())
+}
+
+function getTransshipmentPositionForStatus(
+  s: Pick<Shipment, 'transshipment_location' | 'transshipment_position'>,
+): 'before_border' | 'after_border' | null {
+  if (!hasTransshipment(s)) return null
+  const p = s.transshipment_position
+  if (p === 'before_border' || p === 'after_border') return p
+  return 'before_border'
+}
+
 export function getShipmentStatus(s: Shipment, isRussia?: boolean): { key: string; label: string; color: string } {
   if (s.delivery_date || s.is_completed) return { key: 'delivered', label: 'Доставлен', color: '#22c55e' }
+
+  const transPos = getTransshipmentPositionForStatus(s)
+  if (transPos === 'before_border' && hasTransshipment(s) && s.transshipment_date && !s.arrival_date) {
+    return { key: 'transshipment', label: 'Перевалка', color: '#8b5cf6' }
+  }
+  if (transPos === 'after_border' && hasTransshipment(s) && s.transshipment_date && !s.delivery_date) {
+    return { key: 'transshipment', label: 'Перевалка', color: '#8b5cf6' }
+  }
   if (s.arrival_date) {
     if (isRussia) return { key: 'transit_kz', label: 'Транзит КЗ', color: '#f59e0b' }
     return { key: 'border', label: 'На границе', color: '#f59e0b' }
@@ -132,7 +156,10 @@ export function getShipmentProgress(s: Shipment): number {
   if (s.is_completed || s.delivery_date) return 100
   if (s.release_date) return 90
   if (s.customs_date) return 70
+  const transPos = getTransshipmentPositionForStatus(s)
+  if (transPos === 'after_border' && hasTransshipment(s) && s.transshipment_date) return 65
   if (s.arrival_date) return 50
+  if (transPos === 'before_border' && hasTransshipment(s) && s.transshipment_date) return 38
   if (s.departure_date) return 25
   return 5
 }
