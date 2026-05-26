@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Building2, Truck, Pencil, Check, Save, Trash2, Upload, Image, Plus, Send, MessageSquare, ArrowRightLeft } from 'lucide-react'
 import { getShipmentStatus, hasTransshipment, type Shipment } from '@/types/database'
+import { getTransshipmentPosition, transshipmentPositionLabel, type TransshipmentPosition } from '@/lib/shipment-route'
 import { fmtDate } from '@/lib/utils'
 import { DetailIcon } from '@/components/detail-icon'
 import { useProfile } from '@/lib/useProfile'
@@ -221,6 +222,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       origin: shipment.origin || '',
       transshipment_location: shipment.transshipment_location || '',
       transshipment_date: shipment.transshipment_date || '',
+      transshipment_position: shipment.transshipment_position || getTransshipmentPosition(shipment) || '',
       destination_station: shipment.destination_station || '',
       destination_city: shipment.destination_city || '',
       departure_date: shipment.departure_date || '',
@@ -280,9 +282,10 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
     if (!routeHasTransshipment && !isCreateMode && shipment) {
       payload.transshipment_location = null
       payload.transshipment_date = null
+      payload.transshipment_position = null
     }
     for (const [key, val] of Object.entries(draft)) {
-      if (!routeHasTransshipment && (key === 'transshipment_location' || key === 'transshipment_date')) continue
+      if (!routeHasTransshipment && (key === 'transshipment_location' || key === 'transshipment_date' || key === 'transshipment_position')) continue
       let newVal: unknown = val
       if (numFields.includes(key)) {
         newVal = val === '' || val === null ? null : Number(val)
@@ -559,6 +562,11 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       {/* Route — view mode: timeline, edit mode: simple grid */}
       {tab === 'shipment' && !editing && (
         <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] px-6 py-4">
+          {hasTransshipment(shipment) && getTransshipmentPosition(shipment) && (
+            <p className="text-[10px] font-semibold text-violet-600 mb-2 text-center">
+              Перевалка {transshipmentPositionLabel(getTransshipmentPosition(shipment)!)}: {shipment.transshipment_location}
+            </p>
+          )}
           <div className="flex items-start">
             {/* Origin */}
             <div className="flex-1 text-center">
@@ -612,7 +620,17 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
         <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] px-5 py-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[12px] text-slate-500 uppercase tracking-wider">Маршрут</p>
-            <button type="button" onClick={() => { if (routeHasTransshipment) { setField('transshipment_location', ''); setField('transshipment_date', ''); setRouteHasTransshipment(false) } else setRouteHasTransshipment(true) }} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${routeHasTransshipment ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>
+            <button type="button" onClick={() => {
+              if (routeHasTransshipment) {
+                setField('transshipment_location', '')
+                setField('transshipment_date', '')
+                setField('transshipment_position', '')
+                setRouteHasTransshipment(false)
+              } else {
+                setField('transshipment_position', 'before_border')
+                setRouteHasTransshipment(true)
+              }
+            }} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${routeHasTransshipment ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>
               <ArrowRightLeft className="w-3 h-3" />{routeHasTransshipment ? 'Убрать перевалку' : 'Добавить перевалку'}
             </button>
           </div>
@@ -622,6 +640,17 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
             <EditField icon={<Ship className="w-3.5 h-3.5" />} label="Город назначения" field="destination_city" type="ref" refCategory="city" />
             {routeHasTransshipment && (
               <>
+                <div className="col-span-3 sm:col-span-1">
+                  <p className="text-[11px] text-slate-500 mb-1">Где перевалка</p>
+                  <select
+                    className={inputCls}
+                    value={(String(draft.transshipment_position || 'before_border')) as TransshipmentPosition}
+                    onChange={e => setField('transshipment_position', e.target.value)}
+                  >
+                    <option value="before_border">До границы</option>
+                    <option value="after_border">После границы</option>
+                  </select>
+                </div>
                 <EditField icon={<ArrowRightLeft className="w-3.5 h-3.5" />} label="Перевалка" field="transshipment_location" type="ref" refCategory="city" />
                 <EditField icon={<ArrowRightLeft className="w-3.5 h-3.5" />} label="Дата перевалки" field="transshipment_date" type="date" />
               </>
@@ -639,6 +668,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
           <ShipmentMap
             origin={shipment.origin}
             transshipment={shipment.transshipment_location}
+            transshipmentPosition={getTransshipmentPosition(shipment)}
             border={shipment.destination_station}
             destination={shipment.destination_city}
             departureDate={shipment.departure_date}

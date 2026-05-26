@@ -94,9 +94,12 @@ function getCoord(name: string | null): [number, number] | null {
   return null
 }
 
+import type { TransshipmentPosition } from '@/lib/shipment-route'
+
 interface Props {
   origin: string | null
   transshipment?: string | null
+  transshipmentPosition?: TransshipmentPosition | null
   border: string | null
   destination: string | null
   departureDate?: string | null
@@ -105,7 +108,7 @@ interface Props {
   deliveryDate?: string | null
 }
 
-export function ShipmentMap({ origin, transshipment, border, destination, departureDate, transshipmentDate, arrivalDate, deliveryDate }: Props) {
+export function ShipmentMap({ origin, transshipment, transshipmentPosition, border, destination, departureDate, transshipmentDate, arrivalDate, deliveryDate }: Props) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<L.Map | null>(null)
 
@@ -135,34 +138,46 @@ export function ShipmentMap({ origin, transshipment, border, destination, depart
     const originDays = departureDate && !deliveryDate ? daysBetween(departureDate, null) : departureDate && deliveryDate ? daysBetween(departureDate, deliveryDate) : null
     const originDaysText = originDays !== null ? `<br/><span style="color:#93c5fd">${originDays}д ${deliveryDate ? 'всего' : 'в пути'}</span>` : ''
 
+    const transAfterBorder = transshipmentPosition === 'after_border'
+
+    const pushTransshipment = () => {
+      if (!transshipmentCoord) return
+      const fromDate = transAfterBorder ? arrivalDate : departureDate
+      const transDays = transshipmentDate && fromDate ? daysBetween(fromDate, transshipmentDate) : null
+      const fromLabel = transAfterBorder ? 'границы' : 'загрузки'
+      const transDaysText = transDays !== null ? `<br/><span style="color:#c4b5fd">${transDays}д от ${fromLabel}</span>` : ''
+      points.push({
+        coord: transshipmentCoord, label: transshipment || '', color: transshipmentDate ? '#8b5cf6' : '#d1d5db',
+        tooltip: `<b>Перевалка</b> (${transAfterBorder ? 'после границы' : 'до границы'})<br/>${transshipment}${transshipmentDate ? '<br/>' + fmt(transshipmentDate) + transDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>'}`,
+        hasDate: !!transshipmentDate,
+      })
+    }
+
+    const pushBorder = () => {
+      const borderFromDate = transAfterBorder ? departureDate : (transshipmentDate || departureDate)
+      const borderDays = arrivalDate && borderFromDate ? daysBetween(borderFromDate, arrivalDate) : null
+      const borderDaysText = borderDays !== null ? `<br/><span style="color:#fcd34d">${borderDays}д от ${!transAfterBorder && transshipmentDate ? 'перевалки' : 'загрузки'}</span>` : ''
+      if (!borderCoord) return
+      points.push({
+        coord: borderCoord, label: border || '', color: arrivalDate ? '#f59e0b' : '#d1d5db',
+        tooltip: `<b>Граница</b><br/>${border}${arrivalDate ? '<br/>' + fmt(arrivalDate) + borderDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>'}`,
+        hasDate: !!arrivalDate,
+      })
+    }
+
     if (originCoord) points.push({
       coord: originCoord, label: origin || '', color: '#6366f1',
       tooltip: `<b>Загрузка</b><br/>${origin}${departureDate ? '<br/>' + fmt(departureDate) : ''}${originDaysText}`,
       hasDate: !!departureDate,
     })
 
-    if (transshipmentCoord) {
-      const transDays = transshipmentDate && departureDate ? daysBetween(departureDate, transshipmentDate) : null
-      const transDaysText = transDays !== null ? `<br/><span style="color:#c4b5fd">${transDays}д от загрузки</span>` : ''
-      points.push({
-        coord: transshipmentCoord, label: transshipment || '', color: transshipmentDate ? '#8b5cf6' : '#d1d5db',
-        tooltip: `<b>Перевалка</b><br/>${transshipment}${transshipmentDate ? '<br/>' + fmt(transshipmentDate) + transDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>'}`,
-        hasDate: !!transshipmentDate,
-      })
-    }
+    if (!transAfterBorder) pushTransshipment()
+    pushBorder()
+    if (transAfterBorder) pushTransshipment()
 
-    const borderFromDate = transshipmentDate || departureDate
-    const borderDays = arrivalDate && borderFromDate ? daysBetween(borderFromDate, arrivalDate) : null
-    const borderDaysText = borderDays !== null ? `<br/><span style="color:#fcd34d">${borderDays}д от ${transshipmentDate ? 'перевалки' : 'загрузки'}</span>` : ''
-
-    if (borderCoord) points.push({
-      coord: borderCoord, label: border || '', color: arrivalDate ? '#f59e0b' : '#d1d5db',
-      tooltip: `<b>Граница</b><br/>${border}${arrivalDate ? '<br/>' + fmt(arrivalDate) + borderDaysText : '<br/><span style="color:#ef4444">Дата не указана</span>'}`,
-      hasDate: !!arrivalDate,
-    })
-
-    const destDays = arrivalDate && deliveryDate ? daysBetween(arrivalDate, deliveryDate) : arrivalDate && !deliveryDate ? daysBetween(arrivalDate, null) : null
-    const destDaysText = destDays !== null ? `<br/><span style="color:${deliveryDate ? '#86efac' : '#fca5a5'}">${destDays}д ${deliveryDate ? 'от границы' : 'ожидание'}</span>` : ''
+    const destFromDate = transAfterBorder && transshipmentDate ? transshipmentDate : arrivalDate
+    const destDays = destFromDate && deliveryDate ? daysBetween(destFromDate, deliveryDate) : destFromDate && !deliveryDate ? daysBetween(destFromDate, null) : null
+    const destDaysText = destDays !== null ? `<br/><span style="color:${deliveryDate ? '#86efac' : '#fca5a5'}">${destDays}д ${deliveryDate ? (transAfterBorder && transshipmentDate ? 'от перевалки' : 'от границы') : 'ожидание'}</span>` : ''
 
     if (destCoord) points.push({
       coord: destCoord, label: destination || '', color: deliveryDate ? '#22c55e' : '#d1d5db',

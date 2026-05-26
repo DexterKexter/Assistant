@@ -4,10 +4,12 @@ import { useEffect, useState, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, ArrowRightLeft } from 'lucide-react'
+import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send } from 'lucide-react'
 import { ReferencesModal } from '@/components/references-modal'
 import { SearchableSelect } from '@/components/searchable-select'
 import { getShipmentStatus, type Shipment } from '@/types/database'
+import { getOrderedRouteLegs } from '@/lib/shipment-route'
+import { NewShipmentRoute } from '@/components/new-shipment-route'
 import { fmtDate } from '@/lib/utils'
 import { useShipmentModal } from '@/lib/shipment-modal'
 import { useProfile } from '@/lib/useProfile'
@@ -149,7 +151,6 @@ export default function ShipmentsPage() {
 
   // Inline new row
   const [addingNew, setAddingNew] = useState(false)
-  const [showTransshipment, setShowTransshipment] = useState(false)
   const [newRow, setNewRow] = useState<Record<string, string>>({})
   const [savingNew, setSavingNew] = useState(false)
   const [lookups, setLookups] = useState<RefLookups | null>(null)
@@ -165,7 +166,7 @@ export default function ShipmentsPage() {
     if (append) setLoadingMore(true)
     let query = supabase
       .from('shipments')
-      .select('id, container_number, container_size, container_type, origin, transshipment_location, transshipment_date, destination_station, destination_city, departure_date, arrival_date, delivery_date, is_completed, client_id, carrier_id, sender_name, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)', { count: 'estimated' })
+      .select('id, container_number, container_size, container_type, origin, transshipment_location, transshipment_date, transshipment_position, destination_station, destination_city, departure_date, arrival_date, delivery_date, is_completed, client_id, carrier_id, sender_name, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)', { count: 'estimated' })
 
     if (carrierFilter) query = query.eq('carrier_id', carrierFilter)
     if (clientFilter) query = query.eq('client_id', clientFilter)
@@ -288,25 +289,10 @@ export default function ShipmentsPage() {
     await fetchLookups()
     const today = new Date().toISOString().split('T')[0]
     setNewRow({ container_size: '40', container_type: 'Выкупной', departure_date: today })
-    setShowTransshipment(false)
     setAddingNew(true)
   }
 
-  const cancelNew = () => { setAddingNew(false); setNewRow({}); setShowTransshipment(false) }
-
-  const toggleTransshipment = () => {
-    if (showTransshipment) {
-      setNewRow(prev => {
-        const next = { ...prev }
-        delete next.transshipment_location
-        delete next.transshipment_date
-        return next
-      })
-      setShowTransshipment(false)
-    } else {
-      setShowTransshipment(true)
-    }
-  }
+  const cancelNew = () => { setAddingNew(false); setNewRow({}) }
 
 
   const saveNew = async () => {
@@ -314,8 +300,11 @@ export default function ShipmentsPage() {
     setSavingNew(true)
     const payload: Record<string, unknown> = {}
     const numFields = ['container_size']
+    const transPos = newRow.transshipment_position
     for (const [k, v] of Object.entries(newRow)) {
       if (!v) continue
+      if ((k === 'transshipment_location' || k === 'transshipment_date') && transPos !== 'before_border' && transPos !== 'after_border') continue
+      if (k === 'transshipment_position' && v !== 'before_border' && v !== 'after_border') continue
       payload[k] = numFields.includes(k) ? Number(v) : v
       if (k === 'client_id' || k === 'carrier_id' || k === 'recipient_id') {
         payload[k] = v || null
@@ -568,109 +557,19 @@ export default function ShipmentsPage() {
 
               {/* === Маршрут === */}
               <div>
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Маршрут</p>
-                  <button
-                    type="button"
-                    onClick={toggleTransshipment}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
-                      showTransshipment
-                        ? 'bg-violet-100 text-violet-700 ring-1 ring-violet-200/80'
-                        : 'bg-white/80 text-slate-600 ring-1 ring-slate-200/80 hover:bg-violet-50 hover:text-violet-700'
-                    }`}
-                  >
-                    <ArrowRightLeft className="w-3 h-3" />
-                    {showTransshipment ? 'Убрать перевалку' : 'Добавить перевалку'}
-                  </button>
-                </div>
+                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-2 px-1">Маршрут</p>
                 <div className="bg-white/60 rounded-2xl p-4 ring-1 ring-white/80">
-                  {/* Timeline icons aligned with selects below (4 cols) */}
-                  <div className="hidden sm:block relative mb-3">
-                    {/* Connector lines between adjacent route icons (1-2 and 2-3) */}
-                    <div
-                      className={`absolute top-5 h-0.5 ${newRow.origin && newRow.destination_station ? 'bg-slate-400' : 'bg-slate-200'}`}
-                      style={{ left: 'calc(12.5% + 20px)', right: 'calc(62.5% + 20px)' }}
+                  {lookups && (
+                    <NewShipmentRoute
+                      row={newRow}
+                      setField={setNew}
+                      cityOptions={(lookups.refs.city || []).map(n => ({ value: n, label: n }))}
+                      stationOptions={(lookups.refs.station || []).map(n => ({ value: n, label: n }))}
                     />
-                    <div
-                      className={`absolute top-5 h-0.5 ${newRow.destination_station && newRow.destination_city ? 'bg-slate-400' : 'bg-slate-200'}`}
-                      style={{ left: 'calc(37.5% + 20px)', right: 'calc(37.5% + 20px)' }}
-                    />
-                    <div className="grid grid-cols-4 gap-3 relative">
-                      <div className="flex flex-col items-center">
-                        <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.origin ? 'bg-slate-800 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
-                          <Ship className="w-4 h-4" />
-                        </div>
-                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Откуда</p>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.destination_station ? 'bg-slate-600 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
-                          <Filter className="w-4 h-4" />
-                        </div>
-                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Граница</p>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.destination_city ? 'bg-emerald-500 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
-                          <Ship className="w-4 h-4" />
-                        </div>
-                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Доставка</p>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all ${newRow.delivery_cost ? 'bg-indigo-500 text-white shadow-md' : 'bg-white ring-2 ring-dashed ring-slate-300 text-slate-400'}`}>
-                          <DollarSign className="w-4 h-4" />
-                        </div>
-                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1.5">Стоимость</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Selects + cost on same row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.origin || ''} onChange={v => setNew('origin', v)} placeholder="Пункт отправления" />
-                    <SearchableSelect options={(lookups.refs.station || []).map(n => ({ value: n, label: n }))} value={newRow.destination_station || ''} onChange={v => setNew('destination_station', v)} placeholder="Погранпереход" />
-                    <SearchableSelect options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))} value={newRow.destination_city || ''} onChange={v => setNew('destination_city', v)} placeholder="Пункт доставки" />
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[13px] font-medium pointer-events-none">$</span>
-                      <input
-                        type="number"
-                        placeholder="Стоимость доставки"
-                        value={newRow.delivery_cost || ''}
-                        onChange={e => setNew('delivery_cost', e.target.value || '')}
-                        className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-6 pr-2.5 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300"
-                      />
-                    </div>
-                  </div>
-                  {showTransshipment && (
-                    <div className="mt-3 pt-3 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <SearchableSelect
-                        options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))}
-                        value={newRow.transshipment_location || ''}
-                        onChange={v => setNew('transshipment_location', v)}
-                        placeholder="Перевалка (порт, город)"
-                      />
-                      <input
-                        type="date"
-                        value={newRow.transshipment_date || ''}
-                        onChange={e => setNew('transshipment_date', e.target.value)}
-                        className="h-9 w-full rounded-lg border border-violet-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-500/30 focus:border-violet-300"
-                        title="Дата перевалки"
-                      />
-                    </div>
                   )}
                 </div>
               </div>
-            </div>
 
-            <div className="px-5 pt-3 pb-3 flex items-center gap-2 border-t border-white/60 bg-white/20">
-              <button onClick={cancelNew} className="flex-1 h-10 rounded-xl border border-white/80 bg-white/60 text-slate-600 text-[13px] font-medium active:bg-white/90 transition-colors">
-                Отмена
-              </button>
-              <button
-                onClick={saveNew}
-                disabled={savingNew || !newRow.container_number?.trim()}
-                className="flex-1 h-10 rounded-xl bg-indigo-600 text-white text-[13px] font-semibold active:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/25"
-              >
-                <Save className="w-3.5 h-3.5" /> {savingNew ? 'Сохранение...' : 'Сохранить'}
-              </button>
             </div>
           </div>
         </div>
@@ -773,44 +672,28 @@ export default function ShipmentsPage() {
                       {/* Route */}
                       <td className="px-3 py-3.5" colSpan={3} onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between gap-1 min-w-0 w-full">
-                          <RoutePoint
-                            label={s.origin || '—'}
-                            flag={getFlag(s.origin)}
-                            date={s.departure_date}
-                            variant="origin"
-                            canEdit={canEdit}
-                            onChange={(d) => updateDate(s.id, 'departure_date', d)}
-                          />
-                          {s.transshipment_location ? (
-                            <>
-                              <div className="flex-1 min-w-[10px] mt-[3px] h-[1.5px] bg-gradient-to-r from-indigo-100 to-violet-100" />
-                              <RoutePoint
-                                label={s.transshipment_location}
-                                flag={getFlag(s.transshipment_location)}
-                                date={s.transshipment_date}
-                                variant="transshipment"
-                                canEdit={canEdit}
-                                onChange={(d) => updateDate(s.id, 'transshipment_date', d)}
-                              />
-                            </>
-                          ) : null}
-                          <div className="flex-1 min-w-[14px] mt-[3px] h-[1.5px] bg-gradient-to-r from-indigo-100 via-amber-100 to-emerald-100" />
-                          <RoutePoint
-                            label={s.destination_station || '—'}
-                            date={s.arrival_date}
-                            variant="border"
-                            canEdit={canEdit}
-                            onChange={(d) => updateDate(s.id, 'arrival_date', d)}
-                          />
-                          <div className="flex-1 min-w-[14px] mt-[3px] h-[1.5px] bg-gradient-to-r from-amber-100 to-emerald-100" />
-                          <RoutePoint
-                            label={s.destination_city || '—'}
-                            flag={getFlag(s.destination_city)}
-                            date={s.delivery_date}
-                            variant="dest"
-                            canEdit={canEdit}
-                            onChange={(d) => updateDate(s.id, 'delivery_date', d)}
-                          />
+                          {getOrderedRouteLegs(s).map((leg, legIdx) => {
+                            const variant = leg.kind === 'transshipment' ? 'transshipment' as const
+                              : leg.kind === 'border' ? 'border' as const
+                              : leg.kind === 'delivery' ? 'dest' as const
+                              : 'origin' as const
+                            const dateField = leg.dateField!
+                            return (
+                              <Fragment key={`${s.id}-${leg.kind}-${legIdx}`}>
+                                {legIdx > 0 && (
+                                  <div className={`flex-1 min-w-[10px] mt-[3px] h-[1.5px] ${leg.kind === 'transshipment' ? 'bg-gradient-to-r from-indigo-100 to-violet-100' : 'bg-gradient-to-r from-indigo-100 via-amber-100 to-emerald-100'}`} />
+                                )}
+                                <RoutePoint
+                                  label={leg.location || '—'}
+                                  flag={leg.kind === 'origin' || leg.kind === 'delivery' ? getFlag(leg.location) : undefined}
+                                  date={leg.date}
+                                  variant={variant}
+                                  canEdit={canEdit}
+                                  onChange={(d) => updateDate(s.id, dateField, d)}
+                                />
+                              </Fragment>
+                            )
+                          })}
                         </div>
                       </td>
                       {/* Days */}
