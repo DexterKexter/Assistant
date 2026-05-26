@@ -9,7 +9,7 @@ import {
   FileText, Image as ImageIcon, Download, Truck, Clock, CheckCircle2, Circle,
   DollarSign, Wallet, Upload, ChevronLeft, ChevronRight, Plus,
 } from 'lucide-react'
-import { getShipmentStatus, getShipmentProgress, type Shipment } from '@/types/database'
+import { getShipmentStatus, getShipmentProgress, hasTransshipment, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
 import { DetailIcon } from '@/components/detail-icon'
 import dynamic from 'next/dynamic'

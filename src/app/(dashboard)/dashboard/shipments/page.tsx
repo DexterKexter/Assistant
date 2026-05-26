@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send } from 'lucide-react'
+import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, ArrowRightLeft } from 'lucide-react'
 import { ReferencesModal } from '@/components/references-modal'
 import { SearchableSelect } from '@/components/searchable-select'
 import { getShipmentStatus, type Shipment } from '@/types/database'
@@ -17,7 +17,7 @@ function RoutePoint({ label, flag, date, onChange, variant, canEdit }: {
   flag?: string
   date: string | null
   onChange: (date: string) => Promise<void>
-  variant: 'origin' | 'border' | 'dest'
+  variant: 'origin' | 'transshipment' | 'border' | 'dest'
   canEdit: boolean
 }) {
   const [saving, setSaving] = useState(false)
@@ -41,6 +41,7 @@ function RoutePoint({ label, flag, date, onChange, variant, canEdit }: {
   const hasDate = !!date
   const dotByVariant =
     variant === 'origin' ? 'bg-indigo-500 ring-indigo-100' :
+    variant === 'transshipment' ? 'bg-violet-500 ring-violet-100' :
     variant === 'border' ? 'bg-amber-500 ring-amber-100' :
     'bg-emerald-500 ring-emerald-100'
   const labelColor = hasDate ? 'text-slate-800 font-medium' : 'text-slate-400'
@@ -148,6 +149,7 @@ export default function ShipmentsPage() {
 
   // Inline new row
   const [addingNew, setAddingNew] = useState(false)
+  const [showTransshipment, setShowTransshipment] = useState(false)
   const [newRow, setNewRow] = useState<Record<string, string>>({})
   const [savingNew, setSavingNew] = useState(false)
   const [lookups, setLookups] = useState<RefLookups | null>(null)
@@ -163,7 +165,7 @@ export default function ShipmentsPage() {
     if (append) setLoadingMore(true)
     let query = supabase
       .from('shipments')
-      .select('id, container_number, container_size, container_type, origin, destination_station, destination_city, departure_date, arrival_date, delivery_date, is_completed, client_id, carrier_id, sender_name, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)', { count: 'estimated' })
+      .select('id, container_number, container_size, container_type, origin, transshipment_location, transshipment_date, destination_station, destination_city, departure_date, arrival_date, delivery_date, is_completed, client_id, carrier_id, sender_name, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)', { count: 'estimated' })
 
     if (carrierFilter) query = query.eq('carrier_id', carrierFilter)
     if (clientFilter) query = query.eq('client_id', clientFilter)
@@ -275,7 +277,7 @@ export default function ShipmentsPage() {
     })
   }
 
-  const updateDate = async (id: string, field: 'departure_date' | 'arrival_date' | 'delivery_date', value: string) => {
+  const updateDate = async (id: string, field: 'departure_date' | 'transshipment_date' | 'arrival_date' | 'delivery_date', value: string) => {
     const update: Record<string, string | boolean> = { [field]: value }
     if (field === 'delivery_date' && value) update.is_completed = true
     await supabase.from('shipments').update(update).eq('id', id)
@@ -286,10 +288,26 @@ export default function ShipmentsPage() {
     await fetchLookups()
     const today = new Date().toISOString().split('T')[0]
     setNewRow({ container_size: '40', container_type: 'Выкупной', departure_date: today })
+    setShowTransshipment(false)
     setAddingNew(true)
   }
 
-  const cancelNew = () => { setAddingNew(false); setNewRow({}) }
+  const cancelNew = () => { setAddingNew(false); setNewRow({}); setShowTransshipment(false) }
+
+  const toggleTransshipment = () => {
+    if (showTransshipment) {
+      setNewRow(prev => {
+        const next = { ...prev }
+        delete next.transshipment_location
+        delete next.transshipment_date
+        return next
+      })
+      setShowTransshipment(false)
+    } else {
+      setShowTransshipment(true)
+    }
+  }
+
 
   const saveNew = async () => {
     if (!newRow.container_number?.trim()) return
@@ -550,7 +568,21 @@ export default function ShipmentsPage() {
 
               {/* === Маршрут === */}
               <div>
-                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-2 px-1">Маршрут</p>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Маршрут</p>
+                  <button
+                    type="button"
+                    onClick={toggleTransshipment}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                      showTransshipment
+                        ? 'bg-violet-100 text-violet-700 ring-1 ring-violet-200/80'
+                        : 'bg-white/80 text-slate-600 ring-1 ring-slate-200/80 hover:bg-violet-50 hover:text-violet-700'
+                    }`}
+                  >
+                    <ArrowRightLeft className="w-3 h-3" />
+                    {showTransshipment ? 'Убрать перевалку' : 'Добавить перевалку'}
+                  </button>
+                </div>
                 <div className="bg-white/60 rounded-2xl p-4 ring-1 ring-white/80">
                   {/* Timeline icons aligned with selects below (4 cols) */}
                   <div className="hidden sm:block relative mb-3">
@@ -607,6 +639,23 @@ export default function ShipmentsPage() {
                       />
                     </div>
                   </div>
+                  {showTransshipment && (
+                    <div className="mt-3 pt-3 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <SearchableSelect
+                        options={(lookups.refs.city || []).map(n => ({ value: n, label: n }))}
+                        value={newRow.transshipment_location || ''}
+                        onChange={v => setNew('transshipment_location', v)}
+                        placeholder="Перевалка (порт, город)"
+                      />
+                      <input
+                        type="date"
+                        value={newRow.transshipment_date || ''}
+                        onChange={e => setNew('transshipment_date', e.target.value)}
+                        className="h-9 w-full rounded-lg border border-violet-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-500/30 focus:border-violet-300"
+                        title="Дата перевалки"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -732,6 +781,19 @@ export default function ShipmentsPage() {
                             canEdit={canEdit}
                             onChange={(d) => updateDate(s.id, 'departure_date', d)}
                           />
+                          {s.transshipment_location ? (
+                            <>
+                              <div className="flex-1 min-w-[10px] mt-[3px] h-[1.5px] bg-gradient-to-r from-indigo-100 to-violet-100" />
+                              <RoutePoint
+                                label={s.transshipment_location}
+                                flag={getFlag(s.transshipment_location)}
+                                date={s.transshipment_date}
+                                variant="transshipment"
+                                canEdit={canEdit}
+                                onChange={(d) => updateDate(s.id, 'transshipment_date', d)}
+                              />
+                            </>
+                          ) : null}
                           <div className="flex-1 min-w-[14px] mt-[3px] h-[1.5px] bg-gradient-to-r from-indigo-100 via-amber-100 to-emerald-100" />
                           <RoutePoint
                             label={s.destination_station || '—'}
@@ -817,7 +879,7 @@ export default function ShipmentsPage() {
             const curMonth = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : ''
             const showMonthHeader = curMonth && curMonth !== lastMonth
             if (showMonthHeader) lastMonth = curMonth
-            const statusBg = status.key === 'delivered' ? '#f0fdf4' : status.key === 'in_transit' ? '#eef2ff' : '#fffbeb'
+            const statusBg = status.key === 'delivered' ? '#f0fdf4' : status.key === 'in_transit' ? '#eef2ff' : status.key === 'transshipment' ? '#f5f3ff' : '#fffbeb'
 
             return (
               <div key={s.id}>
