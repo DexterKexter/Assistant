@@ -3,7 +3,9 @@
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useShipmentModal } from '@/lib/shipment-modal'
-import { Ship, ArrowRight, MapPin, Truck, Clock, CheckCircle2 } from 'lucide-react'
+import Link from 'next/link'
+import { useProfile } from '@/lib/useProfile'
+import { Ship, ArrowRight, MapPin, Truck, Clock, CheckCircle2, Sparkles } from 'lucide-react'
 import { type Shipment } from '@/types/database'
 import type { OriginAgg } from '@/components/dashboard-map'
 
@@ -24,6 +26,7 @@ export interface DashboardData {
 export function DashboardView({ data }: { data: DashboardData }) {
   const { cur, prev, topCarriers, topRoutes, originAgg, recentActive } = data
   const router = useRouter()
+  const { hasRole } = useProfile()
   const { openShipment } = useShipmentModal()
 
   const diff = (c: number, p: number) => {
@@ -44,6 +47,17 @@ export function DashboardView({ data }: { data: DashboardData }) {
       <div className="-mx-3 -mt-3 md:-mx-5 md:-mt-4 mb-1 hidden md:block">
         {originAgg.length > 0 && <DashboardMap aggregates={originAgg} />}
       </div>
+
+      {hasRole('admin', 'manager') && (
+        <Link href="/dashboard/agent"
+          className="flex items-center gap-3 bg-white rounded-xl px-4 py-3 border border-slate-100 shadow-sm hover:border-indigo-200 transition-colors">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4 text-white" strokeWidth={2} />
+          </div>
+          <span className="flex-1 text-[13px] text-slate-400 truncate">Спросите AI ассистента: «сколько контейнеров на границе?»</span>
+          <ArrowRight className="w-4 h-4 text-slate-300" />
+        </Link>
+      )}
 
       <div className="grid gap-2 grid-cols-2 md:gap-3 lg:grid-cols-4">
         {cards.map((card, i) => {

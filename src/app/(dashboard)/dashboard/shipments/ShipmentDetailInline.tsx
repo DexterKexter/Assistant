@@ -24,7 +24,7 @@ interface Lookups {
   refs: Record<string, string[]>
 }
 
-const CONTAINER_TYPES = ['Выкупной', 'Возвратный', 'Собственный', 'Малшы']
+const CONTAINER_TYPES = ['Выкупной', 'Возвратный', 'Собственный', 'Малшы', 'Sinorail']
 
 export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { id: string; mode?: 'view' | 'create'; onClose: () => void }) {
   const isCreateMode = mode === 'create'

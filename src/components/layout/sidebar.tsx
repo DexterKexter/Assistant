@@ -21,33 +21,38 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   CheckSquare,
-  Sparkles,
+  ClipboardList,
+  Inbox,
 } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 import { useUnreadCount } from '@/lib/useMessages'
 import { useMyTaskCount } from '@/lib/useTasks'
 
-const mainItems = [
-  { href: '/dashboard', label: 'Обзор', icon: LayoutGrid },
-  { href: '/dashboard/agent', label: 'AI Ассистент', icon: Sparkles },
-  { href: '/dashboard/shipments', label: 'Перевозки', icon: Ship },
-  { href: '/dashboard/reports', label: 'Отчёты', icon: BarChart3 },
+const sections: { label: string | null; items: { href: string; label: string; icon: typeof Ship }[] }[] = [
+  { label: null, items: [
+    { href: '/dashboard', label: 'Обзор', icon: LayoutGrid },
+    { href: '/dashboard/shipments', label: 'Перевозки', icon: Ship },
+    { href: '/dashboard/cargo-requests', label: 'Заявки на груз', icon: ClipboardList },
+    { href: '/dashboard/tasks', label: 'Задачи', icon: CheckSquare },
+    { href: '/dashboard/messages', label: 'Чат команды', icon: MessageSquare },
+  ] },
+  { label: 'Клиенты', items: [
+    { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
+    { href: '/dashboard/crm', label: 'CRM чаты', icon: Inbox },
+  ] },
+  { label: 'Учёт', items: [
+    { href: '/dashboard/carriers', label: 'Перевозчики', icon: Truck },
+    { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
+    { href: '/dashboard/documents', label: 'Документы', icon: FileText },
+    { href: '/dashboard/reports', label: 'Отчёты', icon: BarChart3 },
+  ] },
 ]
 
-const businessItems = [
-  { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
-  { href: '/dashboard/carriers', label: 'Перевозчики', icon: Truck },
-  { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
-]
-
-const otherItems = [
-  { href: '/dashboard/messages', label: 'Сообщения', icon: MessageSquare },
-  { href: '/dashboard/documents', label: 'Документы', icon: FileText },
-  { href: '/dashboard/tasks', label: 'Задачи', icon: CheckSquare },
-]
-
-// Combined for collapsed view
-const coreItems = [...mainItems, ...businessItems, ...otherItems]
+// Roles not listed here see everything.
+const ROLE_ALLOWED: Record<string, string[]> = {
+  accountant: ['/dashboard/shipments', '/dashboard/clients', '/dashboard/finance', '/dashboard/messages', '/dashboard/documents', '/dashboard/tasks'],
+  client: ['/dashboard/messages', '/dashboard/documents', '/dashboard/tasks'],
+}
 
 const statusItems = [
   { href: '/dashboard/shipments?status=in_transit', label: 'В пути', icon: Truck },
@@ -89,6 +94,11 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
   const unreadCount = useUnreadCount()
   const taskCount = useMyTaskCount()
 
+  const allowed = ROLE_ALLOWED[profile?.role || 'client']
+  const visibleSections = sections
+    .map(s => ({ ...s, items: s.items.filter(i => !allowed || allowed.includes(i.href)) }))
+    .filter(s => s.items.length)
+
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : '??'
@@ -115,12 +125,7 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
 
         {/* Nav icons */}
         <div className="flex-1 flex flex-col items-center gap-1 w-full px-2">
-          {(() => {
-            const role = profile?.role || 'client'
-            if (role === 'accountant') return [mainItems.find(i => i.href === '/dashboard/shipments')!, ...businessItems.filter(i => ['/dashboard/clients', '/dashboard/finance'].includes(i.href)), ...otherItems]
-            if (role === 'client') return otherItems
-            return coreItems
-          })().map((item) => {
+          {visibleSections.flatMap(s => s.items).map((item) => {
             const active = isActive(item.href)
             return (
               <Link
@@ -150,34 +155,25 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
             )
           })}
 
+        </div>
+
+        {/* Bottom: technical links, small and muted */}
+        <div className="flex flex-col items-center gap-0.5 mt-2">
           {hasRole('admin') && (
             <>
-              <div className="w-6 h-px bg-slate-300/40 my-2" />
-              <Link
-                href="/dashboard/admin"
-                onClick={onNavigate}
-                title="Админка"
-                className={cn(
-                  'w-10 h-10 rounded-xl flex items-center justify-center',
-                  isActive('/dashboard/admin')
-                    ? 'bg-white shadow-sm shadow-indigo-200/50 text-slate-900'
-                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-800'
-                )}
-              >
-                <Shield className="w-[18px] h-[18px]" strokeWidth={isActive('/dashboard/admin') ? 2.2 : 1.6} />
+              <Link href="/dashboard/admin" onClick={onNavigate} title="Админка"
+                className={cn('w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/60',
+                  isActive('/dashboard/admin') ? 'text-slate-700' : 'text-slate-400 hover:text-slate-600')}>
+                <Shield className="w-4 h-4" strokeWidth={1.6} />
               </Link>
               <Link href="/dashboard/admin" onClick={onNavigate} title="Настройки"
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:bg-white/60 hover:text-slate-800">
-                <Settings className="w-[18px] h-[18px]" strokeWidth={1.6} />
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-white/60 hover:text-slate-600">
+                <Settings className="w-4 h-4" strokeWidth={1.6} />
               </Link>
             </>
           )}
-        </div>
-
-        {/* Bottom */}
-        <div className="flex flex-col items-center gap-1 mt-2">
           <button onClick={handleLogout} title="Выйти"
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-white/60 hover:text-slate-600">
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-white/60 hover:text-slate-600">
             <LogOut className="w-4 h-4" strokeWidth={1.6} />
           </button>
         </div>
@@ -209,46 +205,31 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
       </div>
 
       <nav className="flex-1 pl-4 pr-16 pt-2 overflow-y-auto">
-        {(() => {
-          const role = profile?.role || 'client'
-          const isAccountant = role === 'accountant'
-          const isClient = role === 'client'
-          const sections = []
-
-          if (!isAccountant && !isClient) {
-            sections.push({ label: 'Основное', items: mainItems })
-            sections.push({ label: 'Бизнес', items: businessItems })
-          }
-          if (isAccountant) {
-            sections.push({ label: 'Основное', items: mainItems.filter(i => i.href === '/dashboard/shipments') })
-            sections.push({ label: 'Бизнес', items: businessItems.filter(i => ['/dashboard/clients', '/dashboard/finance'].includes(i.href)) })
-          }
-          sections.push({ label: isAccountant || isClient ? 'Меню' : 'Другое', items: otherItems })
-
-          return sections
-        })().map((section, si) => (
-          <div key={section.label}>
-            <p className={`text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2 ${si > 0 ? 'mt-5' : ''}`}>{section.label}</p>
+        {visibleSections.map((section, si) => (
+          <div key={section.label ?? si} className={si > 0 ? 'mt-5' : ''}>
+            {section.label && (
+              <p className="text-[10.5px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-1.5">{section.label}</p>
+            )}
             <div className="space-y-0.5">
               {section.items.map((item) => {
                 const active = isActive(item.href)
                 return (
                   <Link key={item.href} href={item.href} onClick={onNavigate}
                     className={cn(
-                      'flex items-center gap-3 px-4 py-2 rounded-xl text-[13px]',
+                      'flex items-center gap-3 px-3 py-[7px] rounded-xl text-[13px]',
                       active
                         ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-indigo-200/50'
-                        : 'text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold'
+                        : 'text-slate-600 hover:bg-white/60 hover:text-slate-900 font-medium'
                     )}>
-                    <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={active ? 2.2 : 1.6} />
+                    <item.icon className={cn('h-[17px] w-[17px] shrink-0', active ? 'text-indigo-500' : 'text-slate-400')} strokeWidth={active ? 2.2 : 1.7} />
                     <span className="flex-1">{item.label}</span>
                     {item.href === '/dashboard/messages' && unreadCount > 0 && (
-                      <span className="w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                      <span className="min-w-5 h-5 px-1 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                         {unreadCount > 9 ? '9+' : unreadCount}
                       </span>
                     )}
                     {item.href === '/dashboard/tasks' && taskCount > 0 && (
-                      <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                      <span className="min-w-5 h-5 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                         {taskCount > 9 ? '9+' : taskCount}
                       </span>
                     )}
@@ -258,35 +239,28 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
             </div>
           </div>
         ))}
-
-        {hasRole('admin') && (
-          <>
-            <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold px-3 mb-2 mt-6">Управление</p>
-            <div className="space-y-0.5">
-              <Link href="/dashboard/admin" onClick={onNavigate}
-                className={cn(
-                  'flex items-center gap-3 px-4 py-2 rounded-xl text-[13px]',
-                  isActive('/dashboard/admin')
-                    ? 'bg-white text-slate-900 font-semibold shadow-sm shadow-indigo-200/50'
-                    : 'text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold'
-                )}>
-                <Shield className="h-[18px] w-[18px] shrink-0" strokeWidth={isActive('/dashboard/admin') ? 2.2 : 1.6} />
-                Админка
-              </Link>
-              <Link href="/dashboard/admin" onClick={onNavigate}
-                className="flex items-center gap-3 px-4 py-2 rounded-xl text-[13px] text-slate-800 hover:bg-white/60 hover:text-slate-900 font-semibold">
-                <Settings className="h-[18px] w-[18px] shrink-0" strokeWidth={1.6} />
-                Настройки
-              </Link>
-            </div>
-          </>
-        )}
       </nav>
 
-      <div className="px-4 pb-4 pt-3">
+      {/* Technical links: small and muted, pinned to the bottom */}
+      <div className="pl-4 pr-16 pb-4 pt-3 space-y-px">
+        {hasRole('admin') && (
+          <>
+            <Link href="/dashboard/admin" onClick={onNavigate}
+              className={cn('flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[12px] hover:bg-white/60',
+                isActive('/dashboard/admin') ? 'text-slate-700 font-medium' : 'text-slate-400 hover:text-slate-600')}>
+              <Shield className="h-[14px] w-[14px] shrink-0" strokeWidth={1.7} />
+              Админка
+            </Link>
+            <Link href="/dashboard/admin" onClick={onNavigate}
+              className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[12px] text-slate-400 hover:text-slate-600 hover:bg-white/60">
+              <Settings className="h-[14px] w-[14px] shrink-0" strokeWidth={1.7} />
+              Настройки
+            </Link>
+          </>
+        )}
         <button onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] w-full text-slate-400 hover:text-slate-600 hover:bg-white/60 font-medium">
-          <LogOut className="h-[16px] w-[16px] shrink-0" strokeWidth={1.6} />
+          className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[12px] w-full text-slate-400 hover:text-slate-600 hover:bg-white/60">
+          <LogOut className="h-[14px] w-[14px] shrink-0" strokeWidth={1.7} />
           Выйти
         </button>
       </div>

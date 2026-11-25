@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useState, useMemo, Fragment } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { Roboto_Condensed } from 'next/font/google'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send } from 'lucide-react'
+import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle } from 'lucide-react'
+import { RoutePoint } from '@/components/shipment-route-point'
+import { shipmentDateBounds, shipmentDateError, type ShipmentDateField } from '@/lib/shipment-dates'
+import { CONTAINER_NUMBER_PATTERN, editContainerNumber } from '@/lib/container-number'
 import { ReferencesModal } from '@/components/references-modal'
 import { SearchableSelect } from '@/components/searchable-select'
 import { getShipmentStatus, type Shipment } from '@/types/database'
@@ -12,64 +16,14 @@ import { fmtDate } from '@/lib/utils'
 import { useShipmentModal } from '@/lib/shipment-modal'
 import { useProfile } from '@/lib/useProfile'
 
-function RoutePoint({ label, flag, date, onChange, variant, canEdit }: {
-  label: string
-  flag?: string
-  date: string | null
-  onChange: (date: string) => Promise<void>
-  variant: 'origin' | 'border' | 'dest'
-  canEdit: boolean
-}) {
-  const [saving, setSaving] = useState(false)
-  const inputId = `date-${Math.random().toString(36).slice(2)}`
+const containerMarkingFont = Roboto_Condensed({ subsets: ['latin'], weight: '700' })
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!canEdit || date) return
-    const input = document.getElementById(inputId) as HTMLInputElement | null
-    input?.showPicker?.()
-  }
-
-  const handleDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    if (!value) return
-    setSaving(true)
-    await onChange(value)
-    setSaving(false)
-  }
-
-  const hasDate = !!date
-  const dotByVariant =
-    variant === 'origin' ? 'bg-indigo-500 ring-indigo-100' :
-    variant === 'border' ? 'bg-amber-500 ring-amber-100' :
-    'bg-emerald-500 ring-emerald-100'
-  const labelColor = hasDate ? 'text-slate-800 font-medium' : 'text-slate-400'
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={!canEdit || hasDate}
-      title={hasDate ? `${label} · ${fmtDate(date)}` : canEdit ? `Добавить дату для ${label}` : label}
-      className={`group/rp inline-flex flex-col items-start gap-0.5 text-[12px] shrink-0 min-w-0 transition-all ${
-        !hasDate && canEdit ? 'cursor-pointer' : ''
-      } ${saving ? 'opacity-50' : ''}`}
-    >
-      <span className="inline-flex items-center gap-1.5 min-w-0">
-        <span className={`w-2 h-2 rounded-full ring-4 shrink-0 ${hasDate ? dotByVariant : 'bg-slate-200 ring-slate-50'}`} />
-        {flag && <span className="shrink-0 text-[13px] leading-none">{flag}</span>}
-        <span className={`truncate max-w-[100px] text-[12.5px] ${labelColor} ${!hasDate && canEdit ? 'group-hover/rp:text-indigo-500' : ''}`}>{label}</span>
-      </span>
-      {hasDate ? (
-        <span className="ml-[14px] text-[10.5px] font-semibold text-slate-500 tabular-nums tracking-tight">
-          {fmtDate(date)?.slice(0, 5)}
-        </span>
-      ) : canEdit ? (
-        <span className="ml-[14px] text-[10.5px] text-slate-300 italic">+ дата</span>
-      ) : null}
-      <input id={inputId} type="date" className="sr-only" onChange={handleDateChange} onClick={e => e.stopPropagation()} />
-    </button>
-  )
+const CONTAINER_TYPE_COLORS: Record<string, { backgroundColor: string; color: string }> = {
+  'Выкупной': { backgroundColor: '#fef3c7', color: '#92400e' },
+  'Возвратный': { backgroundColor: '#d1fae5', color: '#065f46' },
+  'Собственный': { backgroundColor: '#dbeafe', color: '#1e40af' },
+  'Малшы': { backgroundColor: '#ede9fe', color: '#5b21b6' },
+  'Sinorail': { backgroundColor: '#ccfbf1', color: '#115e59' },
 }
 
 const CITY_FLAGS: Record<string, string> = {
@@ -113,7 +67,7 @@ function Hl({ text, q }: { text: string; q: string }) {
   if (!q || !text) return <>{text}</>
   const idx = text.toLowerCase().indexOf(q.toLowerCase())
   if (idx === -1) return <>{text}</>
-  return <>{text.slice(0, idx)}<mark className="bg-yellow-200/80 text-inherit rounded-sm px-0.5">{text.slice(idx, idx + q.length)}</mark>{text.slice(idx + q.length)}</>
+  return <>{text.slice(0, idx)}<mark className="bg-indigo-50 text-inherit rounded-sm">{text.slice(idx, idx + q.length)}</mark>{text.slice(idx + q.length)}</>
 }
 
 interface RefLookups {
@@ -132,6 +86,9 @@ export default function ShipmentsPage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const pageRequest = useRef<AbortController | null>(null)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
   const { openShipment } = useShipmentModal()
   const supabase = createClient()
@@ -159,36 +116,69 @@ export default function ShipmentsPage() {
     return () => document.documentElement.removeAttribute('data-chat-open')
   }, [addingNew])
 
-  const fetchPage = async (from: number, append: boolean) => {
-    if (append) setLoadingMore(true)
-    let query = supabase
-      .from('shipments')
-      .select('id, container_number, container_size, container_type, origin, destination_station, destination_city, departure_date, arrival_date, delivery_date, is_completed, client_id, carrier_id, sender_name, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)', { count: 'estimated' })
+  const fetchPage = useCallback(async (from: number, append: boolean) => {
+    if (append && pageRequest.current && !pageRequest.current.signal.aborted) return
+    pageRequest.current?.abort()
+    const controller = new AbortController()
+    pageRequest.current = controller
+    setLoadError(null)
+    setLoadingMore(append)
+    if (!append) {
+      setLoading(true)
+      setHasMore(false)
+      setShipments([])
+      setTotalCount(0)
+    }
 
-    if (carrierFilter) query = query.eq('carrier_id', carrierFilter)
-    if (clientFilter) query = query.eq('client_id', clientFilter)
-    if (dateFrom) query = query.gte('departure_date', dateFrom)
-    if (dateTo) query = query.lte('departure_date', dateTo)
-    if (statusFilter === 'delivered') query = query.eq('is_completed', true)
-    else if (statusFilter === 'in_transit') query = query.eq('is_completed', false).not('departure_date', 'is', null).is('arrival_date', null)
-    else if (statusFilter === 'border') query = query.eq('is_completed', false).not('arrival_date', 'is', null).is('delivery_date', null)
+    try {
+      let query = supabase
+        .from('shipments')
+        .select('id, container_number, container_size, container_type, origin, destination_station, destination_city, departure_date, arrival_date, delivery_date, is_completed, client_id, carrier_id, sender_name, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name), search_client:clients(), search_carrier:carriers(), search_recipient:recipients()', { count: 'exact' })
 
-    const { data, count } = await query
-      .order('departure_date', { ascending: false, nullsFirst: false })
-      .range(from, from + PAGE_SIZE - 1)
+      if (search.trim()) {
+        const pattern = `%${search.trim().replace(/[\\%_]/g, '\\$&')}%`
+        // Separate embeds preserve participant names when another field matches.
+        query = query
+          .ilike('search_client.name', pattern)
+          .ilike('search_carrier.name', pattern)
+          .ilike('search_recipient.name', pattern)
+          .or(`container_number.ilike.${JSON.stringify(pattern)},sender_name.ilike.${JSON.stringify(pattern)},search_client.not.is.null,search_carrier.not.is.null,search_recipient.not.is.null`)
+      }
 
-    const rows = (data as unknown as Shipment[]) || []
-    setShipments(append ? prev => [...prev, ...rows] : rows)
-    setTotalCount(count || 0)
-    setHasMore(rows.length === PAGE_SIZE)
-    setLoading(false)
-    setLoadingMore(false)
-  }
+      if (carrierFilter) query = query.eq('carrier_id', carrierFilter)
+      if (clientFilter) query = query.eq('client_id', clientFilter)
+      if (dateFrom) query = query.gte('departure_date', dateFrom)
+      if (dateTo) query = query.lte('departure_date', dateTo)
+      if (statusFilter === 'delivered') query = query.eq('is_completed', true)
+      else if (statusFilter === 'in_transit') query = query.eq('is_completed', false).not('departure_date', 'is', null).is('arrival_date', null)
+      else if (statusFilter === 'border') query = query.eq('is_completed', false).not('arrival_date', 'is', null).is('delivery_date', null)
+
+      const { data, count, error } = await query
+        .order('departure_date', { ascending: false, nullsFirst: false })
+        .order('id')
+        .range(from, from + PAGE_SIZE - 1)
+        .abortSignal(controller.signal)
+
+      if (controller.signal.aborted) return
+      if (error) throw error
+      const rows = (data as unknown as Shipment[]) || []
+      setShipments(append ? prev => [...prev, ...rows] : rows)
+      setTotalCount(count ?? 0)
+      setHasMore(rows.length > 0 && from + rows.length < (count ?? 0))
+    } catch {
+      if (!controller.signal.aborted) setLoadError('Не удалось загрузить перевозки. Попробуйте ещё раз.')
+    } finally {
+      if (pageRequest.current === controller) pageRequest.current = null
+      if (!controller.signal.aborted) {
+        setLoading(false)
+        setLoadingMore(false)
+      }
+    }
+  }, [supabase, search, statusFilter, carrierFilter, clientFilter, dateFrom, dateTo])
 
   useEffect(() => {
     const init = async () => {
-      const [, { data: carrierData }, { data: clientData }] = await Promise.all([
-        fetchPage(0, false),
+      const [{ data: carrierData }, { data: clientData }] = await Promise.all([
         supabase.from('carriers').select('id, name').order('name'),
         supabase.from('clients').select('id, name').order('name').limit(300),
       ])
@@ -196,20 +186,31 @@ export default function ShipmentsPage() {
       setClients(clientData || [])
     }
     init()
-  }, [])
+  }, [supabase])
 
-  // Refetch when server-side filters change (debounced via filter state changes only)
+  // Cancel old searches immediately; only request once typing pauses.
   useEffect(() => {
-    if (loading) return
     setLoading(true)
-    fetchPage(0, false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, carrierFilter, clientFilter, dateFrom, dateTo])
+    const timer = setTimeout(() => { void fetchPage(0, false) }, search.trim() ? 250 : 0)
+    return () => {
+      clearTimeout(timer)
+      pageRequest.current?.abort()
+    }
+  }, [fetchPage, search])
 
-  const loadMore = () => {
-    if (loadingMore || !hasMore) return
-    fetchPage(shipments.length, true)
-  }
+  useEffect(() => {
+    const sentinel = loadMoreRef.current
+    if (!sentinel || loading || loadingMore || loadError || !hasMore) return
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return
+      observer.disconnect()
+      void fetchPage(shipments.length, true)
+    }, { root: sentinel.closest('main'), rootMargin: '0px 0px 360px 0px' })
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [fetchPage, hasMore, loadError, loading, loadingMore, shipments.length])
 
   const fetchLookups = async () => {
     if (lookups) return
@@ -275,12 +276,19 @@ export default function ShipmentsPage() {
     })
   }
 
-  const updateDate = async (id: string, field: 'departure_date' | 'arrival_date' | 'delivery_date', value: string) => {
+  const updateDate = useCallback(async (id: string, field: ShipmentDateField, value: string) => {
+    const shipment = shipments.find(s => s.id === id)
+    if (!canEdit || !shipment) throw new Error('Перевозка недоступна для редактирования.')
+    const validation = shipmentDateError(value, shipmentDateBounds(field, shipment))
+    if (validation) throw new Error(validation)
     const update: Record<string, string | boolean> = { [field]: value }
-    if (field === 'delivery_date' && value) update.is_completed = true
-    await supabase.from('shipments').update(update).eq('id', id)
-    setShipments(prev => prev.map(s => s.id === id ? { ...s, [field]: value, ...(field === 'delivery_date' && value ? { is_completed: true } : {}) } : s))
-  }
+    if (field === 'delivery_date') update.is_completed = true
+    const { data, error } = await supabase.from('shipments').update(update).eq('id', id)
+      .select('id, departure_date, arrival_date, delivery_date, is_completed').single()
+    if (error || !data) throw new Error('Не удалось сохранить дату.')
+    setShipments(prev => prev.map(s => s.id === id ? { ...s, ...data } : s))
+    if (field === 'departure_date' || statusFilter !== 'all') void fetchPage(0, false)
+  }, [canEdit, fetchPage, shipments, statusFilter, supabase])
 
   const startAddNew = async () => {
     await fetchLookups()
@@ -292,7 +300,7 @@ export default function ShipmentsPage() {
   const cancelNew = () => { setAddingNew(false); setNewRow({}) }
 
   const saveNew = async () => {
-    if (!newRow.container_number?.trim()) return
+    if (!CONTAINER_NUMBER_PATTERN.test(newRow.container_number || '')) return
     setSavingNew(true)
     const payload: Record<string, unknown> = {}
     const numFields = ['container_size']
@@ -305,7 +313,7 @@ export default function ShipmentsPage() {
     }
     const { data, error } = await supabase.from('shipments').insert(payload).select('*, recipient:recipients(name), client:clients(name, is_russia), carrier:carriers(name), sender:senders(name)').single()
     if (!error && data) {
-      setShipments(prev => [data as unknown as Shipment, ...prev])
+      void fetchPage(0, false)
     }
     setAddingNew(false)
     setNewRow({})
@@ -313,19 +321,6 @@ export default function ShipmentsPage() {
   }
 
   const setNew = (k: string, v: string) => setNewRow(prev => ({ ...prev, [k]: v }))
-
-  // Status/carrier/client/date filters are applied server-side. Only search is client-side (on loaded rows).
-  const filtered = useMemo(() => {
-    if (!search) return shipments
-    const q = search.toLowerCase()
-    return shipments.filter(s =>
-      (s.container_number || '').toLowerCase().includes(q) ||
-      ((s.client as unknown as { name: string })?.name || '').toLowerCase().includes(q) ||
-      ((s.carrier as unknown as { name: string })?.name || '').toLowerCase().includes(q) ||
-      (s.sender_name || '').toLowerCase().includes(q) ||
-      ((s.recipient as unknown as { name: string })?.name || '').toLowerCase().includes(q)
-    )
-  }, [shipments, search])
 
   const activeFiltersCount = [carrierFilter, clientFilter, dateFrom, dateTo].filter(Boolean).length
   const clearFilters = () => { setCarrierFilter(''); setClientFilter(''); setDateFrom(''); setDateTo('') }
@@ -339,6 +334,178 @@ export default function ShipmentsPage() {
   ]
 
   const inpCls = 'h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300'
+
+  const shipmentList = useMemo(() => (
+    <>
+      {/* Desktop Table */}
+      <div className={`hidden md:block rounded-2xl border border-slate-200/70 bg-white overflow-hidden ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>
+        <div className="overflow-x-auto">
+        <table className="w-full table-fixed" style={{ minWidth: 1120 }}>
+          <thead className="sticky top-0 z-10 border-b border-slate-200/70 bg-slate-50">
+            <tr className="text-left text-[11px] font-medium text-slate-500">
+              <th scope="col" className="px-3 py-3 font-medium" style={{ width: '22%' }}>Контейнер</th>
+              <th scope="col" className="px-3 py-3 font-medium" style={{ width: '13%' }}>Клиент</th>
+              <th scope="col" className="px-3 py-3 font-medium" style={{ width: '11%' }}>Перевозчик</th>
+              <th scope="col" className="px-3 py-3 font-medium" style={{ width: '14%' }}>Отправление</th>
+              <th scope="col" className="px-3 py-3 font-medium" style={{ width: '14%' }}>Граница</th>
+              <th scope="col" className="px-3 py-3 font-medium" style={{ width: '14%' }}>Доставка</th>
+              <th scope="col" className="px-3 py-3 font-medium" style={{ width: '12%' }}>Статус / срок</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} className="px-5 py-4"><div className="space-y-2.5">{[...Array(8)].map((_, i) => <div key={i} className="skeleton h-12 w-full rounded-lg" />)}</div></td></tr>
+            ) : loadError && shipments.length === 0 ? null : shipments.length === 0 ? (
+              <tr><td colSpan={7} className="px-5 py-20 text-center">
+                <Ship className="w-12 h-12 text-slate-200 mx-auto mb-3" strokeWidth={1.3} />
+                <p className="text-[14px] text-slate-400 font-medium">Не найдено</p>
+                <p className="text-[12px] text-slate-300 mt-1">Попробуйте изменить фильтры</p>
+              </td></tr>
+            ) : (() => {
+              let lastMonth = ''
+              const monthCounts: Record<string, number> = {}
+              for (const s of shipments) {
+                const k = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : '—'
+                monthCounts[k] = (monthCounts[k] || 0) + 1
+              }
+              return shipments.map((s, index) => {
+                const isRussia = (s.client as unknown as { is_russia?: boolean })?.is_russia || false
+                const status = getShipmentStatus(s, isRussia)
+                const StatusIcon = status.key === 'delivered' ? Check : status.key === 'in_transit' || status.key === 'transit_kz' ? Truck : status.key === 'border' ? MapPin : Container
+                const days = s.departure_date && status.key !== 'delivered' ? Math.floor((Date.now() - new Date(s.departure_date).getTime()) / 86400000) : null
+                const curMonth = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : '—'
+                const showHeader = curMonth !== lastMonth
+                if (showHeader) lastMonth = curMonth
+
+                return (
+                  <Fragment key={s.id}>
+                    {showHeader && (
+                      <tr className="border-y border-slate-100 bg-slate-50/50">
+                        <td colSpan={7} className="px-5 py-2">
+                          <div className="flex items-baseline gap-2 text-[11px]">
+                            <span className="font-medium text-slate-600 capitalize">{curMonth}</span>
+                            <span className="text-slate-400 tabular-nums">· {monthCounts[curMonth]} {pluralRu(monthCounts[curMonth], 'перевозка', 'перевозки', 'перевозок')}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    <tr className={`border-b border-slate-100 last:border-0 cursor-pointer hover:bg-slate-100 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`} onClick={() => openShipment(s.id)}>
+                      <td className="px-3 py-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <button type="button" onClick={e => { e.stopPropagation(); openShipment(s.id) }}
+                            aria-label={`Открыть перевозку ${s.container_number || 'без номера'}`} title={s.container_number || 'Без номера'}
+                            className="inline-flex min-w-0 items-center gap-1.5 rounded text-left font-mono text-[13px] font-semibold leading-5 text-slate-900 tabular-nums hover:text-indigo-600 focus-visible:outline-2 focus-visible:outline-indigo-500">
+                            <Container aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
+                            <span className="truncate"><Hl text={s.container_number || '—'} q={search} /></span>
+                          </button>
+                          <div className="flex min-w-0 items-center gap-1">
+                            {s.container_size && <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium leading-4 text-slate-600" title={`Размер: ${s.container_size} ft`}>
+                              {s.container_size}ft
+                            </span>}
+                            {s.container_type && <span className="truncate rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium leading-4 text-slate-600" style={CONTAINER_TYPE_COLORS[s.container_type]} title={`Тип: ${s.container_type}`}>
+                              {s.container_type}
+                            </span>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <p title={s.client?.name || ''} className="truncate text-[13px] font-medium leading-5 text-slate-800">
+                            <Hl text={s.client?.name || '—'} q={search} />
+                          </p>
+                          {isRussia && <span className="shrink-0 text-[10px] text-slate-400" title="Клиент из России">РФ</span>}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        <p title={s.carrier?.name || ''} className="truncate text-[12px] leading-5 text-slate-500">
+                          <Hl text={s.carrier?.name || '—'} q={search} />
+                        </p>
+                      </td>
+                      <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                        <RoutePoint label={s.origin || '—'} flag={getFlag(s.origin)} stage="Отправление" field="departure_date" dates={s} containerNumber={s.container_number} canEdit={canEdit} onChange={d => updateDate(s.id, 'departure_date', d)} />
+                      </td>
+                      <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                        <RoutePoint label={s.destination_station || '—'} stage="Граница" field="arrival_date" dates={s} containerNumber={s.container_number} canEdit={canEdit} onChange={d => updateDate(s.id, 'arrival_date', d)} />
+                      </td>
+                      <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                        <RoutePoint label={s.destination_city || '—'} flag={getFlag(s.destination_city)} stage="Доставка" field="delivery_date" dates={s} containerNumber={s.container_number} canEdit={canEdit} onChange={d => updateDate(s.id, 'delivery_date', d)} />
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p title={status.label} className={`flex min-w-0 items-center gap-1.5 text-[12px] font-medium leading-5 ${status.key === 'delivered' ? 'text-emerald-700' : status.key === 'border' || status.key === 'transit_kz' ? 'text-amber-700' : status.key === 'in_transit' ? 'text-indigo-600' : 'text-slate-700'}`}>
+                            <StatusIcon aria-hidden="true" className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{status.label}</span>
+                          </p>
+                          {days !== null && <span className={`shrink-0 text-[11px] tabular-nums ${days > 45 ? 'text-red-600' : days > 30 ? 'text-amber-700' : 'text-slate-500'}`} title={`${days} ${pluralRu(days, 'день', 'дня', 'дней')} с даты отправления`}>
+                            {days}д
+                          </span>}
+                        </div>
+                      </td>
+                    </tr>
+                  </Fragment>
+                )
+              })
+            })()}
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className={`md:hidden space-y-2 ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>
+        {loading ? (
+          <div className="space-y-2">{[...Array(6)].map((_, i) => <div key={i} className="skeleton h-20 w-full rounded-xl" />)}</div>
+        ) : loadError && shipments.length === 0 ? null : shipments.length === 0 ? (
+          <div className="text-center py-16">
+            <Ship className="w-10 h-10 text-slate-200 mx-auto mb-3" strokeWidth={1.5} />
+            <p className="text-[14px] text-slate-400 font-medium">Не найдено</p>
+          </div>
+        ) : (() => {
+          let lastMonth = ''
+          return shipments.map((s) => {
+            const isRussia = (s.client as unknown as { is_russia?: boolean })?.is_russia || false
+            const status = getShipmentStatus(s, isRussia)
+            const curMonth = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : ''
+            const showMonthHeader = curMonth && curMonth !== lastMonth
+            if (showMonthHeader) lastMonth = curMonth
+            const statusBg = status.key === 'delivered' ? '#f0fdf4' : status.key === 'in_transit' ? '#eef2ff' : '#fffbeb'
+
+            return (
+              <div key={s.id}>
+                {showMonthHeader && (
+                  <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide px-1 pt-3 pb-1.5">{curMonth}</p>
+                )}
+                <div
+                  className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-3.5 active:bg-slate-50 transition-colors cursor-pointer"
+                  onClick={() => openShipment(s.id)}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-bold text-slate-900 font-mono"><Hl text={s.container_number || '—'} q={search} /></p>
+                      <p className="text-[12px] text-slate-500 truncate mt-0.5">{(s.client as unknown as { name: string })?.name || '—'}</p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap shrink-0" style={{ background: statusBg, color: status.color }}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${status.key === 'in_transit' ? 'dot-pulse' : ''}`} style={{ background: status.color }} />
+                      {status.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                    <span>{getFlag(s.origin)} {s.origin || '—'} → {getFlag(s.destination_city || s.destination_station)} {s.destination_city || s.destination_station || '—'}</span>
+                    <span className="ml-auto">{fmtDate(s.departure_date)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {s.container_size && <span className={`rounded px-1.5 py-px text-[10px] font-medium ${s.container_size === 20 ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>{s.container_size}ft</span>}
+                    {s.container_type && <span className="rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600" style={CONTAINER_TYPE_COLORS[s.container_type]}>{s.container_type}</span>}
+                    {(s.carrier as unknown as { name: string })?.name && <span className="text-[11px] text-slate-400 ml-auto truncate max-w-[120px]">{(s.carrier as unknown as { name: string })?.name}</span>}
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        })()}
+      </div>
+    </>
+  ), [addingNew, canEdit, loadError, loading, openShipment, search, shipments, updateDate])
 
   return (
     <div className="space-y-4">
@@ -354,7 +521,7 @@ export default function ShipmentsPage() {
             className="w-full h-9 rounded-lg bg-white border border-slate-200/80 pl-9 pr-3 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all"
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <p className="text-[13px] text-slate-400 shrink-0 hidden md:block">{shipments.length} из {totalCount}</p>
+        <p role="status" className="text-[13px] text-slate-400 shrink-0">{loading ? (search.trim() ? 'Поиск...' : 'Загрузка...') : `${shipments.length} из ${totalCount}`}</p>
         <button onClick={() => setShowRefs(true)} className="h-9 flex items-center gap-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors shrink-0">
           <BookOpen className="w-3.5 h-3.5" />
           <span className="hidden md:inline">Справочники</span>
@@ -381,14 +548,16 @@ export default function ShipmentsPage() {
       {addingNew && lookups && (() => {
         const size = newRow.container_size || '40'
         const type = newRow.container_type || 'Выкупной'
-        const typeColors: Record<string, { bg: string; ring: string; text: string; door: string }> = {
-          'Выкупной':    { bg: 'from-indigo-500 to-indigo-700',     ring: 'ring-indigo-300',  text: 'text-indigo-700',  door: 'bg-indigo-900' },
-          'Возвратный':  { bg: 'from-amber-500 to-amber-600',       ring: 'ring-amber-300',   text: 'text-amber-700',   door: 'bg-amber-900' },
-          'Собственный': { bg: 'from-emerald-500 to-emerald-600',   ring: 'ring-emerald-300', text: 'text-emerald-700', door: 'bg-emerald-900' },
-          'Малшы':       { bg: 'from-violet-500 to-violet-600',     ring: 'ring-violet-300',  text: 'text-violet-700',  door: 'bg-violet-900' },
+        const containerNumber = (newRow.container_number || '').trim()
+        const numberParts = containerNumber.match(/^([A-Z]{0,4})([0-9]{0,6})([0-9]?)/)
+        const typeColors: Record<string, string> = {
+          'Выкупной': '#6366f1',
+          'Возвратный': '#f59e0b',
+          'Собственный': '#10b981',
+          'Малшы': '#8b5cf6',
+          'Sinorail': '#3298df',
         }
-        const c = typeColors[type] || typeColors['Выкупной']
-        const containerMaxW = size === '40' ? 'max-w-[420px]' : 'max-w-[210px]'
+        const containerColor = typeColors[type] || typeColors['Выкупной']
         return (
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center md:p-4" onClick={cancelNew}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
@@ -411,45 +580,107 @@ export default function ShipmentsPage() {
               <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5 items-center bg-white/50 rounded-2xl p-4 ring-1 ring-white/80">
                 {/* Visual */}
                 <div className="flex items-center justify-center min-h-[140px]">
-                  <div className={`relative w-full ${containerMaxW} transition-all duration-300 ease-out`}>
-                    <div className={`relative h-24 rounded-md bg-gradient-to-b ${c.bg} ring-1 ${c.ring} shadow-[0_8px_24px_-8px_rgba(15,23,42,0.35)] overflow-hidden`}>
-                      {/* Corrugation lines */}
-                      <div className="absolute inset-0 flex flex-col justify-around pointer-events-none">
-                        {[...Array(7)].map((_, i) => (
-                          <div key={i} className="h-px bg-black/15" />
+                  <svg
+                    viewBox="14 12 232 116"
+                    role="img"
+                    aria-label={`Контейнер ${size} футов, верхняя половина, вид спереди${newRow.container_number ? `, ${newRow.container_number}` : ''}`}
+                    className="w-full"
+                    style={{ maxWidth: 440, height: 'auto', overflow: 'hidden' }}
+                  >
+                    <defs>
+                      <linearGradient id="shipment-container-paint" x2="0" y2="1">
+                        <stop stopColor="#fff" stopOpacity=".24" />
+                        <stop offset=".5" stopColor="#fff" stopOpacity="0" />
+                        <stop offset="1" stopColor="#071b35" stopOpacity=".25" />
+                      </linearGradient>
+                      <linearGradient id="shipment-container-steel">
+                        <stop stopColor="#526474" />
+                        <stop offset=".32" stopColor="#e7edf1" />
+                        <stop offset=".55" stopColor="#fff" />
+                        <stop offset="1" stopColor="#657886" />
+                      </linearGradient>
+                    </defs>
+                    <ellipse cx="130" cy="245" rx="111" ry="5" fill="#0f172a" opacity=".1" />
+                    <rect x="18" y="16" width="224" height="224" rx="2" fill={containerColor} />
+                    <rect x="18" y="16" width="224" height="224" rx="2" fill="url(#shipment-container-paint)" />
+                    {[30, 134].map(x => (
+                      <g key={x}>
+                        <rect x={x} y="29" width="96" height="190" fill={containerColor} stroke="#102c46" strokeOpacity=".4" />
+                        <rect x={x} y="29" width="96" height="190" fill="url(#shipment-container-paint)" />
+                        {[46, 96, 146, 199].map(y => (
+                          <g key={y}>
+                            <path d={`M${x + 1} ${y}h94`} stroke="#102c46" strokeOpacity=".25" strokeWidth="7" />
+                            <path d={`M${x + 1} ${y - 4}h94`} stroke="#fff" strokeOpacity=".3" />
+                          </g>
                         ))}
-                      </div>
-                      {/* Doors right side */}
-                      <div className={`absolute top-1.5 bottom-1.5 right-1.5 w-3 ${c.door} rounded-sm opacity-40`} />
-                      <div className={`absolute top-1.5 bottom-1.5 right-5 w-px bg-black/20`} />
-                      {/* Size badge */}
-                      <div className="absolute top-2 left-3 px-2 py-0.5 rounded bg-white/95 text-[10px] font-bold tracking-wide text-slate-700 shadow-sm">
-                        {size}ft
-                      </div>
-                      {/* Container number on side */}
-                      {newRow.container_number && (
-                        <div className="absolute bottom-2 left-3 right-9 px-1 py-0.5 rounded bg-black/30 text-[11px] font-mono font-bold text-white tracking-wider truncate">
-                          {newRow.container_number}
-                        </div>
-                      )}
-                    </div>
-                    {/* Ground shadow */}
-                    <div className="mx-4 h-1 rounded-full bg-slate-900/10 blur-sm" />
-                  </div>
+                        <path d={`M${x + 8} 32v183m80-183v183`} fill="none" stroke="#fff" strokeOpacity=".14" strokeWidth="2" />
+                      </g>
+                    ))}
+                    <path d="M130 27v194" stroke="#102c46" strokeOpacity=".65" strokeWidth="3" />
+                    <path d="M18 25h224M27 25v205M233 25v205M18 230h224" fill="none" stroke="#102c46" strokeOpacity=".3" strokeWidth="7" />
+                    <path d="M19 18h222M20 19v218M29 27h202M29 224h202" fill="none" stroke="#fff" strokeOpacity=".35" />
+                    {[61, 103, 133, 176].map(x => (
+                      <g key={x}>
+                        <rect x={x} y="31" width="4" height="189" rx="1" fill="#102c46" opacity=".3" />
+                        <rect x={x - 1.5} y="30" width="3" height="189" rx="1" fill="url(#shipment-container-steel)" />
+                        {[33, 93, 151, 217].map(y => (
+                          <rect key={y} x={x - 4} y={y} width="8" height="4" rx="1" fill="url(#shipment-container-steel)" stroke="#536876" strokeWidth=".5" />
+                        ))}
+                        <rect x={x - 4} y="173" width="8" height="10" rx="1" fill="url(#shipment-container-steel)" />
+                        <path d={`M${x} 178h${x < 130 ? -17 : 17}`} stroke="#233b4b" strokeWidth="4" />
+                        <path d={`M${x} 177h${x < 130 ? -17 : 17}`} stroke="#dce5ec" strokeWidth="2" />
+                      </g>
+                    ))}
+                    {[64, 119, 183].map(y => (
+                      <g key={y} fill={containerColor} stroke="#102c46" strokeOpacity=".3">
+                        <rect x="21" y={y} width="12" height="9" rx="1" />
+                        <rect x="227" y={y} width="12" height="9" rx="1" />
+                      </g>
+                    ))}
+                    {[[18, 16], [228, 16], [18, 226], [228, 226]].map(([x, y]) => (
+                      <g key={`${x}-${y}`}>
+                        <rect x={x} y={y} width="14" height="14" rx="1" fill={containerColor} stroke="#fff" strokeOpacity=".2" />
+                        <ellipse cx={x + 7} cy={y + 7} rx="3.5" ry="4" fill="#102c46" opacity=".75" />
+                      </g>
+                    ))}
+                    <text x="38" y="116" fill="#fff" fontFamily="monospace" fontSize="10" fontWeight="700">{size} FT</text>
+                    {containerNumber && numberParts && <g fill="#fff" className={containerMarkingFont.className} fontWeight="700" fontSize="12">
+                      <text x="137" y="86">{numberParts[1]}</text>
+                      <text x="182" y="86">{numberParts[2]}</text>
+                      {numberParts[3] && <>
+                          <rect x="219.8" y="74" width="9" height="16" fill="none" stroke="#fff" strokeWidth=".7" />
+                          <text x="224.3" y="86" textAnchor="middle">{numberParts[3]}</text>
+                      </>}
+                    </g>}
+                  </svg>
                 </div>
 
                 {/* Number + size + type + date */}
                 <div className="space-y-3">
                   <div>
-                    <p className="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Номер контейнера *</p>
+                    <label htmlFor="new-container-number" className="block text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wider">Номер контейнера *</label>
                     <input
+                      id="new-container-number"
                       type="text"
                       value={newRow.container_number || ''}
-                      onChange={e => setNew('container_number', e.target.value.toUpperCase())}
+                      onChange={e => {
+                        const input = e.currentTarget
+                        const caret = input.selectionStart ?? input.value.length
+                        const next = editContainerNumber(input.value, newRow.container_number || '')
+                        setNew('container_number', next)
+                        requestAnimationFrame(() => input.setSelectionRange(Math.min(caret, next.length), Math.min(caret, next.length)))
+                      }}
+                      pattern="[A-Z]{4}[0-9]{7}"
+                      required
+                      autoCapitalize="characters"
+                      autoComplete="off"
+                      spellCheck={false}
+                      aria-describedby="container-number-format"
                       placeholder="XXXX0000000"
                       autoFocus
                       className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-[15px] font-mono font-bold tracking-wider text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 placeholder:text-slate-300 placeholder:font-normal placeholder:tracking-normal"
                     />
+                    <p id="container-number-format" className="mt-1.5 text-[11px] text-slate-500">4 латинские буквы и 7 цифр · ABCD1234567</p>
                   </div>
 
                   <div>
@@ -481,6 +712,7 @@ export default function ShipmentsPage() {
                           { value: 'Возвратный',  activeCls: 'bg-amber-500 text-white border-amber-500' },
                           { value: 'Собственный', activeCls: 'bg-emerald-500 text-white border-emerald-500' },
                           { value: 'Малшы',       activeCls: 'bg-violet-500 text-white border-violet-500' },
+                          { value: 'Sinorail',    activeCls: 'bg-indigo-500 text-white border-indigo-500' },
                         ]).map(opt => (
                           <button
                             key={opt.value}
@@ -617,7 +849,7 @@ export default function ShipmentsPage() {
               </button>
               <button
                 onClick={saveNew}
-                disabled={savingNew || !newRow.container_number?.trim()}
+                disabled={savingNew || !CONTAINER_NUMBER_PATTERN.test(newRow.container_number || '')}
                 className="flex-1 h-10 rounded-xl bg-indigo-600 text-white text-[13px] font-semibold active:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/25"
               >
                 <Save className="w-3.5 h-3.5" /> {savingNew ? 'Сохранение...' : 'Сохранить'}
@@ -628,244 +860,25 @@ export default function ShipmentsPage() {
         )
       })()}
 
-      {/* Desktop Table */}
-      <div className={`hidden md:block rounded-2xl bg-white ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_8px_24px_-12px_rgba(15,23,42,0.08)] overflow-hidden ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>
-        <div className="overflow-x-auto">
-        <table className="w-full table-fixed min-w-[880px]">
-          <thead className="sticky top-0 z-10">
-            <tr className="bg-gradient-to-b from-slate-50/95 to-slate-50/80 backdrop-blur-sm border-b border-slate-200/70">
-              <th className="text-left pl-5 pr-2 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[15%]">Контейнер</th>
-              <th className="text-left px-2 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[8%]">Дата</th>
-              <th className="text-left px-3 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[16%]">Клиент</th>
-              <th className="text-left px-3 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[12%]">Перевозчик</th>
-              <th className="text-left px-3 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em]" colSpan={3}>Маршрут</th>
-              <th className="text-center px-2 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[7%]">Срок</th>
-              <th className="text-left pl-2 pr-5 py-3 text-[10.5px] font-semibold text-slate-500 uppercase tracking-[0.06em] w-[10%]">Статус</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={9} className="px-5 py-4"><div className="space-y-2.5">{[...Array(8)].map((_, i) => <div key={i} className="skeleton h-12 w-full rounded-lg" />)}</div></td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={9} className="px-5 py-20 text-center">
-                <Ship className="w-12 h-12 text-slate-200 mx-auto mb-3" strokeWidth={1.3} />
-                <p className="text-[14px] text-slate-400 font-medium">Не найдено</p>
-                <p className="text-[12px] text-slate-300 mt-1">Попробуйте изменить фильтры</p>
-              </td></tr>
-            ) : (() => {
-              let lastMonth = ''
-              const monthCounts: Record<string, number> = {}
-              for (const s of filtered) {
-                const k = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : '—'
-                monthCounts[k] = (monthCounts[k] || 0) + 1
-              }
-              return filtered.map((s) => {
-                const isRussia = (s.client as unknown as { is_russia?: boolean })?.is_russia || false
-                const status = getShipmentStatus(s, isRussia)
-                const curMonth = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : '—'
-                const showHeader = curMonth !== lastMonth
-                if (showHeader) lastMonth = curMonth
+      {loadError && shipments.length === 0 && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+        {loadError} <button onClick={() => fetchPage(0, false)} className="font-semibold underline">Повторить</button>
+      </div>}
 
-                return (
-                  <Fragment key={s.id}>
-                    {showHeader && (
-                      <tr className="bg-slate-50/40">
-                        <td colSpan={9} className="px-5 py-1.5">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-[0.08em]">{curMonth}</span>
-                            <span className="text-[11px] text-slate-400 tabular-nums">·  {monthCounts[curMonth]} {pluralRu(monthCounts[curMonth], 'перевозка', 'перевозки', 'перевозок')}</span>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                    <tr
-                      className="group/row relative border-b border-slate-100/70 cursor-pointer transition-all duration-150 hover:bg-gradient-to-r hover:from-indigo-50/40 hover:to-transparent"
-                      onClick={() => openShipment(s.id)}
-                    >
-                      {/* Container */}
-                      <td className="pl-5 pr-2 py-3.5 relative">
-                        <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-indigo-400 to-violet-500 opacity-0 group-hover/row:opacity-100 transition-opacity rounded-r" />
-                        <p className="text-[13.5px] font-bold text-slate-900 font-mono tracking-tight tabular-nums">
-                          <Hl text={s.container_number || '—'} q={search} />
-                        </p>
-                        <div className="flex items-center gap-1 mt-1">
-                          {s.container_size ? (
-                            <span className={`inline-block rounded-[5px] px-1.5 py-px text-[10px] font-semibold ring-1 ring-inset ${s.container_size === 20 ? 'bg-sky-50 text-sky-700 ring-sky-200/60' : 'bg-violet-50 text-violet-700 ring-violet-200/60'}`}>
-                              {s.container_size}ft
-                            </span>
-                          ) : null}
-                          {s.container_type ? (
-                            <span className={`inline-block rounded-[5px] px-1.5 py-px text-[10px] font-semibold ring-1 ring-inset ${
-                              s.container_type === 'Выкупной' ? 'bg-amber-50 text-amber-700 ring-amber-200/60' :
-                              s.container_type === 'Возвратный' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200/60' :
-                              s.container_type === 'Собственный' ? 'bg-indigo-50 text-indigo-700 ring-indigo-200/60' :
-                              'bg-slate-100 text-slate-600 ring-slate-200/60'
-                            }`}>
-                              {s.container_type}
-                            </span>
-                          ) : null}
-                        </div>
-                      </td>
-                      {/* Date */}
-                      <td className="px-2 py-3.5 text-[12.5px] text-slate-600 tabular-nums font-medium whitespace-nowrap">
-                        {fmtDate(s.departure_date) || <span className="text-slate-300">—</span>}
-                      </td>
-                      {/* Client */}
-                      <td className="px-3 py-3.5">
-                        <p className="text-[13px] font-semibold text-slate-800 truncate">
-                          <Hl text={(s.client as unknown as { name: string })?.name || '—'} q={search} />
-                        </p>
-                        {isRussia && <p className="text-[10.5px] text-rose-500 font-medium mt-0.5">🇷🇺 РФ</p>}
-                      </td>
-                      {/* Carrier */}
-                      <td className="px-3 py-3.5 text-[12.5px] text-slate-500 truncate">
-                        <Hl text={(s.carrier as unknown as { name: string })?.name || '—'} q={search} />
-                      </td>
-                      {/* Route */}
-                      <td className="px-3 py-3.5" colSpan={3} onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between gap-1 min-w-0 w-full">
-                          <RoutePoint
-                            label={s.origin || '—'}
-                            flag={getFlag(s.origin)}
-                            date={s.departure_date}
-                            variant="origin"
-                            canEdit={canEdit}
-                            onChange={(d) => updateDate(s.id, 'departure_date', d)}
-                          />
-                          <div className="flex-1 min-w-[14px] mt-[3px] h-[1.5px] bg-gradient-to-r from-indigo-100 via-amber-100 to-emerald-100" />
-                          <RoutePoint
-                            label={s.destination_station || '—'}
-                            date={s.arrival_date}
-                            variant="border"
-                            canEdit={canEdit}
-                            onChange={(d) => updateDate(s.id, 'arrival_date', d)}
-                          />
-                          <div className="flex-1 min-w-[14px] mt-[3px] h-[1.5px] bg-gradient-to-r from-amber-100 to-emerald-100" />
-                          <RoutePoint
-                            label={s.destination_city || '—'}
-                            flag={getFlag(s.destination_city)}
-                            date={s.delivery_date}
-                            variant="dest"
-                            canEdit={canEdit}
-                            onChange={(d) => updateDate(s.id, 'delivery_date', d)}
-                          />
-                        </div>
-                      </td>
-                      {/* Days */}
-                      <td className="px-2 py-3.5 text-center">
-                        {(() => {
-                          if (status.key === 'delivered') return (
-                            <span className="inline-flex items-center justify-center w-7 h-6 rounded-md bg-emerald-50 text-emerald-600 text-[11px] font-bold ring-1 ring-emerald-200/60">✓</span>
-                          )
-                          if (!s.departure_date) return <span className="text-[11px] text-slate-300">—</span>
-                          const days = Math.floor((Date.now() - new Date(s.departure_date).getTime()) / 86400000)
-                          const isLong = days > 45
-                          const isWarn = days > 30 && !isLong
-                          const cls = isLong
-                            ? 'bg-red-50 text-red-600 ring-red-200/60'
-                            : isWarn
-                              ? 'bg-amber-50 text-amber-700 ring-amber-200/60'
-                              : 'bg-slate-50 text-slate-600 ring-slate-200/60'
-                          return (
-                            <span className={`inline-flex items-center justify-center min-w-[34px] px-1.5 h-6 rounded-md text-[11px] font-bold tabular-nums ring-1 ${cls}`}>
-                              {days}д
-                            </span>
-                          )
-                        })()}
-                      </td>
-                      {/* Status */}
-                      <td className="pl-2 pr-5 py-3.5">
-                        <span
-                          className="inline-flex items-center gap-1.5 px-2.5 py-[3px] rounded-full text-[11px] font-semibold whitespace-nowrap ring-1 ring-inset"
-                          style={{
-                            background: status.color + '12',
-                            color: status.color,
-                            borderColor: status.color + '20',
-                          }}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${status.key === 'in_transit' ? 'dot-pulse' : ''}`}
-                            style={{ background: status.color }}
-                          />
-                          {status.label}
-                        </span>
-                      </td>
-                    </tr>
-                  </Fragment>
-                )
-              })
-            })()}
-          </tbody>
-        </table>
-        </div>
-      </div>
+      {shipmentList}
 
-      {/* Mobile Card View */}
-      <div className={`md:hidden space-y-2 ${addingNew ? 'opacity-40 pointer-events-none' : ''}`}>
-        {loading ? (
-          <div className="space-y-2">{[...Array(6)].map((_, i) => <div key={i} className="skeleton h-20 w-full rounded-xl" />)}</div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16">
-            <Ship className="w-10 h-10 text-slate-200 mx-auto mb-3" strokeWidth={1.5} />
-            <p className="text-[14px] text-slate-400 font-medium">Не найдено</p>
-          </div>
-        ) : (() => {
-          let lastMonth = ''
-          return filtered.map((s) => {
-            const isRussia = (s.client as unknown as { is_russia?: boolean })?.is_russia || false
-            const status = getShipmentStatus(s, isRussia)
-            const curMonth = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : ''
-            const showMonthHeader = curMonth && curMonth !== lastMonth
-            if (showMonthHeader) lastMonth = curMonth
-            const statusBg = status.key === 'delivered' ? '#f0fdf4' : status.key === 'in_transit' ? '#eef2ff' : '#fffbeb'
-
-            return (
-              <div key={s.id}>
-                {showMonthHeader && (
-                  <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide px-1 pt-3 pb-1.5">{curMonth}</p>
-                )}
-                <div
-                  className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-3.5 active:bg-slate-50 transition-colors cursor-pointer"
-                  onClick={() => openShipment(s.id)}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="min-w-0">
-                      <p className="text-[14px] font-bold text-slate-900 font-mono"><Hl text={s.container_number || '—'} q={search} /></p>
-                      <p className="text-[12px] text-slate-500 truncate mt-0.5">{(s.client as unknown as { name: string })?.name || '—'}</p>
-                    </div>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap shrink-0" style={{ background: statusBg, color: status.color }}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${status.key === 'in_transit' ? 'dot-pulse' : ''}`} style={{ background: status.color }} />
-                      {status.label}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                    <span>{getFlag(s.origin)} {s.origin || '—'} → {getFlag(s.destination_city || s.destination_station)} {s.destination_city || s.destination_station || '—'}</span>
-                    <span className="ml-auto">{fmtDate(s.departure_date)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    {s.container_size && <span className={`rounded px-1.5 py-px text-[10px] font-medium ${s.container_size === 20 ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>{s.container_size}ft</span>}
-                    {s.container_type && <span className={`rounded px-1.5 py-px text-[10px] font-medium ${
-                      s.container_type === 'Выкупной' ? 'bg-amber-50 text-amber-700' :
-                      s.container_type === 'Возвратный' ? 'bg-emerald-50 text-emerald-700' :
-                      s.container_type === 'Собственный' ? 'bg-indigo-50 text-indigo-700' :
-                      'bg-slate-100 text-slate-600'
-                    }`}>{s.container_type}</span>}
-                    {(s.carrier as unknown as { name: string })?.name && <span className="text-[11px] text-slate-400 ml-auto truncate max-w-[120px]">{(s.carrier as unknown as { name: string })?.name}</span>}
-                  </div>
-                </div>
-              </div>
-            )
-          })
-        })()}
-      </div>
-
-      {/* Load more */}
-      {hasMore && !loading && (
-        <div className="flex justify-center py-3">
-          <button onClick={loadMore} disabled={loadingMore}
-            className="px-5 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[13px] font-medium hover:bg-slate-50 transition-colors disabled:opacity-50">
-            {loadingMore ? 'Загрузка...' : `Ещё ${Math.min(PAGE_SIZE, totalCount - shipments.length)} из ${totalCount - shipments.length}`}
-          </button>
+      {!loading && shipments.length > 0 && (
+        <div ref={loadMoreRef} className="flex justify-center py-3 text-[12px] text-slate-400">
+          {loadError ? (
+            <div role="alert" className="flex flex-wrap items-center justify-center gap-3 text-red-600">
+              <span>{loadError}</span>
+              <button onClick={() => fetchPage(shipments.length, true)} className="shrink-0 font-semibold underline">Повторить</button>
+            </div>
+          ) : (
+            <div role="status" className="flex items-center gap-2">
+              {loadingMore && <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />}
+              {loadingMore ? 'Загружаем перевозки…' : hasMore ? `Загружено ${shipments.length} из ${totalCount}` : 'Все перевозки загружены'}
+            </div>
+          )}
         </div>
       )}
 

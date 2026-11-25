@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutGrid, Ship, Users, CheckSquare, MessageSquare,
   Menu as MenuIcon, X, BarChart3, Truck, Wallet, FileText,
-  Shield, Settings, LogOut, User, Save, Sparkles,
+  Shield, Settings, LogOut, User, Save, ClipboardList, Inbox,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useUnreadCount } from '@/lib/useMessages'
@@ -27,8 +27,9 @@ const menuSections = [
   {
     label: 'Разделы',
     items: [
-      { href: '/dashboard/agent', label: 'AI Ассистент', icon: Sparkles },
+      { href: '/dashboard/cargo-requests', label: 'Заявки на груз', icon: ClipboardList },
       { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
+      { href: '/dashboard/crm', label: 'CRM чаты', icon: Inbox },
       { href: '/dashboard/carriers', label: 'Перевозчики', icon: Truck },
       { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
       { href: '/dashboard/reports', label: 'Отчёты', icon: BarChart3 },
@@ -176,7 +177,7 @@ export function MobileNav() {
                 <div key={section.label} className="mb-2">
                   <p className="px-3 py-1.5 text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold">{section.label}</p>
                   <div className="space-y-0.5">
-                    {section.items.map((item) => {
+                    {section.items.filter(item => item.href !== '/dashboard/cargo-requests' || hasRole('admin', 'manager')).map((item) => {
                       const active = isActive(item.href)
                       return (
                         <Link

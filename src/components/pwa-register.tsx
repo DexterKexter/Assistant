@@ -6,7 +6,13 @@ export function PWARegister() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (!('serviceWorker' in navigator)) return
-    if (process.env.NODE_ENV !== 'production') return
+    if (process.env.NODE_ENV !== 'production') {
+      // A worker installed by an earlier build can serve stale dev CSS and JS.
+      navigator.serviceWorker.getRegistration('/').then(reg => {
+        if (reg?.active?.scriptURL === `${window.location.origin}/sw.js`) return reg.unregister()
+      }).catch(err => console.warn('[PWA] Dev worker cleanup failed:', err))
+      return
+    }
 
     const register = async () => {
       try {

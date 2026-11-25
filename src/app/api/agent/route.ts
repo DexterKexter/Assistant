@@ -519,7 +519,7 @@ export async function POST(req: Request) {
           carrier_name: z.string().optional().describe('Имя перевозчика'),
           sender_name: z.string().optional().describe('Имя отправителя (свободный текст)'),
           container_size: z.union([z.literal(20), z.literal(40)]).optional(),
-          container_type: z.string().optional().describe('Выкупной / Возвратный / Собственный / Малшы'),
+          container_type: z.string().optional().describe('Выкупной / Возвратный / Собственный / Малшы / Sinorail'),
           origin: z.string().optional().describe('Откуда (Дубай, Чингдао, Корея...)'),
           destination_city: z.string().optional().describe('Конечный город (Алматы, Москва...)'),
           destination_station: z.string().optional().describe('Погранпереход (Актау Порт, Алтынколь, Сары-агаш, Темир-Баба)'),

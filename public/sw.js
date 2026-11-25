@@ -51,6 +51,8 @@ async function trimCache(cacheName, maxEntries) {
 }
 
 self.addEventListener('fetch', (event) => {
+  // Dev chunk URLs are reused after edits; an old worker must not cache them.
+  if (['localhost', '127.0.0.1', '[::1]'].includes(self.location.hostname)) return
   const req = event.request
 
   // Only GET requests
