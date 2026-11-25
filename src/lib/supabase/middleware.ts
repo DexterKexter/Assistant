@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
-  if (request.nextUrl.pathname === '/cargo-request/demo') return NextResponse.next({ request })
+  if (['/cargo-request/demo', '/privacy'].includes(request.nextUrl.pathname)) return NextResponse.next({ request })
   // The WhatsApp webhook has no session; the route verifies Meta's signature itself.
   if (request.nextUrl.pathname === '/api/whatsapp/webhook') return NextResponse.next({ request })
 
