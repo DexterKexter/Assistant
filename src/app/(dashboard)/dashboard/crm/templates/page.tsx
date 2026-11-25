@@ -41,7 +41,7 @@ export default function TemplatesPage() {
 
   return (
     <div className="space-y-4 pb-6">
-      <ChatTabs />
+      <div className="-mx-3 -mt-3 flex h-14 items-end border-b border-slate-100 px-4 md:-mx-5 md:-mt-4"><ChatTabs /></div>
       <p className="text-[13px] text-slate-500 max-w-2xl">
         Готовые сообщения для WhatsApp. Нужны, чтобы написать клиенту первым или когда он не отвечал больше 24 часов.
         Данные клиента и перевозки подставляются сами.

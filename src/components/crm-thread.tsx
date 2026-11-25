@@ -3,19 +3,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { shipmentStatusText } from '@/lib/shipment-status'
+import { shipmentStatusText, shipmentStatusLabel } from '@/lib/shipment-status'
 import { templateValues } from '@/lib/template-values'
 import { TEMPLATES, TEMPLATE_FIELDS, compileTemplate, fillTemplate } from '@/lib/whatsapp-template'
 import { SearchableSelect } from '@/components/searchable-select'
 import { WaText } from '@/components/wa-text'
 import Link from 'next/link'
-import { ArrowLeft, Send, Package, UserPlus, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Send, UserPlus, ExternalLink } from 'lucide-react'
 
 export type CrmChat = {
   id: string; channel: 'whatsapp'; name: string; username: string | null; phone: string | null
   client_id: string | null; last_message_text: string | null; last_message_at: string; unread_count: number
 }
-type Msg = { id: string; chat_id: string; direction: 'in' | 'out'; text: string; created_at: string }
+type Msg = { id: string; chat_id: string; direction: 'in' | 'out'; text: string; created_at: string; pending?: boolean }
 export type CrmClient = { id: string; name: string; is_russia: boolean }
 type ShipmentRow = Parameters<typeof shipmentStatusText>[0] & { id: string }
 
@@ -46,7 +46,12 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
     supabase.from('crm_messages').select('*').eq('chat_id', chat.id).order('created_at').then(({ data }) => setMessages(data || []))
     const ch = supabase.channel(`crm-msg-${chat.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'crm_messages', filter: `chat_id=eq.${chat.id}` },
-        p => setMessages(m => m.some(x => x.id === p.new.id) ? m : [...m, p.new as Msg]))
+        p => setMessages(m => {
+          if (m.some(x => x.id === p.new.id)) return m
+          // The realtime copy of a message we are still sending replaces its optimistic bubble.
+          const i = p.new.direction === 'out' ? m.findIndex(x => x.pending && x.text === p.new.text) : -1
+          return i < 0 ? [...m, p.new as Msg] : m.with(i, p.new as Msg)
+        }))
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [chat.id])
@@ -77,103 +82,132 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
   const tplValues = templateValues(client?.name || chat.name, tplShip, !!client?.is_russia, openedAt)
   const tplPreview = tpl && fillTemplate(tpl.body, tpl.fields.map(f => tplValues[f] || ''))
 
+  // Optimistic: the bubble appears and the input clears at once; the server call finishes in the background.
   async function send(body: string, shipmentId?: string, template?: string) {
-    if (!template && !body.trim()) return
+    const shown = template ? tplPreview || '' : body.trim()
+    if (!shown) return
+    const typed = !shipmentId && !template
+    const tempId = `tmp-${crypto.randomUUID()}`
+    setMessages(m => [...m, { id: tempId, chat_id: chat.id, direction: 'out', text: shown, created_at: new Date().toISOString(), pending: true }])
+    if (typed) setText('')
     setSending(true); setError('')
+
     const res = await fetch('/api/crm/send', { method: 'POST', body: JSON.stringify({ chatId: chat.id, text: body, shipmentId, template }) })
+      .catch(() => new Response('Нет связи с сервером', { status: 503 }))
     setSending(false)
-    if (!res.ok) { setError(await res.text()); return }
+    if (!res.ok) {
+      setError(await res.text())
+      setMessages(m => m.filter(x => x.id !== tempId))
+      if (typed) setText(t => t || body)   // give the text back unless the user already typed something new
+      return
+    }
     const msg: Msg = await res.json()
-    setMessages(m => m.some(x => x.id === msg.id) ? m : [...m, msg])
-    if (!shipmentId && !template) setText('')
+    setMessages(m => {
+      const rest = m.filter(x => x.id !== tempId)
+      return rest.some(x => x.id === msg.id) ? rest : [...rest, msg]
+    })
   }
+
+  // Messages grouped by calendar day, so the date is shown once instead of on every bubble.
+  const dayLabel = (iso: string) => {
+    const d = new Date(iso), key = d.toDateString()
+    if (key === new Date(openedAt).toDateString()) return 'Сегодня'
+    if (key === new Date(openedAt - 86400000).toDateString()) return 'Вчера'
+    return d.toLocaleDateString('ru', { day: 'numeric', month: 'long', ...(d.getFullYear() !== new Date(openedAt).getFullYear() && { year: 'numeric' }) })
+  }
+  const title = client?.name || chat.name || chat.phone || 'Без имени'
 
   return (
     <>
-      <div className="flex-1 flex flex-col bg-[#f8fafc] min-w-0">
-        <div className="flex items-center gap-3 px-4 h-[56px] border-b border-slate-100 bg-white">
-          {onBack && <button onClick={onBack} className="md:hidden" aria-label="Назад"><ArrowLeft className="w-5 h-5 text-slate-500" /></button>}
+      <div className="flex-1 flex flex-col bg-[#f1f3f6] min-w-0">
+        <div className="flex items-center gap-3 px-4 h-14 shrink-0 border-b border-slate-200/70 bg-white">
+          {onBack && <button onClick={onBack} className="md:hidden -ml-1 p-1" aria-label="Назад"><ArrowLeft className="w-5 h-5 text-slate-500" /></button>}
+          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-semibold text-slate-600 shrink-0">{title.slice(0, 2).toUpperCase()}</div>
           <div className="min-w-0">
-            <p className="text-[14px] font-semibold text-slate-900 truncate">{client?.name || chat.name || 'Без имени'}</p>
-            <p className="text-[11px] text-slate-400 truncate">
-              WhatsApp{chat.phone ? ` · ${chat.phone}` : ''}
-            </p>
+            <p className="text-[14px] font-semibold text-slate-900 truncate leading-tight">{title}</p>
+            {chat.phone && <p className="text-[12px] text-slate-400 truncate leading-tight">{chat.phone}</p>}
           </div>
         </div>
-        <div ref={list} className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
-          {messages.map(m => (
-            <div key={m.id} className={cn('flex', m.direction === 'out' ? 'justify-end' : 'justify-start')}>
-              <div className={cn('max-w-[75%] rounded-2xl px-3.5 py-2 text-[13px] whitespace-pre-wrap break-words',
-                m.direction === 'out' ? 'bg-indigo-500 text-white rounded-br-md' : 'bg-white text-slate-800 border border-slate-100 rounded-bl-md')}>
-                <WaText text={m.text} />
-                <span className={cn('block text-[10px] mt-1 text-right', m.direction === 'out' ? 'text-indigo-200' : 'text-slate-400')}>
-                  {new Date(m.created_at).toLocaleDateString('ru')} {chatTime(m.created_at)}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-        {error && <p className="px-4 py-1 text-[12px] text-red-500 bg-red-50">Не отправлено: {error}</p>}
-        {windowClosed ? (
-          <div className="p-3 border-t border-slate-100 bg-white space-y-2">
-            <p className="text-[12px] text-amber-700">Клиент не писал больше 24 часов — можно отправить только шаблон</p>
-            <>
-                <div className="flex flex-wrap gap-2">
-                  <select aria-label="Шаблон" value={tplName} onChange={e => setTplName(e.target.value)}
-                    className="flex-1 min-w-[140px] rounded-xl border border-slate-200 px-3 py-2 text-[13px] bg-white outline-none focus:border-indigo-300">
-                    <option value="">Выберите шаблон…</option>
-                    {TEMPLATES.map(t => <option key={t.name} value={t.name}>{t.title}</option>)}
-                  </select>
-                  {tplNeedsShipment && (
-                    <select aria-label="Контейнер" value={tplShipment} onChange={e => setTplShipment(e.target.value)}
-                      className="flex-1 min-w-[140px] rounded-xl border border-slate-200 px-3 py-2 text-[13px] bg-white outline-none focus:border-indigo-300">
-                      <option value="">{shipments.length ? 'Выберите контейнер…' : 'У клиента нет перевозок'}</option>
-                      {shipments.map(s => <option key={s.id} value={s.id}>{s.container_number || 'без номера'} · {[s.origin, s.destination_city].filter(Boolean).join(' → ')}</option>)}
-                    </select>
-                  )}
-                </div>
-                {tplPreview && <p className="rounded-xl bg-slate-50 px-3 py-2 text-[12px] text-slate-600"><WaText text={tplPreview} /></p>}
-                <button onClick={() => send('', tplShipment || undefined, tplName)} disabled={sending || !tpl || (tplNeedsShipment && !tplShipment)}
-                  className="w-full h-9 rounded-xl bg-slate-900 text-white text-[13px] font-medium disabled:opacity-40">
-                  {sending ? 'Отправляю…' : 'Отправить шаблон'}
-                </button>
-            </>
-          </div>
-        ) : (
-        <form onSubmit={e => { e.preventDefault(); send(text) }} className="flex items-end gap-2 p-3 border-t border-slate-100 bg-white">
-          <textarea value={text} onChange={e => setText(e.target.value)} rows={1} placeholder="Сообщение клиенту…"
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text) } }}
-            className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-[13px] outline-none focus:border-indigo-300 max-h-32" />
-          <button disabled={sending || !text.trim()} aria-label="Отправить"
-            className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center disabled:opacity-40">
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
-        )}
-      </div>
 
-      {side && <aside className="hidden lg:flex flex-col w-[300px] border-l border-slate-100 bg-white overflow-y-auto">
-        <ClientLink chat={chat} clients={clients} client={client} onClientCreated={onClientCreated} />
-        <div className="p-4 space-y-2">
-          <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold">Перевозки</p>
-          {!chat.client_id && <p className="text-[12px] text-slate-400">Привяжите клиента, чтобы увидеть его контейнеры</p>}
-          {chat.client_id && shipments.length === 0 && <p className="text-[12px] text-slate-400">Нет перевозок</p>}
-          {chat.client_id && shipments.map(s => {
-            const status = shipmentStatusText(s, !!client?.is_russia)
+        <div ref={list} className="flex-1 overflow-y-auto px-4 py-3">
+          {messages.map((m, i) => {
+            const prev = messages[i - 1]
+            const newDay = !prev || new Date(prev.created_at).toDateString() !== new Date(m.created_at).toDateString()
+            const out = m.direction === 'out'
             return (
-              <div key={s.id} className="rounded-xl border border-slate-100 p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-slate-400" />
-                  <span className="text-[13px] font-mono font-semibold text-slate-800">{s.container_number || '—'}</span>
+              <div key={m.id}>
+                {newDay && <p className="my-3 text-center"><span className="rounded-full bg-white/70 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">{dayLabel(m.created_at)}</span></p>}
+                <div className={cn('flex', out ? 'justify-end' : 'justify-start', !newDay && prev.direction === m.direction ? 'mt-0.5' : 'mt-2.5')}>
+                  <div className={cn('max-w-[72%] rounded-[18px] px-3 py-1.5 text-[13.5px] leading-snug', m.pending && 'opacity-50',
+                    out ? 'bg-slate-900 text-white' : 'bg-white text-slate-900 shadow-[0_1px_1px_rgba(15,23,42,0.06)]')}>
+                    <WaText text={m.text} />
+                    <span className={cn('ml-2 inline-block translate-y-0.5 text-[10px] tabular-nums', out ? 'text-white/50' : 'text-slate-400')}>
+                      {m.pending ? '…' : chatTime(m.created_at)}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-[12px] text-slate-500 whitespace-pre-line">{status.split('\n').slice(1).join('\n')}</p>
-                <button onClick={() => send(status, s.id)} disabled={sending}
-                  className="w-full text-[12px] font-medium rounded-lg border border-slate-200 py-1.5 hover:bg-slate-50 disabled:opacity-40">
-                  Отправить статус клиенту
-                </button>
               </div>
             )
           })}
+        </div>
+
+        {error && <p role="alert" className="mx-3 mb-1 rounded-lg bg-red-50 px-3 py-1.5 text-[12px] text-red-600">Не отправлено: {error}</p>}
+        {windowClosed ? (
+          <div className="m-3 mt-1 rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
+            <p className="text-[12px] text-slate-500">Клиент не писал больше 24 часов — WhatsApp пропустит только шаблон.</p>
+            <div className="flex flex-wrap gap-2">
+              <select aria-label="Шаблон" value={tplName} onChange={e => setTplName(e.target.value)}
+                className="flex-1 min-w-[140px] h-9 rounded-lg bg-slate-100 px-2.5 text-[13px] outline-none">
+                <option value="">Выберите шаблон…</option>
+                {TEMPLATES.map(t => <option key={t.name} value={t.name}>{t.title}</option>)}
+              </select>
+              {tplNeedsShipment && (
+                <select aria-label="Контейнер" value={tplShipment} onChange={e => setTplShipment(e.target.value)}
+                  className="flex-1 min-w-[140px] h-9 rounded-lg bg-slate-100 px-2.5 text-[13px] outline-none">
+                  <option value="">{shipments.length ? 'Выберите контейнер…' : 'У клиента нет перевозок'}</option>
+                  {shipments.map(s => <option key={s.id} value={s.id}>{s.container_number || 'без номера'} · {[s.origin, s.destination_city].filter(Boolean).join(' → ')}</option>)}
+                </select>
+              )}
+            </div>
+            {tplPreview && <p className="rounded-xl bg-slate-50 px-3 py-2 text-[12.5px] leading-snug text-slate-700"><WaText text={tplPreview} /></p>}
+            <button onClick={() => send('', tplShipment || undefined, tplName)} disabled={sending || !tpl || (tplNeedsShipment && !tplShipment)}
+              className="w-full h-9 rounded-lg bg-slate-900 text-white text-[13px] font-medium disabled:bg-slate-200">
+              Отправить шаблон
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={e => { e.preventDefault(); send(text) }}
+            className="m-3 mt-1 flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 pl-3.5 shadow-sm focus-within:border-slate-400 transition-colors">
+            <textarea value={text} onChange={e => setText(e.target.value)} rows={1} placeholder="Сообщение" aria-label="Сообщение клиенту"
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text) } }}
+              className="flex-1 resize-none bg-transparent py-1.5 text-[13.5px] outline-none placeholder:text-slate-400 max-h-32" />
+            <button disabled={!text.trim()} aria-label="Отправить"
+              className="w-8 h-8 shrink-0 rounded-full bg-slate-900 text-white flex items-center justify-center disabled:bg-slate-200 transition-colors">
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          </form>
+        )}
+      </div>
+
+      {side && <aside className="hidden lg:flex flex-col w-[272px] shrink-0 border-l border-slate-100 bg-white overflow-y-auto">
+        <ClientLink chat={chat} clients={clients} client={client} onClientCreated={onClientCreated} />
+        <div className="px-4 py-3">
+          <p className="mb-1 text-[12px] font-medium text-slate-400">Перевозки{chat.client_id && shipments.length > 0 ? ` · ${shipments.length}` : ''}</p>
+          {!chat.client_id && <p className="text-[12px] text-slate-400">Появятся после привязки клиента.</p>}
+          {chat.client_id && shipments.length === 0 && <p className="text-[12px] text-slate-400">Перевозок пока нет.</p>}
+          {chat.client_id && shipments.map(s => (
+            <div key={s.id} className="group -mx-2 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-mono text-[12px] font-semibold text-slate-800">{s.container_number || 'без номера'}</p>
+                <p className="truncate text-[11px] text-slate-400">{shipmentStatusLabel(s, !!client?.is_russia)}</p>
+              </div>
+              <button onClick={() => send(shipmentStatusText(s, !!client?.is_russia), s.id)} disabled={sending || windowClosed}
+                title={windowClosed ? 'Клиент не писал больше 24 часов — отправьте шаблон' : 'Отправить статус клиенту'} aria-label={`Отправить статус ${s.container_number || ''}`}
+                className="w-7 h-7 shrink-0 rounded-md flex items-center justify-center text-slate-300 hover:bg-white hover:text-slate-700 group-hover:text-slate-500 disabled:opacity-30">
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
         </div>
       </aside>}
     </>
@@ -216,16 +250,16 @@ function ClientLink({ chat, clients, client, onClientCreated }: {
   }
 
   return (
-    <div className="p-4 border-b border-slate-100 space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400 font-semibold">Клиент</p>
-        <ClientBadge isNew={!chat.client_id} />
+    <div className="px-4 py-3 border-b border-slate-100 space-y-2">
+      <div className="flex h-8 items-center justify-between">
+        <p className="text-[12px] font-medium text-slate-400">Клиент</p>
+        {!chat.client_id && <ClientBadge isNew />}
       </div>
 
       {chat.client_id ? (
         <>
           <Link href={`/dashboard/clients/${chat.client_id}`}
-            className="flex items-center gap-2 rounded-xl border border-slate-100 px-3 py-2 text-[13px] font-semibold text-slate-800 hover:bg-slate-50">
+            className="-mx-2 flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-slate-800 hover:bg-slate-50">
             <span className="flex-1 truncate">{client ? `${client.is_russia ? '🇷🇺' : '🇰🇿'} ${client.name}` : 'Клиент'}</span>
             <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
           </Link>

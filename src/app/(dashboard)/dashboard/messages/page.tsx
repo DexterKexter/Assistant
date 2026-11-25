@@ -164,10 +164,10 @@ export default function MessagesPage() {
           selectedId ? 'hidden md:flex md:w-[30%]' : 'w-full md:w-[30%]'
         )}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 h-[56px]">
+          <div className="flex items-end justify-between px-4 border-b border-slate-100 h-14">
             <ChatTabs />
-            <button onClick={() => setShowNew(true)}
-              className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800">
+            <button onClick={() => setShowNew(true)} aria-label="Новый чат"
+              className="self-center w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800">
               <Plus className="w-4 h-4" />
             </button>
           </div>
