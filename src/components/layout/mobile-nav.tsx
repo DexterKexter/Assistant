@@ -6,11 +6,9 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutGrid, Ship, Users, CheckSquare, MessageSquare,
   Menu as MenuIcon, X, BarChart3, Truck, Wallet, FileText,
-  Shield, Settings, LogOut, User, Save, ClipboardList, Inbox,
+  Shield, Settings, LogOut, User, Save, ClipboardList,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useUnreadCount } from '@/lib/useMessages'
-import { useMyTaskCount } from '@/lib/useTasks'
 import { useProfile } from '@/lib/useProfile'
 import { cn } from '@/lib/utils'
 import { APP_VERSION, BUILD_DATE } from '@/lib/version'
@@ -29,7 +27,6 @@ const menuSections = [
     items: [
       { href: '/dashboard/cargo-requests', label: 'Заявки на груз', icon: ClipboardList },
       { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
-      { href: '/dashboard/crm', label: 'CRM чаты', icon: Inbox },
       { href: '/dashboard/carriers', label: 'Перевозчики', icon: Truck },
       { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
       { href: '/dashboard/reports', label: 'Отчёты', icon: BarChart3 },
@@ -37,11 +34,9 @@ const menuSections = [
   },
 ]
 
-export function MobileNav() {
+export function MobileNav({ unreadCount, taskCount }: { unreadCount: number; taskCount: number }) {
   const pathname = usePathname()
   const router = useRouter()
-  const unreadCount = useUnreadCount()
-  const taskCount = useMyTaskCount()
   const { profile, hasRole, refresh } = useProfile()
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)

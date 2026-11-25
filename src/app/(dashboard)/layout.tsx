@@ -9,6 +9,8 @@ import { ShipmentModalGlobal } from '@/components/shipment-modal-global'
 import { TaskModalProvider } from '@/lib/task-modal'
 import { TaskDetailGlobal } from '@/components/task-detail-global'
 import { OnboardingModal } from '@/components/onboarding-modal'
+import { useUnreadCount } from '@/lib/useMessages'
+import { useMyTaskCount } from '@/lib/useTasks'
 
 export default function DashboardLayout({
   children,
@@ -16,13 +18,16 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [collapsed, setCollapsed] = useState(false)
+  // Counted once here and passed down: sidebar and mobile nav are both mounted.
+  const unreadCount = useUnreadCount()
+  const taskCount = useMyTaskCount()
 
   return (
     <ShipmentModalProvider>
       <TaskModalProvider>
         <div className="relative flex h-screen overflow-hidden">
           <div className="hidden md:block shrink-0">
-            <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+            <Sidebar unreadCount={unreadCount} taskCount={taskCount} collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
           </div>
           <div
             className="flex flex-1 flex-col overflow-hidden min-w-0 bg-white md:rounded-[20px] md:-ml-4 md:my-3 md:mr-3 relative z-10"
@@ -35,7 +40,7 @@ export default function DashboardLayout({
               {children}
             </main>
           </div>
-          <MobileNav />
+          <MobileNav unreadCount={unreadCount} taskCount={taskCount} />
         </div>
         <ShipmentModalGlobal />
         <TaskDetailGlobal />

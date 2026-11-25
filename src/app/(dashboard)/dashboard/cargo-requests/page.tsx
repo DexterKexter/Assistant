@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
-import { ArrowRight, CheckCheck, ClipboardList, ExternalLink, Package, Plus, Search } from 'lucide-react'
+import { ClipboardList, ExternalLink, Plus, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/useProfile'
 import { CARGO_STATUSES, cargoContactError, type CargoRequest } from '@/lib/cargo-requests'
@@ -77,36 +77,39 @@ export default function CargoRequestsPage() {
   const filtered = requests.filter(r => (status === 'all' || r.status === status) && `${r.request_number} ${r.client_name} ${r.container_number ?? ''}`.toLocaleLowerCase('ru').includes(query))
 
   return (
-    <div className="space-y-6 pb-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><p className="mb-1 text-xs font-medium text-slate-500">Работа с клиентами</p><h1 className="text-2xl font-semibold tracking-tight text-slate-900">Заявки на груз</h1><p className="mt-2 text-sm text-slate-500">Данные контейнера и состав груза — до создания перевозки.</p></div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/cargo-request/demo" target="_blank" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">Пример формы <ExternalLink className="size-3.5" /></Link>
-          <Button className="h-10 rounded-xl bg-slate-900 px-4 text-white" onClick={() => { setSaveError(''); setCreateOpen(true) }}><Plus className="size-4" />Новая заявка</Button>
+    <div className="space-y-4 pb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Заявки на груз</h1>
+        <div className="flex gap-2">
+          <Link href="/cargo-request/demo" target="_blank" className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-[13px] font-medium text-slate-600 hover:bg-slate-50">Пример формы <ExternalLink className="size-3.5" /></Link>
+          <Button className="h-9 rounded-xl bg-slate-900 px-3.5 text-[13px] text-white" onClick={() => { setSaveError(''); setCreateOpen(true) }}><Plus className="size-4" />Новая</Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        {[{label:'Всего заявок',value:requests.length,icon:ClipboardList},{label:'На проверке',value:requests.filter(r=>r.status==='submitted').length,icon:Package},{label:'Принято',value:requests.filter(r=>r.status==='accepted').length,icon:CheckCheck}].map(item => <div key={item.label} className="rounded-2xl border border-slate-200/80 p-3 sm:p-4"><div className="flex items-center justify-between gap-2"><span className="text-xs text-slate-500">{item.label}</span><item.icon className="hidden size-4 text-slate-400 sm:block" /></div><p className="mt-2 text-2xl font-semibold tabular-nums text-slate-900">{loading ? '—' : item.value}</p></div>)}
-      </div>
-
-      {requests.some(r => r.is_demo) && <div className="flex items-start gap-3 rounded-xl bg-indigo-50/70 px-4 py-3 text-sm text-indigo-900"><span className="mt-0.5 rounded border border-indigo-200 px-1.5 text-[10px] font-semibold uppercase">Демо</span><p>Заявки с этой отметкой — вымышленные примеры. Клиентская форма пока работает в режиме просмотра.</p></div>}
-
-      <div className="space-y-3">
-        <div className="relative max-w-md"><Search className="pointer-events-none absolute left-3 top-3 size-4 text-slate-400" /><Input aria-label="Поиск заявок" placeholder="Клиент, контейнер или номер заявки" value={search} onChange={e => setSearch(e.target.value)} className="h-10 rounded-xl pl-9" /></div>
-        <div className="flex flex-wrap gap-1.5" aria-label="Статус заявки">
-          {[['all','Все'], ...Object.entries(CARGO_STATUSES).map(([key,value]) => [key,value.label])].map(([key,label]) => <button key={key} type="button" aria-pressed={status===key} onClick={() => setStatus(key)} className={`min-h-10 rounded-lg px-3 text-xs font-medium ${status===key ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>{label}</button>)}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-72"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input aria-label="Поиск заявок" placeholder="Клиент, контейнер, номер…" value={search} onChange={e => setSearch(e.target.value)} className="h-9 rounded-xl pl-9 text-[13px]" /></div>
+        <div className="flex flex-wrap gap-1" aria-label="Статус заявки">
+          {[['all','Все'], ...Object.entries(CARGO_STATUSES).map(([key,value]) => [key,value.label])].map(([key,label]) => {
+            const count = key === 'all' ? requests.length : requests.filter(r => r.status === key).length
+            return <button key={key} type="button" aria-pressed={status===key} onClick={() => setStatus(key)} className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium ${status===key ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>{label}{count > 0 && <span className={`tabular-nums ${status===key ? 'text-slate-300' : 'text-slate-400'}`}>{count}</span>}</button>
+          })}
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200/80">
-        <div className="hidden grid-cols-[1.4fr_1fr_1.2fr_1fr_24px] gap-4 border-b border-slate-200/80 bg-slate-50 px-5 py-3 text-xs text-slate-500 md:grid"><span>Заявка / клиент</span><span>Контейнер</span><span>Маршрут / товары</span><span>Статус</span><span /></div>
-        {loading ? <p className="p-8 text-center text-sm text-slate-500" role="status">Загружаем заявки…</p> : error ? <div className="p-8 text-center"><p role="alert" className="text-sm text-red-600">{error}</p><Button variant="outline" className="mt-3" onClick={() => setVersion(v=>v+1)}>Повторить</Button></div> : filtered.length === 0 ? <div className="px-6 py-14 text-center"><ClipboardList className="mx-auto mb-3 size-7 text-slate-300" /><p className="font-medium text-slate-800">{requests.length ? 'Заявки не найдены' : 'Здесь будут заявки клиентов'}</p><p className="mt-1 text-sm text-slate-500">{requests.length ? 'Измените запрос или выбранный статус.' : 'Создайте первую заявку или откройте пример формы.'}</p></div> : <ul className="divide-y divide-slate-100">
-          {filtered.map(request => <li key={request.id}><button type="button" onClick={() => setSelected(request)} className="grid w-full grid-cols-2 items-center gap-x-4 gap-y-3 px-4 py-4 text-left hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-500 md:grid-cols-[1.4fr_1fr_1.2fr_1fr_24px] md:px-5">
-            <div className="col-span-2 min-w-0 md:col-span-1"><div className="mb-1 flex items-center gap-2 text-[11px] text-slate-500"><span>Заявка №{request.request_number.toString().padStart(4,'0')}</span>{request.is_demo && <span className="rounded bg-indigo-50 px-1.5 text-indigo-600">Демо</span>}<span className="md:hidden">{date(request.created_at)}</span></div><p className="truncate text-sm font-medium text-slate-900">{request.client_name.replace(/^Демо · /,'')}</p></div>
-            <div><p className="font-mono text-xs font-medium text-slate-700">{request.container_number || 'Номер не указан'}</p><p className="mt-1 text-xs text-slate-500">{request.container_size} ft</p></div>
-            <div className="min-w-0"><p className="truncate text-xs text-slate-700">{request.origin || 'Откуда'} → {request.destination || 'Куда'}</p><p className="mt-1 text-xs text-slate-500">Позиций: {request.cargo_request_items.length}</p></div>
-            <div className="col-span-2 md:col-span-1"><span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium ${CARGO_STATUSES[request.status].className}`}>{CARGO_STATUSES[request.status].label}</span><p className="mt-1.5 hidden text-[11px] text-slate-400 md:block">{date(request.created_at)}</p></div><ArrowRight className="hidden size-4 text-slate-400 md:block" />
+      {requests.some(r => r.is_demo) && <p className="text-[12px] text-slate-400"><span className="mr-1.5 rounded bg-indigo-50 px-1.5 py-px text-[10px] font-semibold text-indigo-600">Демо</span>— вымышленные примеры. Клиентская форма пока работает в режиме просмотра.</p>}
+
+      <div className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
+        <div className="hidden grid-cols-[1.5fr_1fr_1.3fr_140px_90px] gap-4 border-b border-slate-100 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400 md:grid"><span>Клиент</span><span>Контейнер</span><span>Маршрут</span><span>Статус</span><span className="text-right">Создана</span></div>
+        {loading ? <div className="space-y-2 p-4" role="status" aria-label="Загружаем заявки">{[...Array(3)].map((_, i) => <div key={i} className="skeleton h-12 w-full rounded-lg" />)}</div> : error ? <div className="p-8 text-center"><p role="alert" className="text-sm text-red-600">{error}</p><Button variant="outline" className="mt-3" onClick={() => setVersion(v=>v+1)}>Повторить</Button></div> : filtered.length === 0 ? <div className="px-6 py-14 text-center"><ClipboardList className="mx-auto mb-3 size-10 text-slate-200" strokeWidth={1.5} /><p className="text-[14px] font-medium text-slate-500">{requests.length ? 'Заявки не найдены' : 'Здесь будут заявки клиентов'}</p><p className="mt-1 text-[12px] text-slate-400">{requests.length ? 'Измените запрос или выбранный статус.' : 'Создайте первую заявку или откройте пример формы.'}</p></div> : <ul>
+          {filtered.map(request => <li key={request.id} className="border-t border-slate-50 first:border-t-0"><button type="button" onClick={() => setSelected(request)} className="grid w-full grid-cols-2 items-center gap-x-4 gap-y-2 px-4 py-3 text-left hover:bg-slate-50/60 focus-visible:outline-2 focus-visible:outline-indigo-500 md:grid-cols-[1.5fr_1fr_1.3fr_140px_90px]">
+            <div className="col-span-2 flex min-w-0 items-center gap-3 md:col-span-1">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50"><ClipboardList className="size-4 text-indigo-500" /></div>
+              <div className="min-w-0"><p className="truncate text-[13px] font-semibold text-slate-800">{request.client_name.replace(/^Демо · /,'')}</p><p className="flex items-center gap-1.5 text-[11px] text-slate-400">№{request.request_number.toString().padStart(4,'0')}{request.is_demo && <span className="rounded bg-indigo-50 px-1.5 text-[10px] font-medium text-indigo-600">Демо</span>}</p></div>
+            </div>
+            <div className="flex items-center gap-1.5"><span className={`font-mono text-[12px] ${request.container_number ? 'font-semibold text-slate-800' : 'text-slate-300'}`}>{request.container_number || '—'}</span><span className={`rounded px-1.5 py-px text-[10px] font-medium ${request.container_size === 20 ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>{request.container_size}ft</span></div>
+            <div className="min-w-0"><p className="truncate text-[13px] text-slate-700">{request.origin || '—'} → {request.destination || '—'}</p><p className="text-[11px] text-slate-400">{request.cargo_request_items.length ? `Позиций: ${request.cargo_request_items.length}` : 'Товары не добавлены'}</p></div>
+            <div><span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${CARGO_STATUSES[request.status].className}`}>{CARGO_STATUSES[request.status].label}</span></div>
+            <p className="text-right text-[12px] tabular-nums text-slate-400">{date(request.created_at)}</p>
           </button></li>)}
         </ul>}
       </div>

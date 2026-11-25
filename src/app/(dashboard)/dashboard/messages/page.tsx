@@ -10,6 +10,7 @@ import {
   Image as ImageIcon, FileText, Download, MessageSquare, AtSign
 } from 'lucide-react'
 import { useShipmentModal } from '@/lib/shipment-modal'
+import { ChatTabs } from '@/components/chat-tabs'
 
 /* ── Notification sound ── */
 function playNotificationSound() {
@@ -81,7 +82,7 @@ export default function MessagesPage() {
         .order('updated_at', { ascending: false }),
       supabase
         .from('conversation_members')
-        .select('conversation_id, profile_id, last_read_at, profile:profiles(id, full_name, email, avatar_url)')
+        .select('conversation_id, profile_id, last_read_at, profile:profiles(id, full_name, email)')
         .in('conversation_id', ids),
     ])
 
@@ -164,7 +165,7 @@ export default function MessagesPage() {
         )}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 h-[56px]">
-            <h2 className="text-[16px] font-bold text-slate-900 font-heading">Сообщения</h2>
+            <ChatTabs />
             <button onClick={() => setShowNew(true)}
               className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800">
               <Plus className="w-4 h-4" />
@@ -728,24 +729,12 @@ function NewConversationDialog({ profile, onClose, onCreated }: {
     if (selected.length === 0 || creating) return
     setCreating(true)
 
-    // For DM: check existing
-    if (mode === 'dm' && selected.length === 1) {
-      const { data: existing } = await supabase
-        .from('conversation_members')
-        .select('conversation_id')
-        .eq('profile_id', profile.id)
-
-      if (existing) {
-        for (const e of existing) {
-          const { data: conv } = await supabase.from('conversations').select('*').eq('id', e.conversation_id).eq('type', 'dm').single()
-          if (!conv) continue
-          const { data: members } = await supabase.from('conversation_members').select('profile_id').eq('conversation_id', conv.id)
-          if (members?.length === 2 && members.some(m => m.profile_id === selected[0].id)) {
-            onCreated(conv.id)
-            return
-          }
-        }
-      }
+    // DM: the database returns the existing chat with this person or creates one (never a duplicate).
+    if (mode === 'dm') {
+      const { data: id } = await supabase.rpc('get_or_create_dm', { other_id: selected[0].id })
+      if (id) onCreated(id)
+      else setCreating(false)
+      return
     }
 
     // Create new

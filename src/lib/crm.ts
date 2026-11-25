@@ -7,17 +7,6 @@ export function createServiceClient() {
   })
 }
 
-export async function tg(method: string, body: object) {
-  const res = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const data = await res.json()
-  if (!data.ok) throw new Error(data.description || 'Telegram error')
-  return data.result
-}
-
 // WhatsApp Cloud API (official). Free-form text only works within 24h of the client's last message.
 export async function waSendText(to: string, body: string) {
   const res = await fetch(`https://graph.facebook.com/v26.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
@@ -34,10 +23,24 @@ export async function waSendText(to: string, body: string) {
   return data
 }
 
+export async function waSendTemplate(to: string, name: string, language: string, params: string[]) {
+  const res = await fetch(`https://graph.facebook.com/v26.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp', to, type: 'template',
+      template: { name, language: { code: language }, components: params.length ? [{ type: 'body', parameters: params.map(text => ({ type: 'text', text })) }] : [] },
+    }),
+  })
+  const data = await res.json()
+  if (data.error) throw new Error(data.error.error_data?.details || data.error.message)
+  return data
+}
+
 export const phoneDigits = (p: string | null | undefined) => (p || '').replace(/\D/g, '').slice(-10)
 
 type Inbound = {
-  channel: 'telegram' | 'whatsapp'
+  channel: 'whatsapp'
   externalId: string
   name: string
   username?: string | null

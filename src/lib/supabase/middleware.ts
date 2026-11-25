@@ -3,8 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
   if (request.nextUrl.pathname === '/cargo-request/demo') return NextResponse.next({ request })
-  // Messenger webhooks have no session; each route verifies its own secret/signature.
-  if (['/api/telegram/webhook', '/api/whatsapp/webhook'].includes(request.nextUrl.pathname)) return NextResponse.next({ request })
+  // The WhatsApp webhook has no session; the route verifies Meta's signature itself.
+  if (request.nextUrl.pathname === '/api/whatsapp/webhook') return NextResponse.next({ request })
 
   let supabaseResponse = NextResponse.next({ request })
 

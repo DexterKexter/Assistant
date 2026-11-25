@@ -9,7 +9,8 @@ let fetchPromise: Promise<Profile | null> | null = null
 
 function doFetch(): Promise<Profile | null> {
   const supabase = createClient()
-  return supabase.auth.getUser().then(({ data: { user } }) => {
+  return supabase.auth.getSession().then(({ data: { session } }) => {
+    const user = session?.user
     if (!user) return null
     return supabase
       .from('profiles')

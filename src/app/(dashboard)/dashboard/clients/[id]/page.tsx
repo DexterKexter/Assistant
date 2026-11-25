@@ -1,5 +1,6 @@
 'use client'
 
+import { ClientChat } from '@/components/client-chat'
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -10,7 +11,7 @@ import { fmtDate } from '@/lib/utils'
 import {
   ArrowLeft, Phone, MapPin, Globe, Ship, Package, TrendingUp, Calendar,
   DollarSign, Clock, ChevronRight, Container, Truck, CheckCircle2, Search,
-  Pencil, X as XIcon, Save
+  Pencil, X as XIcon, Save, MessageSquare
 } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 
@@ -28,6 +29,7 @@ export default function ClientDetailPage() {
   // Edit modal
   const { hasRole } = useProfile()
   const canEdit = hasRole('admin', 'manager')
+  const [chatOpen, setChatOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [draft, setDraft] = useState<{ name: string; phone: string; address: string; is_russia: boolean }>({
     name: '', phone: '', address: '', is_russia: false,
@@ -179,6 +181,7 @@ export default function ClientDetailPage() {
   const initials = client.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
   return (
+    <div>
     <div className="space-y-5">
       {/* Breadcrumbs */}
       <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
@@ -213,6 +216,16 @@ export default function ClientDetailPage() {
               )}
             </div>
           </div>
+          {canEdit && (
+            <button
+              onClick={() => setChatOpen(o => !o)}
+              aria-pressed={chatOpen}
+              className={`shrink-0 h-9 px-3 rounded-xl border flex items-center gap-2 text-[13px] font-medium active:scale-95 transition-all ${chatOpen ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >
+              <MessageSquare className="w-4 h-4" strokeWidth={1.8} />
+              Чат
+            </button>
+          )}
           {canEdit && (
             <button
               onClick={openEdit}
@@ -513,6 +526,8 @@ export default function ClientDetailPage() {
           )}
         </div>
       </div>
+    </div>
+    {canEdit && chatOpen && <ClientChat client={client} onClose={() => setChatOpen(false)} />}
     </div>
   )
 }

@@ -22,11 +22,8 @@ import {
   PanelLeftOpen,
   CheckSquare,
   ClipboardList,
-  Inbox,
 } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
-import { useUnreadCount } from '@/lib/useMessages'
-import { useMyTaskCount } from '@/lib/useTasks'
 
 const sections: { label: string | null; items: { href: string; label: string; icon: typeof Ship }[] }[] = [
   { label: null, items: [
@@ -34,11 +31,10 @@ const sections: { label: string | null; items: { href: string; label: string; ic
     { href: '/dashboard/shipments', label: 'Перевозки', icon: Ship },
     { href: '/dashboard/cargo-requests', label: 'Заявки на груз', icon: ClipboardList },
     { href: '/dashboard/tasks', label: 'Задачи', icon: CheckSquare },
-    { href: '/dashboard/messages', label: 'Чат команды', icon: MessageSquare },
   ] },
   { label: 'Клиенты', items: [
     { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
-    { href: '/dashboard/crm', label: 'CRM чаты', icon: Inbox },
+    { href: '/dashboard/messages', label: 'Чаты', icon: MessageSquare },
   ] },
   { label: 'Учёт', items: [
     { href: '/dashboard/carriers', label: 'Перевозчики', icon: Truck },
@@ -68,12 +64,14 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 interface SidebarProps {
+  unreadCount: number
+  taskCount: number
   onNavigate?: () => void
   collapsed?: boolean
   onToggle?: () => void
 }
 
-export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProps) {
+export function Sidebar({ unreadCount, taskCount, onNavigate, collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { profile, hasRole } = useProfile()
@@ -88,11 +86,10 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
     if (href.includes('?')) return false
+    if (href === '/dashboard/messages' && pathname.startsWith('/dashboard/crm')) return true
     return pathname.startsWith(href)
   }
 
-  const unreadCount = useUnreadCount()
-  const taskCount = useMyTaskCount()
 
   const allowed = ROLE_ALLOWED[profile?.role || 'client']
   const visibleSections = sections
@@ -184,13 +181,13 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
   /* ── Expanded view ── */
   return (
     <div
-      className="flex h-screen w-[240px] flex-col shrink-0 overflow-hidden pl-2"
+      className="flex h-screen w-[226px] flex-col shrink-0 overflow-hidden pl-2"
       style={{
         backgroundColor: '#f8f9fb',
         backgroundImage: 'radial-gradient(ellipse at 20% 15%, rgba(199,210,254,0.45) 0%, transparent 55%), radial-gradient(ellipse at 75% 85%, rgba(221,210,255,0.3) 0%, transparent 50%)',
       }}
     >
-      <div className="flex h-[64px] items-center justify-between px-6">
+      <div className="flex h-[64px] items-center justify-between pl-6 pr-9">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center shrink-0 shadow-md">
             <Ship className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
@@ -204,7 +201,7 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
         )}
       </div>
 
-      <nav className="flex-1 pl-4 pr-16 pt-2 overflow-y-auto">
+      <nav className="flex-1 pl-4 pr-12 pt-2 overflow-y-auto">
         {visibleSections.map((section, si) => (
           <div key={section.label ?? si} className={si > 0 ? 'mt-5' : ''}>
             {section.label && (
@@ -242,7 +239,7 @@ export function Sidebar({ onNavigate, collapsed = false, onToggle }: SidebarProp
       </nav>
 
       {/* Technical links: small and muted, pinned to the bottom */}
-      <div className="pl-4 pr-16 pb-4 pt-3 space-y-px">
+      <div className="pl-4 pr-12 pb-4 pt-3 space-y-px">
         {hasRole('admin') && (
           <>
             <Link href="/dashboard/admin" onClick={onNavigate}

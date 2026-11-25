@@ -14,30 +14,8 @@ export function useUnreadCount() {
 
     async function fetchUnread() {
       try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user || !mountedRef.current) return
-
-      const { data: memberships } = await supabase
-        .from('conversation_members')
-        .select('conversation_id, last_read_at')
-        .eq('profile_id', user.id)
-
-      if (!memberships || !mountedRef.current) return
-      if (memberships.length === 0) { setCount(0); return }
-
-      // Run all unread counts in parallel instead of sequentially
-      const counts = await Promise.all(
-        memberships.map(m =>
-          supabase
-            .from('messages')
-            .select('id', { count: 'exact', head: true })
-            .eq('conversation_id', m.conversation_id)
-            .gt('created_at', m.last_read_at)
-            .neq('sender_id', user.id)
-            .then(({ count }) => count || 0)
-        )
-      )
-      if (mountedRef.current) setCount(counts.reduce((s, c) => s + c, 0))
+        const { data } = await supabase.rpc('my_unread_count')
+        if (mountedRef.current) setCount(data || 0)
       } catch { /* auth lock contention */ }
     }
 

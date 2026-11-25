@@ -111,7 +111,8 @@ export function useMyTaskCount() {
 
     async function fetchCount() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { session } } = await supabase.auth.getSession()
+        const user = session?.user
         if (!user || !mountedRef.current) return
       // Count tasks where user is in task_assignees
       const { data: assigned } = await supabase
