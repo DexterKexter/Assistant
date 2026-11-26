@@ -40,7 +40,7 @@ export default function PipelinePage() {
     const active = () => open().is('delivery_date', null).eq('is_completed', false)
 
     Promise.all([
-      supabase.from('cargo_requests').select('id, client_name, origin, destination, container_size, loading_date, supplier')
+      supabase.from('cargo_requests').select('id, client_name, origin, destination, container_size, loading_date, supplier, cargo_request_items(name, position)')
         .eq('is_demo', false).is('shipment_id', null).order('loading_date', { nullsFirst: false }).order('created_at', { ascending: false }).limit(200), // most urgent loading first
       active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).is('export_date', null).order('created_at', { ascending: false }).limit(LIMIT),
       active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).not('export_date', 'is', null).order('export_date').limit(LIMIT),
@@ -50,10 +50,12 @@ export default function PipelinePage() {
     ]).then(([requests, ...ships]) => {
       if (requests.error || ships.some(r => r.error)) { setError('Не удалось загрузить воронку. Обновите страницу.'); return }
 
-      const reqs = (requests.data || []).map((r): Card => ({
+      const reqs = (requests.data || []).map((r): Card => {
+        const goods = [...(r.cargo_request_items || [])].sort((a, b) => a.position - b.position).map(i => i.name)
+        return {
         id: r.id, href: '/dashboard/cargo-requests', title: r.client_name,
-        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, facts: [], chip: [Container, 'Поставщик контейнера', r.supplier], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
-      }))
+        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, facts: [[Package, 'Товар', goods.length > 1 ? `${goods[0]} +${goods.length - 1}` : goods[0]]], chip: [Container, 'Поставщик контейнера', r.supplier], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
+      } })
       const shipCard = (stage: Stage) => (s: NonNullable<(typeof ships)[number]['data']>[number]): Card => {
         const one = <T,>(v: T | T[] | null) => (Array.isArray(v) ? v[0] : v)
         const client = one(s.client), carrier = one(s.carrier)?.name, recipient = one(s.recipient)?.name
@@ -141,19 +143,19 @@ export default function PipelinePage() {
                           <ArrowRight className="size-3.5 shrink-0 text-slate-300" />
                           <span className="truncate"><Place name={card.to} /></span>
                         </p>
-                        {card.chip?.[2] && (
-                          <p title={card.chip[1]} className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
-                            {createElement(card.chip[0], { className: 'size-3 shrink-0 text-slate-400', 'aria-label': card.chip[1] })}<span className="truncate">{card.chip[2]}</span>
-                          </p>
-                        )}
                         {card.facts.some(f => f[2]) && (
-                          <ul className="mt-2 space-y-1 border-t border-slate-100 pt-2 text-[12px] text-slate-600">
+                          <ul className={cn('mt-2 space-y-1 text-[12px] text-slate-600', card.stage && 'border-t border-slate-100 pt-2')}>
                             {card.facts.filter(f => f[2]).map(([Icon, label, value]) => (
                               <li key={label} title={label} className="flex items-center gap-1.5">
                                 <Icon className="size-3.5 shrink-0 text-slate-400" aria-label={label} /><span className="truncate">{value}</span>
                               </li>
                             ))}
                           </ul>
+                        )}
+                        {card.chip?.[2] && (
+                          <p title={card.chip[1]} className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                            {createElement(card.chip[0], { className: 'size-3 shrink-0 text-slate-400', 'aria-label': card.chip[1] })}<span className="truncate">{card.chip[2]}</span>
+                          </p>
                         )}
                         {(card.alert || card.foot) && (
                           <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
