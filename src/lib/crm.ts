@@ -55,7 +55,7 @@ async function waFetchMedia(id: string, folder: string) {
 }
 
 // Sent once to a number we have never talked to. Free-form text is allowed: the client has just written, so the 24h window is open.
-const GREETING = `Здравствуйте! 👋 Это *STI Cargo* — контейнерные перевозки из Дубая и Азии в Казахстан и Россию.
+const GREETING = `Здравствуйте! 👋 Это *STI Logistics* — контейнерные перевозки из Дубая и Азии в Казахстан и Россию.
 
 Чтобы быстрее посчитать перевозку, напишите:
 📍 откуда и куда

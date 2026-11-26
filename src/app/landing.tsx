@@ -10,7 +10,7 @@ const WA = '77010851761'
 // median Dubai → Kazakhstan border 36 days. Update by hand when they drift.
 const copy = {
   ru: {
-    title: 'STI Cargo — контейнерные перевозки из Дубая и Азии в Казахстан и Россию',
+    title: 'STI Logistics — контейнерные перевозки из Дубая и Азии в Казахстан и Россию',
     description: 'Доставляем 20- и 40-футовые контейнеры из ОАЭ, Китая, Японии и Кореи в Казахстан и Россию. Статус груза — в WhatsApp.',
     nav: [['#routes', 'Маршруты'], ['#process', 'Как работаем'], ['#request', 'Заявка']],
     wa: 'Написать в WhatsApp', waText: 'Здравствуйте! Хочу узнать о перевозке контейнера.',
@@ -47,7 +47,7 @@ const copy = {
     privacy: 'Политика конфиденциальности', staff: 'Вход для сотрудников', other: ['/en', 'EN'],
   },
   en: {
-    title: 'STI Cargo — container shipping from Dubai and Asia to Kazakhstan and Russia',
+    title: 'STI Logistics — container shipping from Dubai and Asia to Kazakhstan and Russia',
     description: 'We deliver 20 and 40 ft containers from the UAE, China, Japan and Korea to Kazakhstan and Russia. Cargo status in WhatsApp.',
     nav: [['#routes', 'Routes'], ['#process', 'How it works'], ['#request', 'Request']],
     wa: 'Message us on WhatsApp', waText: 'Hello! I would like to ask about shipping a container.',
@@ -90,7 +90,7 @@ export function landingMeta(lang: Lang): Metadata {
   return {
     title: t.title, description: t.description, manifest: null,
     alternates: { canonical: lang === 'ru' ? 'https://sti-cargo.com/' : 'https://sti-cargo.com/en', languages: { ru: 'https://sti-cargo.com/', en: 'https://sti-cargo.com/en' } },
-    openGraph: { title: t.title, description: t.description, siteName: 'STI Cargo', type: 'website' },
+    openGraph: { title: t.title, description: t.description, siteName: 'STI Logistics', type: 'website' },
   }
 }
 
@@ -105,7 +105,7 @@ export function Landing({ lang }: { lang: Lang }) {
     <div lang={lang} className="bg-white text-slate-900">
       <header className="sticky top-0 z-20 border-b border-slate-100 bg-white/90 backdrop-blur">
         <div className={`${wrap} flex h-16 items-center gap-6`}>
-          <Link href={lang === 'ru' ? '/' : '/en'} className="font-heading text-[19px] font-extrabold tracking-tight">STI Cargo</Link>
+          <Link href={lang === 'ru' ? '/' : '/en'} className="font-heading text-[19px] font-extrabold tracking-tight">STI Logistics</Link>
           <nav className="ml-4 hidden gap-6 text-[14px] text-slate-600 md:flex">
             {t.nav.map(([href, name]) => <a key={href} href={href} className="hover:text-slate-900">{name}</a>)}
           </nav>
@@ -221,7 +221,7 @@ export function Landing({ lang }: { lang: Lang }) {
       </main>
 
       <footer className={`${wrap} flex flex-col gap-3 py-10 text-[13px] text-slate-500 sm:flex-row sm:items-center`}>
-        <p><span className="font-heading font-extrabold text-slate-900">STI Cargo</span> · Industrial Area 6, 56th Street, Sharjah, UAE</p>
+        <p><span className="font-heading font-extrabold text-slate-900">STI Logistics</span> · Industrial Area 6, 56th Street, Sharjah, UAE</p>
         <div className="flex gap-5 sm:ml-auto">
           <Link href="/privacy" className="hover:text-slate-900">{t.privacy}</Link>
           <a href="https://crm.sti-cargo.com/login" className="hover:text-slate-900">{t.staff}</a>

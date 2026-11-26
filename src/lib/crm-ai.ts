@@ -1,7 +1,7 @@
 import { createServiceClient } from './crm'
 import { parseClassification } from './chat-category'
 
-const PROMPT = `Ты помощник отдела продаж STI Cargo (контейнерные перевозки из Дубая и Азии в Казахстан и Россию).
+const PROMPT = `Ты помощник отдела продаж STI Logistics (контейнерные перевозки из Дубая и Азии в Казахстан и Россию).
 По переписке в WhatsApp определи, кто пишет и зачем. Ответь строго JSON: {"category": "...", "summary": "..."}.
 category — одно из:
 - "lead": хочет перевезти груз, спрашивает цену, сроки, условия;
