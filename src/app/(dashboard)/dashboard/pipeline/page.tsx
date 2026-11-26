@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, CircleCheck, Globe } from 'lucide-react'
+import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, Globe } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { movePatch, STAGES, type Stage } from '@/lib/pipeline-stage'
@@ -15,6 +15,7 @@ type Column = { key: string; title: string; icon: typeof Ship; cards: Card[]; to
 const LIMIT = 15
 const SLOW_TRANSIT_DAYS = 50 // ponytail: fixed threshold (median Dubai → border is 36); per-route norms if it gets noisy
 const DAY = 86400000
+const BOARD = STAGES.filter((st): st is Exclude<Stage, 'delivered'> => st !== 'delivered')
 
 function ago(d: string | null, now: number) {
   if (!d) return ''
@@ -36,7 +37,6 @@ export default function PipelinePage() {
     const open = () => supabase.from('shipments')
       .select('id, container_number, origin, destination_city, destination_station, export_date, departure_date, arrival_date, customs_date, delivery_date, created_at, client:clients(name, is_russia)', { count: 'exact' })
     const active = () => open().is('delivery_date', null).eq('is_completed', false)
-    const twoWeeksAgo = new Date(now - 14 * DAY).toISOString().slice(0, 10)
 
     Promise.all([
       supabase.from('cargo_requests').select('id, request_number, client_name, origin, destination, container_size, status, created_at')
@@ -46,7 +46,6 @@ export default function PipelinePage() {
       active().is('customs_date', null).is('arrival_date', null).not('departure_date', 'is', null).order('departure_date').limit(LIMIT),
       active().is('customs_date', null).not('arrival_date', 'is', null).order('arrival_date').limit(LIMIT),
       active().not('customs_date', 'is', null).order('customs_date').limit(LIMIT),
-      open().gte('delivery_date', twoWeeksAgo).order('delivery_date', { ascending: false }).limit(LIMIT),
     ]).then(([requests, ...ships]) => {
       if (requests.error || ships.some(r => r.error)) { setError('Не удалось загрузить воронку. Обновите страницу.'); return }
 
@@ -66,18 +65,18 @@ export default function PipelinePage() {
           alert: stage === 'transit' && inTransit > SLOW_TRANSIT_DAYS ? `${inTransit} дн.` : undefined,
         }
       }
-      const meta: Record<Stage, Pick<Column, 'title' | 'icon' | 'more'>> = {
+      const meta: Record<Exclude<Stage, 'delivered'>, Pick<Column, 'title' | 'icon' | 'more'>> = {
         loading: { title: 'Загрузка', icon: Package },
         export: { title: 'Экспорт', icon: Anchor },
         transit: { title: 'В пути', icon: Ship, more: '/dashboard/shipments?status=in_transit' },
         border: { title: 'Граница', icon: Flag, more: '/dashboard/shipments?status=arrived' },
         customs: { title: 'Таможня', icon: Stamp },
-        delivered: { title: 'Доставлен', icon: CircleCheck, more: '/dashboard/shipments?status=delivered' },
       }
       setError('')
       setColumns([
         { key: 'request', title: 'Заявка', icon: ClipboardList, cards: reqs, total: reqs.length },
-        ...STAGES.map((st, i) => ({ key: st, ...meta[st], cards: (ships[i].data || []).map(shipCard(st)), total: ships[i].count || 0 })),
+        // Delivered shipments leave the board; they live in the shipments list.
+        ...BOARD.map((st, i) => ({ key: st, ...meta[st], cards: (ships[i].data || []).map(shipCard(st)), total: ships[i].count || 0 })),
       ])
     })
   }, [now, tick])
@@ -103,7 +102,7 @@ export default function PipelinePage() {
       {!columns && !error && <div role="status" aria-label="Загружаем воронку" className="skeleton h-64 rounded-xl" />}
       {columns && (
         <div className="overflow-x-auto pb-2">
-          <div className="grid min-w-[1180px] grid-cols-7 items-start gap-2.5">
+          <div className="grid min-w-[1020px] grid-cols-6 items-start gap-2.5">
             {columns.map(col => (
               // ponytail: mouse drag only; keyboard users change the dates on the shipment page
               <div key={col.key} onDragOver={e => { if (drag && col.key !== 'request') { e.preventDefault(); setOver(col.key) } }} onDrop={() => drop(col.key)}
