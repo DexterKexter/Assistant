@@ -17,6 +17,31 @@ const CONTAINERS = ['20 ft', '40 ft', '40 HC', '45 ft', 'Сборный']
 const BORDERS = ['Актау Порт', 'Алтынколь', 'Сарыагаш', 'Темир-Баба', 'Калжат', 'Нурлы Жолы']
 const CURRENCIES = ['USD', 'KZT', 'RUB', 'AED', 'CNY', 'EUR']
 const TRANSPORT_ICONS: Record<string, typeof Ship> = { 'Море + ж/д': Ship, 'Море': Ship, 'Ж/д': TrainFront, 'Авто': Truck, 'Авиа': Plane }
+// Free-text place → country flag. ponytail: substring dictionary of the places we actually ship to; unknown places simply get no flag.
+const FLAGS: [string, string[]][] = [
+  ['🇦🇪', ['дубай', 'оаэ', 'шардж', 'абу-даби', 'джебель']],
+  ['🇭🇰', ['гонконг']],
+  ['🇹🇼', ['тайван']],
+  ['🇨🇳', ['китай', 'гуанчжоу', 'гуаньчжоу', 'шанхай', 'циндао', 'чингдао', 'иу', 'шэньчжэн', 'нинбо', 'тяньцзин', 'урумчи']],
+  ['🇯🇵', ['япони', 'иокохам', 'йокогам', 'токио', 'осака']],
+  ['🇰🇷', ['коре', 'пусан', 'сеул']],
+  ['🇺🇸', ['сша', 'америк']],
+  ['🇹🇷', ['турци', 'стамбул', 'мерсин']],
+  ['🇮🇳', ['инди', 'мумбаи']],
+  ['🇱🇰', ['шри']],
+  ['🇩🇪', ['германи', 'гамбург']],
+  ['🇰🇿', ['казахстан', 'алматы', 'астан', 'актау', 'шымкент', 'кызылорд', 'караганд', 'семей', 'атырау', 'актобе', 'павлодар', 'костанай', 'тараз', 'усть-каменогорск']],
+  ['🇷🇺', ['росси', 'москв', 'челябинск', 'новосибирск', 'бийск', 'тула', 'тольятти', 'краснодар', 'екатеринбург', 'омск', 'грозн', 'петербург', 'казань', 'самар', 'уфа', 'красноярск', 'владивосток']],
+  ['🇧🇾', ['беларус', 'минск']],
+  ['🇺🇿', ['узбекистан', 'ташкент']],
+  ['🇰🇬', ['кыргыз', 'бишкек']],
+]
+const flag = (name: string) => FLAGS.find(([, keys]) => keys.some(k => name.toLowerCase().includes(k)))?.[0]
+function Place({ name }: { name: string }) {
+  const f = flag(name)
+  return <span className="inline-flex items-center gap-1.5">{f && <span aria-hidden="true" className="text-[15px] leading-none">{f}</span>}{name}</span>
+}
+
 const empty: Draft = { title: '', origin: '', destination: '', border: '', transport: TRANSPORTS[0], container: '40 ft', price: '', currency: 'USD', transit_days: '', notes: '' }
 
 const field = 'h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-[14px] text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-900'
@@ -105,32 +130,38 @@ export default function PricesPage() {
             {!prices?.length && <button onClick={() => openForm(empty)} className="mt-5 inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 text-[13px] font-semibold text-white hover:bg-slate-800"><Plus className="size-4" />Добавить цену</button>}
           </div>
         ) : (
-          <table className="w-full min-w-[860px] text-left text-[13px]">
+          <table className="w-full min-w-[900px] text-left">
             <thead>
-              <tr className="border-b border-slate-200/80 text-[11px] text-slate-400">
-                <th className="py-2 pl-4 pr-3 font-medium">Название</th>
-                <th className="px-3 py-2 font-medium">Маршрут</th>
-                <th className="px-3 py-2 font-medium">Граница</th>
-                <th className="px-3 py-2 font-medium">Транспорт</th>
-                <th className="px-3 py-2 font-medium">Контейнер</th>
-                <th className="px-3 py-2 font-medium">Срок</th>
-                <th className="py-2 pl-3 pr-4 text-right font-medium">Цена</th>
+              <tr className="border-b border-slate-200/80 text-[12px] text-slate-400">
+                <th className="py-3 pl-5 pr-4 font-medium">Маршрут</th>
+                <th className="px-4 py-3 font-medium">Название</th>
+                <th className="px-4 py-3 font-medium">Граница</th>
+                <th className="px-4 py-3 font-medium">Транспорт</th>
+                <th className="px-4 py-3 font-medium">Контейнер</th>
+                <th className="px-4 py-3 font-medium">Срок</th>
+                <th className="py-3 pl-4 pr-5 text-right font-medium">Цена</th>
               </tr>
             </thead>
             <tbody>
               {shown.map(p => {
                 const TransportIcon = TRANSPORT_ICONS[p.transport] || Ship
+                const dash = <span className="text-slate-300">—</span>
                 return (
                   <tr key={p.id} tabIndex={0} role="button" aria-label={`Открыть ${p.origin} → ${p.destination}`}
                     onClick={() => setView(p)} onKeyDown={e => { if (e.key === 'Enter') setView(p) }}
-                    className="h-10 cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none">
-                    <td className="max-w-[220px] truncate py-0 pl-4 pr-3 font-medium text-slate-900" title={p.notes || undefined}>{p.title || <span className="font-normal text-slate-300">—</span>}</td>
-                    <td className="whitespace-nowrap px-3 py-0"><span className="inline-flex items-center gap-1.5 font-medium text-slate-900">{p.origin}<ArrowRight className="size-3 text-slate-300" />{p.destination}</span></td>
-                    <td className="whitespace-nowrap px-3 py-0 text-slate-600">{p.border ? <span className="inline-flex items-center gap-1.5"><MapPin className="size-3.5 text-slate-400" />{p.border}</span> : <span className="text-slate-300">—</span>}</td>
-                    <td className="whitespace-nowrap px-3 py-0 text-slate-600">{p.transport ? <span className="inline-flex items-center gap-1.5"><TransportIcon className="size-3.5 text-slate-400" />{p.transport}</span> : <span className="text-slate-300">—</span>}</td>
-                    <td className="whitespace-nowrap px-3 py-0">{p.container ? <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[12px] font-medium text-slate-700">{p.container}</span> : <span className="text-slate-300">—</span>}</td>
-                    <td className="whitespace-nowrap px-3 py-0 text-slate-600">{p.transit_days ? <span className="inline-flex items-center gap-1.5"><Clock className="size-3.5 text-slate-400" />{p.transit_days}</span> : <span className="text-slate-300">—</span>}</td>
-                    <td className={cn('whitespace-nowrap py-0 pl-3 pr-4 text-right tabular-nums', p.price == null ? 'text-slate-400' : 'font-semibold text-slate-900')}>{money(p)}</td>
+                    className="h-[52px] cursor-pointer border-b border-slate-100 text-[13px] text-slate-500 last:border-0 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none">
+                    <td className="whitespace-nowrap py-0 pl-5 pr-4">
+                      <span className="inline-flex items-center gap-2 text-[14px] font-semibold text-slate-900"><Place name={p.origin} /><ArrowRight className="size-3.5 text-slate-300" /><Place name={p.destination} /></span>
+                    </td>
+                    <td className="max-w-[240px] truncate px-4 py-0" title={p.notes || undefined}>{p.title || dash}</td>
+                    <td className="whitespace-nowrap px-4 py-0">{p.border ? <span className="inline-flex items-center gap-1.5"><MapPin className="size-3.5 text-slate-400" />{p.border}</span> : dash}</td>
+                    <td className="whitespace-nowrap px-4 py-0">{p.transport ? <span className="inline-flex items-center gap-1.5"><TransportIcon className="size-3.5 text-slate-400" />{p.transport}</span> : dash}</td>
+                    <td className="whitespace-nowrap px-4 py-0">{p.container ? <span className="rounded-md bg-slate-100 px-2 py-1 text-[12px] font-medium text-slate-700">{p.container}</span> : dash}</td>
+                    <td className="whitespace-nowrap px-4 py-0">{p.transit_days ? <span className="inline-flex items-center gap-1.5"><Clock className="size-3.5 text-slate-400" />{p.transit_days}</span> : dash}</td>
+                    <td className="whitespace-nowrap py-0 pl-4 pr-5 text-right tabular-nums">
+                      {p.price == null ? <span className="text-slate-400">по запросу</span>
+                        : <><span className="text-[15px] font-bold text-slate-900">{Number(p.price).toLocaleString('ru-RU')}</span><span className="ml-1 text-[11px] font-medium text-slate-400">{p.currency}</span></>}
+                    </td>
                   </tr>
                 )
               })}
@@ -145,7 +176,7 @@ export default function PricesPage() {
           {view && <>
             <DialogHeader className="border-b border-slate-100 p-6 pb-5">
               <DialogDescription className="text-[12px] text-slate-400">{view.title || 'Цена перевозки'}</DialogDescription>
-              <DialogTitle className="flex flex-wrap items-center gap-2 pr-6 font-heading text-[20px] font-bold leading-tight text-slate-900">{view.origin}<ArrowRight className="size-4 text-slate-300" />{view.destination}</DialogTitle>
+              <DialogTitle className="flex flex-wrap items-center gap-2 pr-6 font-heading text-[20px] font-bold leading-tight text-slate-900"><Place name={view.origin} /><ArrowRight className="size-4 text-slate-300" /><Place name={view.destination} /></DialogTitle>
               <p className={cn('pt-2 font-heading text-[30px] font-extrabold leading-none tracking-tight tabular-nums', view.price == null ? 'text-slate-400' : 'text-slate-900')}>{money(view)}</p>
             </DialogHeader>
             <dl className="grid grid-cols-[110px_1fr] gap-y-3 p-6 text-[14px]">
