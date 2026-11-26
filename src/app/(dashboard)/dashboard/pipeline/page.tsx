@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { MessageCircle, ClipboardList, ClipboardCheck, Package, Ship, Flag, CircleCheck, Globe } from 'lucide-react'
+import { ClipboardList, ClipboardCheck, Package, Ship, Flag, CircleCheck, Globe } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
-// The board has no data of its own: every card is a chat, a cargo request or a shipment,
+// The board has no data of its own: every card is a cargo request or a shipment,
 // and its column is derived from that record. Moving a card = editing the record where it lives.
 type Card = { id: string; href: string; title: string; line?: string; mono?: string; foot?: string; since: string | null; alert?: string; warn?: string; site?: boolean }
 type Column = { key: string; title: string; icon: typeof Ship; cards: Card[]; total: number; more?: string; note?: string }
@@ -34,16 +34,14 @@ export default function PipelinePage() {
     const twoWeeksAgo = new Date(now - 14 * DAY).toISOString().slice(0, 10)
 
     Promise.all([
-      supabase.from('crm_chats').select('id, name, phone, last_message_text, last_message_at, unread_count', { count: 'exact' })
-        .is('client_id', null).order('last_message_at', { ascending: false }).limit(LIMIT),
       supabase.from('cargo_requests').select('id, request_number, client_name, origin, destination, container_size, status, created_at, shipment_id')
         .eq('is_demo', false).is('shipment_id', null).order('created_at', { ascending: false }).limit(200),
       ship().is('departure_date', null).is('arrival_date', null).is('delivery_date', null).eq('is_completed', false).order('created_at', { ascending: false }).limit(LIMIT),
       ship().not('departure_date', 'is', null).is('arrival_date', null).is('delivery_date', null).eq('is_completed', false).order('departure_date').limit(LIMIT),
       ship().not('arrival_date', 'is', null).is('delivery_date', null).eq('is_completed', false).order('arrival_date').limit(LIMIT),
       ship().gte('delivery_date', twoWeeksAgo).order('delivery_date', { ascending: false }).limit(LIMIT),
-    ]).then(([chats, requests, loading, transit, border, delivered]) => {
-      const failed = [chats, requests, loading, transit, border, delivered].find(r => r.error)
+    ]).then(([requests, loading, transit, border, delivered]) => {
+      const failed = [requests, loading, transit, border, delivered].find(r => r.error)
       if (failed) { setError('Не удалось загрузить воронку. Обновите страницу.'); return }
 
       const reqCard = (r: NonNullable<typeof requests.data>[number]): Card => ({
@@ -65,18 +63,10 @@ export default function PipelinePage() {
 
       const reqs = requests.data || []
       const pick = (...statuses: string[]) => reqs.filter(r => statuses.includes(r.status)).map(reqCard)
-      const leads: Card[] = [
-        ...(chats.data || []).map(c => ({
-          id: c.id, href: '/dashboard/crm', title: c.name || c.phone || 'Без имени', line: c.last_message_text || '', since: c.last_message_at,
-          alert: c.unread_count > 0 ? `${c.unread_count} нов.` : undefined,
-        })),
-        ...pick('submitted'),
-      ]
-      const drafts = pick('draft', 'waiting', 'changes_requested'), accepted = pick('accepted')
+      const drafts = pick('submitted', 'draft', 'waiting', 'changes_requested'), accepted = pick('accepted')
 
       setColumns([
-        { key: 'lead', title: 'Обращение', icon: MessageCircle, cards: leads, total: (chats.count || 0) + pick('submitted').length, note: 'Чаты без клиента и заявки с сайта' },
-        { key: 'request', title: 'Заявка', icon: ClipboardList, cards: drafts, total: drafts.length, note: 'Менеджер оформляет' },
+        { key: 'request', title: 'Заявка', icon: ClipboardList, cards: drafts, total: drafts.length, note: 'С сайта и от менеджера' },
         { key: 'accepted', title: 'Принята', icon: ClipboardCheck, cards: accepted, total: accepted.length, note: 'Согласовано, перевозка не создана' },
         { key: 'loading', title: 'Загрузка', icon: Package, cards: (loading.data || []).map(shipCard('loading')), total: loading.count || 0 },
         { key: 'transit', title: 'В пути', icon: Ship, cards: (transit.data || []).map(shipCard('transit')), total: transit.count || 0, more: '/dashboard/shipments?status=in_transit', note: 'Сначала самые долгие' },
@@ -90,10 +80,10 @@ export default function PipelinePage() {
     <div className="space-y-5 pb-6">
       <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Воронка</h1>
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-600">{error}</p>}
-      {!columns && !error && <div role="status" aria-label="Загружаем воронку" className="grid gap-3 md:grid-cols-4">{[...Array(4)].map((_, i) => <div key={i} className="skeleton h-64 rounded-xl" />)}</div>}
+      {!columns && !error && <div role="status" aria-label="Загружаем воронку" className="grid gap-3 md:grid-cols-3">{[...Array(3)].map((_, i) => <div key={i} className="skeleton h-64 rounded-xl" />)}</div>}
       {columns && <>
-        <Row label="Продажи" columns={columns.slice(0, 4)} now={now} className="md:grid-cols-2 xl:grid-cols-4" />
-        <Row label="Перевозка" columns={columns.slice(4)} now={now} className="md:grid-cols-3" />
+        <Row label="Продажи" columns={columns.slice(0, 3)} now={now} className="md:grid-cols-3" />
+        <Row label="Перевозка" columns={columns.slice(3)} now={now} className="md:grid-cols-3" />
       </>}
     </div>
   )
