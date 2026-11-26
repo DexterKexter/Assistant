@@ -6,6 +6,9 @@ import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, ArrowRight, Warehous
 import { createClient } from '@/lib/supabase/client'
 import { cn, fmtDate } from '@/lib/utils'
 import { Place } from '@/components/place'
+import { CargoRequestDialog } from '@/components/cargo-request-dialog'
+import { useShipmentModal } from '@/lib/shipment-modal'
+import type { CargoRequest } from '@/lib/cargo-requests'
 import { loadingDue, movePatch, STAGES, type Stage } from '@/lib/pipeline-stage'
 
 // The board has no data of its own: every card is a cargo request or a shipment,
@@ -31,6 +34,18 @@ export default function PipelinePage() {
   const [tick, setTick] = useState(0)
   const [drag, setDrag] = useState<Card | null>(null)
   const [over, setOver] = useState('')
+  const [request, setRequest] = useState<CargoRequest | null>(null)
+  const { openShipment, selectedId } = useShipmentModal()
+
+  // Cards open in a modal instead of leaving the board.
+  async function openCard(e: React.MouseEvent, card: Card) {
+    if (e.metaKey || e.ctrlKey) return // new tab still works
+    e.preventDefault()
+    if (card.stage) return openShipment(card.id)
+    const { data } = await createClient().from('cargo_requests').select('*, cargo_request_items(*)').eq('id', card.id).single()
+    if (data) setRequest(data as CargoRequest)
+    else setError('Не удалось открыть заявку.')
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -94,7 +109,7 @@ export default function PipelinePage() {
         ...BOARD.map((st, i) => ({ key: st, ...meta[st], cards: (ships[i].data || []).map(shipCard(st)), total: ships[i].count || 0 })),
       ])
     })
-  }, [now, tick])
+  }, [now, tick, selectedId]) // selectedId: dates may have been edited in the shipment modal, reload when it closes
 
   async function drop(to: string) {
     const card = drag
@@ -131,7 +146,7 @@ export default function PipelinePage() {
                   {col.cards.map(card => (
                     <li key={card.id} draggable={!!card.stage} onDragStart={() => setDrag(card)} onDragEnd={() => { setDrag(null); setOver('') }}
                       className={cn(card.stage && 'cursor-grab active:cursor-grabbing', drag?.id === card.id && 'opacity-40')}>
-                      <Link href={card.href} draggable={false} className="block overflow-hidden rounded-xl border border-slate-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-md">
+                      <Link href={card.href} draggable={false} onClick={e => openCard(e, card)} className="block overflow-hidden rounded-xl border border-slate-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-md">
                         <div className="flex items-start gap-2">
                           <p className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-5 text-slate-900">{card.title}</p>
                           {/* Same colours as the size badge on the cargo requests page. */}
@@ -184,6 +199,7 @@ export default function PipelinePage() {
           </div>
         </div>
       )}
+      <CargoRequestDialog request={request} onClose={() => setRequest(null)} onChange={r => { setRequest(r); setTick(t => t + 1) }} />
     </div>
   )
 }
