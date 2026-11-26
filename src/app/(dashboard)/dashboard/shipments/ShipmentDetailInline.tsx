@@ -1,5 +1,6 @@
 'use client'
 
+import { NotifyButton } from '@/components/notify-button'
 import { useEffect, useState, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
@@ -461,6 +462,9 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
             </span>
           )}
         </div>
+        {canEdit && !editing && !isCreateMode && shipment.client_id && (
+          <NotifyButton shipmentId={id} shipment={shipment} className="px-3 py-1.5 bg-white/50 active:bg-white/80 text-slate-700 rounded-xl text-[12px] font-medium transition-colors flex items-center gap-1.5 shrink-0 disabled:opacity-60" />
+        )}
         {canEdit && !editing && (
           <button onClick={enterEditMode} className="px-3 py-1.5 bg-white/50 active:bg-white/80 text-slate-700 rounded-xl text-[12px] font-medium transition-colors flex items-center gap-1.5 shrink-0">
             <Pencil className="w-3 h-3" />

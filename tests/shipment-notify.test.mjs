@@ -4,7 +4,7 @@ import { registerHooks } from 'node:module'
 
 // The app imports through the '@/' alias; teach Node the same mapping for this test.
 registerHooks({ resolve: (spec, ctx, next) => next(spec.startsWith('@/') ? new URL(`../src/${spec.slice(2)}.ts`, import.meta.url).href : spec, ctx) })
-const { buildNotification, eventStillTrue } = await import('../src/lib/shipment-notify.ts')
+const { buildNotification, eventStillTrue, currentEvent } = await import('../src/lib/shipment-notify.ts')
 
 const s = { container_number: 'MSKU1234567', origin: 'Дубай', destination_city: 'Алматы', destination_station: 'Актау Порт', departure_date: '2026-11-01', arrival_date: null, delivery_date: null, is_completed: false }
 const now = new Date('2026-11-21T00:00:00Z').getTime()
@@ -34,4 +34,10 @@ test('an event is cancelled when its date was cleared', () => {
   assert.equal(eventStillTrue('departed', { ...s, departure_date: null }), false)
   assert.equal(eventStillTrue('delivered', { ...s, is_completed: true }), true)
   assert.equal(eventStillTrue('created', s), true)
+})
+test('manual notify announces the furthest stage reached', () => {
+  assert.equal(currentEvent({ ...s, departure_date: null }), 'created')
+  assert.equal(currentEvent(s), 'departed')
+  assert.equal(currentEvent({ ...s, arrival_date: '2026-11-15' }), 'border')
+  assert.equal(currentEvent({ ...s, arrival_date: '2026-11-15', is_completed: true }), 'delivered')
 })

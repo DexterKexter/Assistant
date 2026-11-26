@@ -8,6 +8,18 @@ const EVENT_TEMPLATE: Partial<Record<NotifyEvent, TemplateName>> = {
   departed: 'shipment_departed', border: 'shipment_at_border', delivered: 'shipment_delivered',
 }
 
+export const EVENT_LABELS: Record<NotifyEvent, string> = {
+  created: 'Перевозка оформлена', departed: 'Контейнер отправлен', border: 'Контейнер на границе', delivered: 'Контейнер доставлен',
+}
+
+// The furthest stage the shipment has reached: what a manual "notify" announces.
+export function currentEvent(s: Pick<StatusShipment, 'departure_date' | 'arrival_date' | 'delivery_date' | 'is_completed'>): NotifyEvent {
+  if (s.delivery_date || s.is_completed) return 'delivered'
+  if (s.arrival_date) return 'border'
+  if (s.departure_date) return 'departed'
+  return 'created'
+}
+
 // The date may have been cleared during the 10-minute delay: then there is nothing to announce.
 export function eventStillTrue(event: NotifyEvent, s: StatusShipment) {
   if (event === 'departed') return !!s.departure_date
