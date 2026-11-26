@@ -1,5 +1,6 @@
 'use client'
 
+import { CHAT_CATEGORIES } from '@/lib/chat-category'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -89,6 +90,7 @@ export default function CrmPage() {
                 <div className="flex items-baseline gap-1.5">
                   <p className={cn('text-[13px] truncate', c.unread_count ? 'font-semibold text-slate-900' : 'font-medium text-slate-800')}>{title(c)}</p>
                   {!c.client_id && <span className="shrink-0 text-[10px] font-semibold text-amber-600">новый</span>}
+                  {c.ai_category && <span className={cn('shrink-0 rounded px-1 text-[10px] font-medium', CHAT_CATEGORIES[c.ai_category].className)}>{CHAT_CATEGORIES[c.ai_category].label}</span>}
                   <span className="ml-auto shrink-0 text-[11px] tabular-nums text-slate-400">{time(c.last_message_at)}</span>
                 </div>
                 <div className="flex items-center gap-2">

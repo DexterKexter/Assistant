@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { after } from 'next/server'
 import { saveInbound } from '@/lib/crm'
+import { classifyChat } from '@/lib/crm-ai'
 
 type WaMessage = {
   from: string
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
       // `statuses` (sent/delivered/read) arrive here too; we only store incoming messages.
       for (const m of (value?.messages ?? []) as WaMessage[]) {
         const contact = value.contacts?.find((c: { wa_id: string }) => c.wa_id === m.from)
-        await saveInbound({
+        const chatId = await saveInbound({
           channel: 'whatsapp',
           externalId: m.from,
           name: contact?.profile?.name ?? '',
@@ -59,6 +61,8 @@ export async function POST(req: Request) {
           text: messageText(m),
           mediaId: (m.image ?? m.video ?? m.document ?? m.audio)?.id,
         })
+        // Meta wants a fast 200; the AI label is filled in after the response.
+        after(() => classifyChat(chatId))
       }
     }
   }

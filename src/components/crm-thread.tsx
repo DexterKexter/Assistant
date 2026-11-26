@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { CHAT_CATEGORIES, type ChatCategory } from '@/lib/chat-category'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { shipmentStatusText, shipmentStatusLabel } from '@/lib/shipment-status'
@@ -15,6 +16,7 @@ import { ArrowLeft, Send, UserPlus, ExternalLink, PanelRight, X, Download } from
 export type CrmChat = {
   id: string; channel: 'whatsapp'; name: string; username: string | null; phone: string | null
   client_id: string | null; last_message_text: string | null; last_message_at: string; unread_count: number
+  ai_category: ChatCategory | null; ai_summary: string | null
 }
 type Msg = { id: string; chat_id: string; direction: 'in' | 'out'; text: string; created_at: string; pending?: boolean; media_path?: string | null; media_type?: string | null }
 export type CrmClient = { id: string; name: string; is_russia: boolean }
@@ -167,6 +169,7 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
             <p className="text-[14px] font-semibold text-slate-900 truncate leading-tight">{title}</p>
             {chat.phone && <p className="text-[12px] text-slate-400 truncate leading-tight">{chat.phone}</p>}
           </div>
+          {chat.ai_category && <span title={chat.ai_summary || undefined} className={cn('hidden shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium sm:inline', CHAT_CATEGORIES[chat.ai_category].className)}>{CHAT_CATEGORIES[chat.ai_category].label}</span>}
           {side && <button onClick={() => setPanel(v => !v)} aria-label="Клиент и перевозки" title="Клиент и перевозки" aria-pressed={panel}
             className={`ml-auto w-8 h-8 shrink-0 rounded-lg flex items-center justify-center hover:bg-slate-100 ${panel ? 'bg-slate-100 text-slate-900' : 'text-slate-400'}`}>
             <PanelRight className="w-4 h-4" />
@@ -235,6 +238,12 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
       </div>
 
       {side && panel && <aside className="absolute inset-y-0 right-0 z-10 shadow-xl lg:static lg:shadow-none flex flex-col w-[272px] shrink-0 border-l border-slate-100 bg-white overflow-y-auto animate-in slide-in-from-right duration-200">
+        {chat.ai_category && (
+          <div className="border-b border-slate-100 px-4 py-3">
+            <p className="mb-1 text-[12px] font-medium text-slate-400">ИИ · {CHAT_CATEGORIES[chat.ai_category].label}</p>
+            {chat.ai_summary && <p className="text-[13px] leading-snug text-slate-700">{chat.ai_summary}</p>}
+          </div>
+        )}
         <ClientLink chat={chat} clients={clients} client={client} onClientCreated={onClientCreated} />
         <div className="px-4 py-3">
           <p className="mb-1 text-[12px] font-medium text-slate-400">Перевозки{chat.client_id && shipments.length > 0 ? ` · ${shipments.length}` : ''}</p>

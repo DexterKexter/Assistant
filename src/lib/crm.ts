@@ -54,6 +54,16 @@ async function waFetchMedia(id: string, folder: string) {
   }
 }
 
+// Sent once to a number we have never talked to. Free-form text is allowed: the client has just written, so the 24h window is open.
+const GREETING = `Здравствуйте! 👋 Это *STI Cargo* — контейнерные перевозки из Дубая и Азии в Казахстан и Россию.
+
+Чтобы быстрее посчитать перевозку, напишите:
+📍 откуда и куда
+📦 что везёте
+📏 контейнер 20 или 40 ft
+
+Менеджер ответит в ближайшее время.`
+
 export const phoneDigits = (p: string | null | undefined) => (p || '').replace(/\D/g, '').slice(-10)
 
 type Inbound = {
@@ -66,10 +76,10 @@ type Inbound = {
   mediaId?: string
 }
 
-// Upserts the chat (auto-linking a client by phone) and stores the incoming message.
+// Upserts the chat (auto-linking a client by phone), stores the incoming message, greets a new contact. Returns the chat id.
 export async function saveInbound(m: Inbound) {
   const supabase = createServiceClient()
-  const { data: existing } = await supabase.from('crm_chats').select('id, unread_count, client_id')
+  const { data: existing } = await supabase.from('crm_chats').select('id, unread_count, client_id, greeted_at')
     .eq('channel', m.channel).eq('external_id', m.externalId).maybeSingle()
 
   const patch: Record<string, unknown> = { name: m.name, last_message_text: m.text, last_message_at: new Date().toISOString() }
@@ -86,9 +96,24 @@ export async function saveInbound(m: Inbound) {
 
   const { data: chat, error } = existing
     ? await supabase.from('crm_chats').update({ ...patch, unread_count: existing.unread_count + 1 }).eq('id', existing.id).select('id').single()
-    : await supabase.from('crm_chats').insert({ ...patch, channel: m.channel, external_id: m.externalId, unread_count: 1 }).select('id').single()
+    // A number that matched an existing client is not a new contact: mark it greeted without sending anything.
+    : await supabase.from('crm_chats').insert({ ...patch, channel: m.channel, external_id: m.externalId, unread_count: 1, greeted_at: patch.client_id ? new Date().toISOString() : null }).select('id').single()
   if (error) throw error
 
   const media = m.mediaId ? await waFetchMedia(m.mediaId, chat.id) : null
   await supabase.from('crm_messages').insert({ chat_id: chat.id, direction: 'in', text: m.text, sender_id: null, media_path: media?.path ?? null, media_type: media?.type ?? null })
+
+  if (existing ? !existing.greeted_at : !patch.client_id) {
+    // Claim the greeting first so a burst of first messages cannot send it twice.
+    const { data: claimed } = await supabase.from('crm_chats').update({ greeted_at: new Date().toISOString() }).eq('id', chat.id).is('greeted_at', null).select('id')
+    if (claimed?.length) {
+      try {
+        await waSendText(m.externalId, GREETING)
+        await supabase.from('crm_messages').insert({ chat_id: chat.id, direction: 'out', text: GREETING, sender_id: null })
+      } catch (e) {
+        console.error('greeting failed', e)
+      }
+    }
+  }
+  return chat.id as string
 }
