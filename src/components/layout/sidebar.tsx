@@ -21,7 +21,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   CheckSquare,
-  ClipboardList, Kanban } from 'lucide-react'
+  ClipboardList, Kanban, Tag } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 
 const sections: { label: string | null; items: { href: string; label: string; icon: typeof Ship }[] }[] = [
@@ -38,6 +38,7 @@ const sections: { label: string | null; items: { href: string; label: string; ic
   ] },
   { label: 'Учёт', items: [
     { href: '/dashboard/carriers', label: 'Перевозчики', icon: Truck },
+    { href: '/dashboard/prices', label: 'Цены', icon: Tag },
     { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
     { href: '/dashboard/documents', label: 'Документы', icon: FileText },
     { href: '/dashboard/reports', label: 'Отчёты', icon: BarChart3 },

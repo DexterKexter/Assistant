@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutGrid, Ship, Users, CheckSquare, MessageSquare,
   Menu as MenuIcon, X, BarChart3, Truck, Wallet, FileText,
-  Shield, Settings, LogOut, User, Save, ClipboardList, Kanban } from 'lucide-react'
+  Shield, Settings, LogOut, User, Save, ClipboardList, Kanban, Tag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/useProfile'
 import { cn } from '@/lib/utils'
@@ -28,6 +28,7 @@ const menuSections = [
       { href: '/dashboard/cargo-requests', label: 'Заявки на груз', icon: ClipboardList },
       { href: '/dashboard/clients', label: 'Клиенты', icon: Users },
       { href: '/dashboard/carriers', label: 'Перевозчики', icon: Truck },
+      { href: '/dashboard/prices', label: 'Цены', icon: Tag },
       { href: '/dashboard/finance', label: 'Финансы', icon: Wallet },
       { href: '/dashboard/reports', label: 'Отчёты', icon: BarChart3 },
     ],
