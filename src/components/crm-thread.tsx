@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { shipmentStatusText, shipmentStatusLabel } from '@/lib/shipment-status'
@@ -9,7 +10,7 @@ import { TEMPLATES, TEMPLATE_FIELDS, compileTemplate, fillTemplate } from '@/lib
 import { SearchableSelect } from '@/components/searchable-select'
 import { WaText } from '@/components/wa-text'
 import Link from 'next/link'
-import { ArrowLeft, Send, UserPlus, ExternalLink, PanelRight } from 'lucide-react'
+import { ArrowLeft, Send, UserPlus, ExternalLink, PanelRight, X, Download } from 'lucide-react'
 
 export type CrmChat = {
   id: string; channel: 'whatsapp'; name: string; username: string | null; phone: string | null
@@ -25,13 +26,35 @@ export const chatTime = (d: string) => new Date(d).toLocaleTimeString('ru', { ho
 // The bucket is private: staff get a short-lived signed link.
 function Media({ path, type }: { path: string; type: string }) {
   const [url, setUrl] = useState('')
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
   useEffect(() => { supabase.storage.from('crm-media').createSignedUrl(path, 3600).then(({ data }) => setUrl(data?.signedUrl || '')) }, [path])
   if (!url) return <span className="block h-36 w-48 rounded-xl bg-slate-100" />
   if (type.startsWith('image/')) return (
-    <a href={url} target="_blank" rel="noreferrer">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={url} alt="Фото от клиента" className="-mx-1.5 mb-1 mt-0.5 block max-h-52 max-w-[220px] object-cover rounded-xl" />
-    </a>
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-label="Открыть фото" className="-mx-1.5 mb-1 mt-0.5 block cursor-zoom-in">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={url} alt="Фото от клиента" className="block max-h-52 max-w-[220px] object-cover rounded-xl" />
+      </button>
+      {/* ponytail: single-photo viewer; add prev/next + zoom if chats get photo-heavy */}
+      {open && createPortal(
+        <div role="dialog" aria-modal="true" aria-label="Просмотр фото" onClick={() => setOpen(false)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/85 p-6 animate-in fade-in duration-150">
+          <div className="absolute right-4 top-4 flex gap-2" onClick={e => e.stopPropagation()}>
+            <a href={url} download target="_blank" rel="noreferrer" aria-label="Скачать" title="Скачать" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"><Download className="h-4 w-4" /></a>
+            <button type="button" autoFocus onClick={() => setOpen(false)} aria-label="Закрыть" title="Закрыть (Esc)" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"><X className="h-4 w-4" /></button>
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt="Фото от клиента" onClick={e => e.stopPropagation()} className="max-h-full max-w-full rounded-lg object-contain shadow-2xl" />
+        </div>,
+        document.body
+      )}
+    </>
   )
   if (type.startsWith('video/')) return <video src={url} controls className="-mx-1.5 mb-1 mt-0.5 block max-h-52 max-w-[220px] object-cover rounded-xl" />
   if (type.startsWith('audio/')) return <audio src={url} controls className="mb-1 block" />
