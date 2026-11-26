@@ -10,7 +10,7 @@ import { loadingDue, movePatch, STAGES, type Stage } from '@/lib/pipeline-stage'
 
 // The board has no data of its own: every card is a cargo request or a shipment,
 // and its column is derived from that record. Dragging a shipment card just edits its dates.
-type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; facts: Fact[]; chip?: Fact; due?: { date: string; days: number; text: string; tone: 'late' | 'soon' | 'ok' }; foot?: string; alert?: string; warn?: string }
+type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; facts: Fact[]; chip?: Fact; due?: { date: string; days: number; text: string; tone: 'late' | 'soon' | 'ok' }; foot?: string; alert?: string; }
 // icon, what it means (tooltip), value
 type Fact = [typeof Ship, string, string | null | undefined]
 type Column = { key: string; title: string; icon: typeof Ship; cards: Card[]; total: number; more?: string }
@@ -40,7 +40,7 @@ export default function PipelinePage() {
     const active = () => open().is('delivery_date', null).eq('is_completed', false)
 
     Promise.all([
-      supabase.from('cargo_requests').select('id, request_number, client_name, origin, destination, container_size, loading_date, supplier, status, created_at')
+      supabase.from('cargo_requests').select('id, client_name, origin, destination, container_size, loading_date, supplier')
         .eq('is_demo', false).is('shipment_id', null).order('loading_date', { nullsFirst: false }).order('created_at', { ascending: false }).limit(200), // most urgent loading first
       active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).is('export_date', null).order('created_at', { ascending: false }).limit(LIMIT),
       active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).not('export_date', 'is', null).order('export_date').limit(LIMIT),
@@ -53,7 +53,6 @@ export default function PipelinePage() {
       const reqs = (requests.data || []).map((r): Card => ({
         id: r.id, href: '/dashboard/cargo-requests', title: r.client_name,
         from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, facts: [], chip: [Container, 'Поставщик контейнера', r.supplier], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
-        warn: r.status === 'changes_requested' ? 'нужны исправления' : r.status === 'waiting' ? 'ждём данные' : r.status === 'accepted' ? 'принята' : undefined,
       }))
       const shipCard = (stage: Stage) => (s: NonNullable<(typeof ships)[number]['data']>[number]): Card => {
         const one = <T,>(v: T | T[] | null) => (Array.isArray(v) ? v[0] : v)
@@ -155,10 +154,9 @@ export default function PipelinePage() {
                             ))}
                           </ul>
                         )}
-                        {(card.alert || card.warn || card.foot) && (
+                        {(card.alert || card.foot) && (
                           <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
                             {card.alert && <span className="whitespace-nowrap rounded bg-red-50 px-1.5 py-px font-medium text-red-600">{card.alert} в пути</span>}
-                            {card.warn && <span className="whitespace-nowrap rounded bg-amber-50 px-1.5 py-px font-medium text-amber-700">{card.warn}</span>}
                             {card.foot && !card.alert && <span className="truncate">{card.foot}</span>}
                           </p>
                         )}
