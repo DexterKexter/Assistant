@@ -18,6 +18,6 @@ test('named fields become numbered variables with samples', () => {
   assert.deepEqual(c.fields, ['client_name', 'container'])
   assert.throws(() => compileTemplate('Привет, {Фамилия}'))
   assert.deepEqual(templatePayload('shipment_status').components[0].example, { body_text: [['Айдар', 'MSKU1234567', 'В пути с 01.11.2026', '21']] })
-  assert.equal(templatePayload('greeting').components[0].example, undefined)
+  assert.equal(templatePayload('greeting_v2').components[0].example, undefined)
   assert.equal(fillTemplate('Привет, {{1}} и {{2}}', ['Айдар']), 'Привет, Айдар и {{2}}')
 })

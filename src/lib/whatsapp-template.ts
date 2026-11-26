@@ -16,18 +16,18 @@ export const TEMPLATE_LANGUAGE = 'ru'
 // name is the id in Meta: changing a text means adding a new name (Meta does not let approved text be swapped silently).
 // WhatsApp formatting: *жирный*, _курсив_, перенос строки. A text must not start or end with a field.
 export const TEMPLATES = [
-  { name: 'greeting', title: 'Приветствие',
-    text: '👋 Здравствуйте!\n\nЭто *STI Cargo*. Чем можем помочь?' },
-  { name: 'contact_request', title: 'Просьба связаться',
-    text: '👋 Здравствуйте, *{Имя клиента}*!\n\nЭто *STI Cargo*. Напишите нам, пожалуйста, по поводу вашей перевозки 🙏' },
+  { name: 'greeting_v2', title: 'Приветствие',
+    text: '👋 Здравствуйте!\n\nЭто *STI Logistics*. Чем можем помочь?' },
+  { name: 'contact_request_v2', title: 'Просьба связаться',
+    text: '👋 Здравствуйте, *{Имя клиента}*!\n\nЭто *STI Logistics*. Напишите нам, пожалуйста, по поводу вашей перевозки 🙏' },
   { name: 'shipment_status', title: 'Статус перевозки',
     text: '👋 Здравствуйте, *{Имя клиента}*!\n\n📦 Контейнер: *{Номер контейнера}*\n📍 Статус: *{Статус перевозки}*\n⏱ Дней в пути: *{Дней в пути}*\n\nЕсли есть вопросы — напишите нам 💬' },
   { name: 'shipment_departed', title: 'Контейнер отправлен',
     text: '🚢 *Контейнер отправлен*\n\nЗдравствуйте, {Имя клиента}!\n\n📦 Контейнер: *{Номер контейнера}*\n🗺 Маршрут: *{Маршрут}*\n\nСообщим, когда он прибудет на границу ✅' },
   { name: 'shipment_at_border', title: 'Контейнер на границе',
     text: '📍 *Контейнер на границе*\n\nЗдравствуйте, {Имя клиента}!\n\n📦 Контейнер: *{Номер контейнера}*\n📅 Дата прибытия: *{Дата прибытия}*\n⏱ Дней в пути: *{Дней в пути}*\n\nСообщим о дальнейшем движении 🚛' },
-  { name: 'shipment_delivered', title: 'Контейнер доставлен',
-    text: '✅ *Контейнер доставлен*\n\nЗдравствуйте, {Имя клиента}!\n\n📦 Контейнер: *{Номер контейнера}*\n🏙 Город: *{Город доставки}*\n⏱ Доставка заняла дней: *{Дней в пути}*\n\nСпасибо, что выбрали *STI Cargo* 🤝' },
+  { name: 'shipment_delivered_v2', title: 'Контейнер доставлен',
+    text: '✅ *Контейнер доставлен*\n\nЗдравствуйте, {Имя клиента}!\n\n📦 Контейнер: *{Номер контейнера}*\n🏙 Город: *{Город доставки}*\n⏱ Доставка заняла дней: *{Дней в пути}*\n\nСпасибо, что выбрали *STI Logistics* 🤝' },
 ] as const
 export type TemplateName = typeof TEMPLATES[number]['name']
 

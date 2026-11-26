@@ -5,7 +5,7 @@ import type { StatusShipment } from '@/lib/shipment-status'
 export type NotifyEvent = 'created' | 'departed' | 'border' | 'delivered'
 
 const EVENT_TEMPLATE: Partial<Record<NotifyEvent, TemplateName>> = {
-  departed: 'shipment_departed', border: 'shipment_at_border', delivered: 'shipment_delivered',
+  departed: 'shipment_departed', border: 'shipment_at_border', delivered: 'shipment_delivered_v2',
 }
 
 export const EVENT_LABELS: Record<NotifyEvent, string> = {
@@ -47,6 +47,5 @@ export function buildNotification(event: NotifyEvent, s: StatusShipment, clientN
   const params = fields.map(f => (values[f] || '').trim())
   const missing = fields.find((_, i) => !params[i])
   if (missing) return { error: `нет данных для поля «${missing}»` }
-  // ponytail: templates in Meta still carry the old brand until their review ends; free-form text can use the new one now.
-  return { text: fillTemplate(body, params).replaceAll('STI Cargo', 'STI Logistics'), template: { name, params } }
+  return { text: fillTemplate(body, params), template: { name, params } }
 }
