@@ -161,7 +161,7 @@ export default function PipelinePage() {
                         </p>
                         {card.mono && <p className="mt-1 truncate text-[12px] text-slate-500"><span className="font-mono text-[13px] font-medium text-slate-800">{card.mono}</span>{card.kind && ` · ${card.kind}`}</p>}
                         {card.facts.some(f => f[2]) && (
-                          <ul className={cn('mt-2 space-y-1 text-[12px] text-slate-600', card.stage && card.facts.filter(f => f[2]).length > 1 && 'border-t border-slate-100 pt-2')}>
+                          <ul className="mt-2 space-y-1 text-[12px] text-slate-600">
                             {card.facts.filter(f => f[2]).map(([Icon, label, value]) => (
                               <li key={label} title={label} className="flex items-center gap-1.5">
                                 <Icon className="size-3.5 shrink-0 text-slate-400" aria-label={label} /><span className="truncate">{value}</span>
