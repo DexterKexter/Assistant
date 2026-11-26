@@ -158,8 +158,8 @@ export default function PipelinePage() {
                         {card.due && (
                           <div className={cn('-mx-3 -mb-3 mt-3 flex items-center gap-2 px-3 py-2 text-white', { late: 'bg-red-600', soon: 'bg-orange-500', ok: 'bg-emerald-600' }[card.due.tone])}>
                             <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
-                            <span className="truncate text-[12.5px] font-semibold first-letter:uppercase">{card.due.text}</span>
-                            <span className="ml-auto shrink-0 text-[11.5px] tabular-nums opacity-90">{card.due.date.slice(0, 5)}</span>
+                            <span className="text-[13.5px] font-bold tabular-nums">{card.due.date.slice(0, 5)}</span>
+                            <span className="ml-auto truncate text-[13px] font-bold first-letter:uppercase">{card.due.text}</span>
                           </div>
                         )}
                       </Link>
