@@ -21,13 +21,13 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   CheckSquare,
-  ClipboardList,
-} from 'lucide-react'
+  ClipboardList, Kanban } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 
 const sections: { label: string | null; items: { href: string; label: string; icon: typeof Ship }[] }[] = [
   { label: null, items: [
     { href: '/dashboard', label: 'Обзор', icon: LayoutGrid },
+    { href: '/dashboard/pipeline', label: 'Воронка', icon: Kanban },
     { href: '/dashboard/shipments', label: 'Перевозки', icon: Ship },
     { href: '/dashboard/cargo-requests', label: 'Заявки на груз', icon: ClipboardList },
     { href: '/dashboard/tasks', label: 'Задачи', icon: CheckSquare },
