@@ -2,7 +2,7 @@
 
 import { createElement, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, ArrowRight, Warehouse, Truck, Building2, MapPin, CalendarDays, Container, Flame, TriangleAlert, BellRing, Hourglass, CircleCheck } from 'lucide-react'
+import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, ArrowRight, Warehouse, Truck, Building2, MapPin, CalendarDays, Clock, Container, Flame, TriangleAlert, BellRing, Hourglass, CircleCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, fmtDate } from '@/lib/utils'
 import { Place } from '@/components/place'
@@ -13,7 +13,7 @@ import { loadingDue, loadingProgress, movePatch, STAGES, type Stage } from '@/li
 
 // The board has no data of its own: every card is a cargo request or a shipment,
 // and its column is derived from that record. Dragging a shipment card just edits its dates.
-type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; kind?: string; facts: Fact[]; chip?: Fact; due?: { date: string; days: number; text: string; tone: 'late' | 'soon' | 'ok' }; foot?: string; alert?: string; }
+type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; kind?: string; line?: string; chip?: Fact; due?: { date: string; days: number; text: string; tone: 'late' | 'soon' | 'ok' | 'plain' } }
 // icon, what it means (tooltip), value
 type Fact = [typeof Ship, string, string | null | undefined]
 type Column = { key: string; title: string; icon: typeof Ship; cards: Card[]; total: number; more?: string }
@@ -69,32 +69,32 @@ export default function PipelinePage() {
         const goods = [...(r.cargo_request_items || [])].sort((a, b) => a.position - b.position).map(i => i.name)
         return {
         id: r.id, href: '/dashboard/cargo-requests', title: r.client_name,
-        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, facts: [[Package, 'Товар', goods.length > 1 ? `${goods[0]} +${goods.length - 1}` : goods[0]]], chip: [Container, 'Поставщик контейнера', r.supplier], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
+        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, line: goods.length > 1 ? `${goods[0]} +${goods.length - 1}` : goods[0], chip: [Container, 'Поставщик контейнера', r.supplier], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
       } })
       const shipCard = (stage: Stage) => (s: NonNullable<(typeof ships)[number]['data']>[number]): Card => {
         const one = <T,>(v: T | T[] | null) => (Array.isArray(v) ? v[0] : v)
         const client = one(s.client), carrier = one(s.carrier)?.name, recipient = one(s.recipient)?.name
-        const sender: Fact = [Warehouse, 'Отправитель', s.sender_name], truck: Fact = [Truck, 'Перевозчик', carrier]
         const atBorder = stage === 'border' || stage === 'customs'
-        // Each stage shows what the manager needs at that moment.
-        const facts: Record<Stage, Fact[]> = {
-          loading: [sender],
-          export: [sender, truck],
-          transit: [[MapPin, 'Погранпереход', s.destination_station && `через ${s.destination_station}`], truck],
-          border: [[Building2, 'Получатель', recipient], truck],
-          customs: [[Building2, 'Получатель', recipient], truck],
-          delivered: [],
+        // One chip per stage: who the manager deals with at that moment.
+        const chip: Record<Stage, Fact> = {
+          loading: [Warehouse, 'Отправитель', s.sender_name],
+          export: [Truck, 'Перевозчик', carrier],
+          transit: [MapPin, 'Погранпереход', s.destination_station && `через ${s.destination_station}`],
+          border: [Building2, 'Получатель', recipient],
+          customs: [Building2, 'Получатель', recipient],
+          delivered: [Building2, 'Получатель', recipient],
         }
-        const inTransit = days(s.departure_date, now)
+        // Bottom strip: when the stage began and how long it has lasted. Only loading and transit have a norm to colour by.
+        const since = { loading: s.loading_date || s.created_at.slice(0, 10), export: s.export_date, transit: s.departure_date, border: s.arrival_date, customs: s.customs_date, delivered: s.delivery_date }[stage]
+        const spent = days(since, now)
+        const due: Card['due'] = !since ? undefined
+          : stage === 'loading' ? { date: fmtDate(since), ...loadingProgress(since, today) }
+          : { date: fmtDate(since), days: SLOW_TRANSIT_DAYS - spent, text: `${spent} дн.`, tone: stage !== 'transit' ? 'plain' : spent > SLOW_TRANSIT_DAYS ? 'late' : 'ok' }
         return {
           id: s.id, stage, href: `/dashboard/shipments/${s.id}`, title: client?.name || 'Без клиента', mono: s.container_number || undefined, kind: s.container_type || undefined,
           // At the border the card reads "where it stands → where it goes next".
           from: (atBorder ? s.destination_station : s.origin) || '—', to: s.destination_city || '—',
-          // Loading clock: from the day the container was delivered (or the shipment was created).
-          due: stage === 'loading' ? (d => ({ date: fmtDate(d), ...loadingProgress(d, today) }))(s.loading_date || s.created_at.slice(0, 10)) : undefined,
-          size: s.container_size ? `${s.container_size} ft` : undefined, facts: facts[stage],
-          foot: stage === 'transit' ? `${inTransit} дн. в пути` : stage === 'border' && client?.is_russia ? 'Транзит КЗ' : undefined,
-          alert: stage === 'transit' && inTransit > SLOW_TRANSIT_DAYS ? `${inTransit} дн.` : undefined,
+          size: s.container_size ? `${s.container_size} ft` : undefined, chip: chip[stage], due,
         }
       }
       const meta: Record<Exclude<Stage, 'delivered'>, Pick<Column, 'title' | 'icon' | 'more'>> = {
@@ -159,33 +159,19 @@ export default function PipelinePage() {
                           <ArrowRight className="size-3.5 shrink-0 text-slate-300" />
                           <span className="truncate"><Place name={card.to} /></span>
                         </p>
-                        {card.mono && <p className="mt-1 truncate text-[12px] text-slate-500"><span className="font-mono text-[13px] font-medium text-slate-800">{card.mono}</span>{card.kind && ` · ${card.kind}`}</p>}
-                        {card.facts.some(f => f[2]) && (
-                          <ul className="mt-2 space-y-1 text-[12px] text-slate-600">
-                            {card.facts.filter(f => f[2]).map(([Icon, label, value]) => (
-                              <li key={label} title={label} className="flex items-center gap-1.5">
-                                <Icon className="size-3.5 shrink-0 text-slate-400" aria-label={label} /><span className="truncate">{value}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
+                        {card.mono && <p className="mt-2 truncate text-[12px] leading-[18px] text-slate-500"><span className="font-mono text-[13px] font-medium text-slate-800">{card.mono}</span>{card.kind && ` · ${card.kind}`}</p>}
+                        {card.line && <p className="mt-2 flex items-center gap-1.5 text-[12px] leading-[18px] text-slate-600"><Package className="size-3.5 shrink-0 text-slate-400" aria-label="Товар" /><span className="truncate">{card.line}</span></p>}
                         {card.chip?.[2] && (
                           <p title={card.chip[1]} className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
                             {createElement(card.chip[0], { className: 'size-3 shrink-0 text-slate-400', 'aria-label': card.chip[1] })}<span className="truncate">{card.chip[2]}</span>
                           </p>
                         )}
-                        {(card.alert || card.foot) && (
-                          <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
-                            {card.alert && <span className="whitespace-nowrap rounded bg-red-50 px-1.5 py-px font-medium text-red-600">{card.alert} в пути</span>}
-                            {card.foot && !card.alert && <span className="truncate">{card.foot}</span>}
-                          </p>
-                        )}
                         {card.due && (
-                          <div className={cn('-mx-3 -mb-3 mt-3 flex items-center gap-1.5 px-3 py-1.5 text-white', { late: 'bg-red-600', soon: 'bg-orange-500', ok: 'bg-emerald-600' }[card.due.tone])}>
+                          <div className={cn('-mx-3 -mb-3 mt-3 flex items-center gap-1.5 px-3 py-1.5 text-white', { late: 'bg-red-600', soon: 'bg-orange-500', ok: 'bg-emerald-600', plain: 'bg-slate-500' }[card.due.tone])}>
                             <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
                             <span className="text-[12px] font-bold tabular-nums">{card.due.date.slice(0, 5)}</span>
                             <span className="ml-auto inline-flex min-w-0 items-center gap-1 text-[12px] font-bold">
-                              {createElement(dueIcon(card.due.days), { className: 'size-3.5 shrink-0', 'aria-hidden': true })}<span className="truncate first-letter:uppercase">{card.due.text}</span>
+                              {createElement(card.due.tone === 'plain' ? Clock : dueIcon(card.due.days), { className: 'size-3.5 shrink-0', 'aria-hidden': true })}<span className="truncate first-letter:uppercase">{card.due.text}</span>
                             </span>
                           </div>
                         )}
