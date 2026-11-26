@@ -19,8 +19,8 @@ test('moving forward stamps only the target, moving back clears everything after
 })
 
 test('loading date urgency', () => {
-  assert.deepEqual(loadingDue('2026-11-23', '2026-11-26'), { text: '3 дн.', tone: 'late' })
-  assert.deepEqual(loadingDue('2026-11-26', '2026-11-26'), { text: 'сегодня', tone: 'soon' })
-  assert.deepEqual(loadingDue('2026-11-27', '2026-11-26'), { text: 'завтра', tone: 'soon' })
-  assert.deepEqual(loadingDue('2026-12-03', '2026-11-26'), { text: 'через 7 дн.', tone: 'ok' })
+  assert.deepEqual(loadingDue('2026-11-23', '2026-11-26'), { days: -3, text: '3 дн.', tone: 'late' })
+  assert.deepEqual(loadingDue('2026-11-26', '2026-11-26'), { days: 0, text: 'сегодня', tone: 'soon' })
+  assert.deepEqual(loadingDue('2026-11-27', '2026-11-26'), { days: 1, text: 'завтра', tone: 'soon' })
+  assert.deepEqual(loadingDue('2026-12-03', '2026-11-26'), { days: 7, text: 'через 7 дн.', tone: 'ok' })
 })

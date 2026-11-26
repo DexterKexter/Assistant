@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { createElement, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, ArrowRight, Warehouse, Truck, Building2, MapPin, CalendarDays } from 'lucide-react'
+import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, ArrowRight, Warehouse, Truck, Building2, MapPin, CalendarDays, Flame, TriangleAlert, BellRing, Hourglass, CircleCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, fmtDate } from '@/lib/utils'
 import { Place } from '@/components/place'
@@ -10,7 +10,7 @@ import { loadingDue, movePatch, STAGES, type Stage } from '@/lib/pipeline-stage'
 
 // The board has no data of its own: every card is a cargo request or a shipment,
 // and its column is derived from that record. Dragging a shipment card just edits its dates.
-type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; facts: Fact[]; due?: { date: string; text: string; tone: 'late' | 'soon' | 'ok' }; foot?: string; alert?: string; warn?: string }
+type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; facts: Fact[]; due?: { date: string; days: number; text: string; tone: 'late' | 'soon' | 'ok' }; foot?: string; alert?: string; warn?: string }
 // icon, what it means (tooltip), value
 type Fact = [typeof Ship, string, string | null | undefined]
 type Column = { key: string; title: string; icon: typeof Ship; cards: Card[]; total: number; more?: string }
@@ -20,6 +20,8 @@ const SLOW_TRANSIT_DAYS = 50 // ponytail: fixed threshold (median Dubai → bord
 const DAY = 86400000
 const BOARD = STAGES.filter((st): st is Exclude<Stage, 'delivered'> => st !== 'delivered')
 
+// The later it is, the louder the icon.
+const dueIcon = (d: number) => (d <= -3 ? Flame : d < 0 ? TriangleAlert : d === 0 ? BellRing : d <= 3 ? Hourglass : CircleCheck)
 const days = (d: string | null, now: number) => (d ? Math.floor((now - new Date(d).getTime()) / DAY) : 0)
 
 export default function PipelinePage() {
@@ -156,10 +158,12 @@ export default function PipelinePage() {
                           </p>
                         )}
                         {card.due && (
-                          <div className={cn('-mx-3 -mb-3 mt-3 flex items-center gap-2 px-3 py-2 text-white', { late: 'bg-red-600', soon: 'bg-orange-500', ok: 'bg-emerald-600' }[card.due.tone])}>
-                            <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
-                            <span className="text-[13.5px] font-bold tabular-nums">{card.due.date.slice(0, 5)}</span>
-                            <span className="ml-auto truncate text-[13px] font-bold first-letter:uppercase">{card.due.text}</span>
+                          <div className={cn('-mx-3 -mb-3 mt-3 flex items-center gap-1.5 px-3 py-1.5 text-white', { late: 'bg-red-600', soon: 'bg-orange-500', ok: 'bg-emerald-600' }[card.due.tone])}>
+                            <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+                            <span className="text-[12px] font-bold tabular-nums">{card.due.date.slice(0, 5)}</span>
+                            <span className="ml-auto inline-flex min-w-0 items-center gap-1 text-[12px] font-bold">
+                              {createElement(dueIcon(card.due.days), { className: 'size-3.5 shrink-0', 'aria-hidden': true })}<span className="truncate first-letter:uppercase">{card.due.text}</span>
+                            </span>
                           </div>
                         )}
                       </Link>
