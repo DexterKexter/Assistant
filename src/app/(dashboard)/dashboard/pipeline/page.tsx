@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, Globe, ArrowRight, Warehouse, Truck, Building2, MapPin, CalendarDays, Clock } from 'lucide-react'
+import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, ArrowRight, Warehouse, Truck, Building2, MapPin, CalendarDays } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, fmtDate } from '@/lib/utils'
 import { Place } from '@/components/place'
-import { movePatch, STAGES, type Stage } from '@/lib/pipeline-stage'
+import { loadingDue, movePatch, STAGES, type Stage } from '@/lib/pipeline-stage'
 
 // The board has no data of its own: every card is a cargo request or a shipment,
 // and its column is derived from that record. Dragging a shipment card just edits its dates.
-type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; facts: Fact[]; foot?: string; since: string | null; alert?: string; warn?: string; site?: boolean }
+type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; facts: Fact[]; due?: { date: string; text: string; tone: 'late' | 'soon' | 'ok' }; foot?: string; alert?: string; warn?: string }
 // icon, what it means (tooltip), value
 type Fact = [typeof Ship, string, string | null | undefined]
 type Column = { key: string; title: string; icon: typeof Ship; cards: Card[]; total: number; more?: string }
@@ -20,11 +20,6 @@ const SLOW_TRANSIT_DAYS = 50 // ponytail: fixed threshold (median Dubai → bord
 const DAY = 86400000
 const BOARD = STAGES.filter((st): st is Exclude<Stage, 'delivered'> => st !== 'delivered')
 
-function ago(d: string | null, now: number) {
-  if (!d) return ''
-  const m = Math.max(0, Math.floor((now - new Date(d).getTime()) / 60000))
-  return m < 60 ? `${m} мин` : m < 1440 ? `${Math.floor(m / 60)} ч` : `${Math.floor(m / 1440)} д`
-}
 const days = (d: string | null, now: number) => (d ? Math.floor((now - new Date(d).getTime()) / DAY) : 0)
 
 export default function PipelinePage() {
@@ -39,11 +34,12 @@ export default function PipelinePage() {
     const supabase = createClient()
     const open = () => supabase.from('shipments')
       .select('id, container_number, container_size, container_type, cargo_description, sender_name, carrier:carriers(name), recipient:recipients(name), origin, destination_city, destination_station, export_date, departure_date, arrival_date, customs_date, delivery_date, created_at, client:clients(name, is_russia)', { count: 'exact' })
+    const today = new Date(now).toLocaleDateString('sv-SE')
     const active = () => open().is('delivery_date', null).eq('is_completed', false)
 
     Promise.all([
       supabase.from('cargo_requests').select('id, request_number, client_name, origin, destination, container_size, loading_date, status, created_at')
-        .eq('is_demo', false).is('shipment_id', null).order('created_at', { ascending: false }).limit(200),
+        .eq('is_demo', false).is('shipment_id', null).order('loading_date', { nullsFirst: false }).order('created_at', { ascending: false }).limit(200), // most urgent loading first
       active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).is('export_date', null).order('created_at', { ascending: false }).limit(LIMIT),
       active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).not('export_date', 'is', null).order('export_date').limit(LIMIT),
       active().is('customs_date', null).is('arrival_date', null).not('departure_date', 'is', null).order('departure_date').limit(LIMIT),
@@ -54,8 +50,7 @@ export default function PipelinePage() {
 
       const reqs = (requests.data || []).map((r): Card => ({
         id: r.id, href: '/dashboard/cargo-requests', title: r.client_name,
-        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, facts: [[CalendarDays, 'Загрузка', r.loading_date && `Загрузка ${fmtDate(r.loading_date)}`]],
-        foot: `№${String(r.request_number).padStart(4, '0')}`, since: r.created_at, site: r.status === 'submitted',
+        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, facts: [], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
         warn: r.status === 'changes_requested' ? 'нужны исправления' : r.status === 'waiting' ? 'ждём данные' : r.status === 'accepted' ? 'принята' : undefined,
       }))
       const shipCard = (stage: Stage) => (s: NonNullable<(typeof ships)[number]['data']>[number]): Card => {
@@ -72,13 +67,12 @@ export default function PipelinePage() {
           customs: [[Building2, 'Получатель', recipient], truck],
           delivered: [],
         }
-        const since = { loading: s.created_at, export: s.export_date, transit: s.departure_date, border: s.arrival_date, customs: s.customs_date, delivered: s.delivery_date }[stage]
         const inTransit = days(s.departure_date, now)
         return {
           id: s.id, stage, href: `/dashboard/shipments/${s.id}`, title: client?.name || 'Без клиента', mono: [s.container_number, s.container_type].filter(Boolean).join(' · ') || undefined,
           // At the border the card reads "where it stands → where it goes next".
           from: (atBorder ? s.destination_station : s.origin) || '—', to: s.destination_city || '—',
-          size: s.container_size ? `${s.container_size} ft` : undefined, facts: facts[stage], since: stage === 'transit' ? null : since, // transit already says "N дн. в пути"
+          size: s.container_size ? `${s.container_size} ft` : undefined, facts: facts[stage],
           foot: stage === 'transit' ? `${inTransit} дн. в пути` : stage === 'border' && client?.is_russia ? 'Транзит КЗ' : undefined,
           alert: stage === 'transit' && inTransit > SLOW_TRANSIT_DAYS ? `${inTransit} дн.` : undefined,
         }
@@ -134,7 +128,7 @@ export default function PipelinePage() {
                   {col.cards.map(card => (
                     <li key={card.id} draggable={!!card.stage} onDragStart={() => setDrag(card)} onDragEnd={() => { setDrag(null); setOver('') }}
                       className={cn(card.stage && 'cursor-grab active:cursor-grabbing', drag?.id === card.id && 'opacity-40')}>
-                      <Link href={card.href} draggable={false} className="block rounded-xl border border-slate-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-md">
+                      <Link href={card.href} draggable={false} className={cn('block rounded-xl border bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:shadow-md', card.due?.tone === 'late' ? 'border-red-300' : 'border-slate-200/80 hover:border-slate-300')}>
                         <div className="flex items-start gap-2">
                           <p className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-5 text-slate-900">{card.title}</p>
                           {card.size && <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">{card.size}</span>}
@@ -145,6 +139,15 @@ export default function PipelinePage() {
                           <ArrowRight className="size-3.5 shrink-0 text-slate-300" />
                           <span className="truncate"><Place name={card.to} /></span>
                         </p>
+                        {card.due && (
+                          <div className={cn('mt-2 flex items-center gap-2 rounded-lg px-2 py-1.5', { late: 'bg-red-50 text-red-700', soon: 'bg-amber-50 text-amber-800', ok: 'bg-slate-50 text-slate-600' }[card.due.tone])}>
+                            <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
+                            <p className="min-w-0 leading-tight">
+                              <span className="block truncate text-[12.5px] font-semibold first-letter:uppercase">{card.due.text}</span>
+                              <span className="block text-[11px] opacity-75">загрузка {card.due.date}</span>
+                            </p>
+                          </div>
+                        )}
                         {card.facts.some(f => f[2]) && (
                           <ul className="mt-2 space-y-1 border-t border-slate-100 pt-2 text-[12px] text-slate-600">
                             {card.facts.filter(f => f[2]).map(([Icon, label, value]) => (
@@ -154,13 +157,13 @@ export default function PipelinePage() {
                             ))}
                           </ul>
                         )}
-                        <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
-                          {card.site && <span className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-px font-medium text-indigo-600"><Globe className="size-3" />с сайта</span>}
-                          {card.alert && <span className="whitespace-nowrap rounded bg-red-50 px-1.5 py-px font-medium text-red-600">{card.alert} в пути</span>}
-                          {card.warn && <span className="whitespace-nowrap rounded bg-amber-50 px-1.5 py-px font-medium text-amber-700">{card.warn}</span>}
-                          {card.foot && !card.alert && <span className="truncate">{card.foot}</span>}
-                          {card.since && <span className="ml-auto inline-flex shrink-0 items-center gap-1 tabular-nums"><Clock className="size-3" />{ago(card.since, now)}</span>}
-                        </p>
+                        {(card.alert || card.warn || card.foot) && (
+                          <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
+                            {card.alert && <span className="whitespace-nowrap rounded bg-red-50 px-1.5 py-px font-medium text-red-600">{card.alert} в пути</span>}
+                            {card.warn && <span className="whitespace-nowrap rounded bg-amber-50 px-1.5 py-px font-medium text-amber-700">{card.warn}</span>}
+                            {card.foot && !card.alert && <span className="truncate">{card.foot}</span>}
+                          </p>
+                        )}
                       </Link>
                     </li>
                   ))}
