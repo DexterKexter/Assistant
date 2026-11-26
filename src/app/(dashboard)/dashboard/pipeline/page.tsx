@@ -9,7 +9,7 @@ import { Place } from '@/components/place'
 import { CargoRequestDialog } from '@/components/cargo-request-dialog'
 import { useShipmentModal } from '@/lib/shipment-modal'
 import type { CargoRequest } from '@/lib/cargo-requests'
-import { loadingDue, movePatch, STAGES, type Stage } from '@/lib/pipeline-stage'
+import { loadingDue, loadingProgress, movePatch, STAGES, type Stage } from '@/lib/pipeline-stage'
 
 // The board has no data of its own: every card is a cargo request or a shipment,
 // and its column is derived from that record. Dragging a shipment card just edits its dates.
@@ -50,14 +50,14 @@ export default function PipelinePage() {
   useEffect(() => {
     const supabase = createClient()
     const open = () => supabase.from('shipments')
-      .select('id, container_number, container_size, container_type, cargo_description, sender_name, carrier:carriers(name), recipient:recipients(name), origin, destination_city, destination_station, export_date, departure_date, arrival_date, customs_date, delivery_date, created_at, client:clients(name, is_russia)', { count: 'exact' })
+      .select('id, container_number, container_size, container_type, cargo_description, sender_name, carrier:carriers(name), recipient:recipients(name), origin, destination_city, destination_station, loading_date, export_date, departure_date, arrival_date, customs_date, delivery_date, created_at, client:clients(name, is_russia)', { count: 'exact' })
     const today = new Date(now).toLocaleDateString('sv-SE')
     const active = () => open().is('delivery_date', null).eq('is_completed', false)
 
     Promise.all([
       supabase.from('cargo_requests').select('id, client_name, origin, destination, container_size, loading_date, supplier, cargo_request_items(name, position)')
         .eq('is_demo', false).is('shipment_id', null).order('loading_date', { nullsFirst: false }).order('created_at', { ascending: false }).limit(200), // most urgent loading first
-      active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).is('export_date', null).order('created_at', { ascending: false }).limit(LIMIT),
+      active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).is('export_date', null).order('loading_date', { nullsFirst: false }).order('created_at').limit(LIMIT), // longest in loading first
       active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).not('export_date', 'is', null).order('export_date').limit(LIMIT),
       active().is('customs_date', null).is('arrival_date', null).not('departure_date', 'is', null).order('departure_date').limit(LIMIT),
       active().is('customs_date', null).not('arrival_date', 'is', null).order('arrival_date').limit(LIMIT),
@@ -90,6 +90,8 @@ export default function PipelinePage() {
           id: s.id, stage, href: `/dashboard/shipments/${s.id}`, title: client?.name || 'Без клиента', mono: [s.container_number, s.container_type].filter(Boolean).join(' · ') || undefined,
           // At the border the card reads "where it stands → where it goes next".
           from: (atBorder ? s.destination_station : s.origin) || '—', to: s.destination_city || '—',
+          // Loading clock: from the day the container was delivered (or the shipment was created).
+          due: stage === 'loading' ? (d => ({ date: fmtDate(d), ...loadingProgress(d, today) }))(s.loading_date || s.created_at.slice(0, 10)) : undefined,
           size: s.container_size ? `${s.container_size} ft` : undefined, facts: facts[stage],
           foot: stage === 'transit' ? `${inTransit} дн. в пути` : stage === 'border' && client?.is_russia ? 'Транзит КЗ' : undefined,
           alert: stage === 'transit' && inTransit > SLOW_TRANSIT_DAYS ? `${inTransit} дн.` : undefined,

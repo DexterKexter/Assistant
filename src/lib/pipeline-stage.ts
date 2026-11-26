@@ -24,6 +24,14 @@ export function movePatch(from: Stage, to: Stage, today: string): Record<string,
   return patch
 }
 
+// Loading starts when the empty container is delivered and should take no more than LOADING_DAYS.
+export const LOADING_DAYS = 5
+export function loadingProgress(start: string, today: string): { days: number; text: string; tone: 'late' | 'soon' | 'ok' } {
+  const spent = Math.max(0, Math.round((Date.parse(today) - Date.parse(start)) / 86400000))
+  const left = LOADING_DAYS - spent
+  return { days: left, text: `${spent} из ${LOADING_DAYS} дн.`, tone: left < 0 ? 'late' : left <= 1 ? 'soon' : 'ok' }
+}
+
 // How urgent a request's loading date is. Dates are plain YYYY-MM-DD, compared as calendar days.
 export function loadingDue(date: string, today: string): { days: number; text: string; tone: 'late' | 'soon' | 'ok' } {
   const d = Math.round((Date.parse(date) - Date.parse(today)) / 86400000)

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-const { stageOf, movePatch, loadingDue } = await import('../src/lib/pipeline-stage.ts')
+const { stageOf, movePatch, loadingDue, loadingProgress } = await import('../src/lib/pipeline-stage.ts')
 
 test('furthest filled date decides the column', () => {
   assert.equal(stageOf({}), 'loading')
@@ -23,4 +23,10 @@ test('loading date urgency', () => {
   assert.deepEqual(loadingDue('2026-11-26', '2026-11-26'), { days: 0, text: 'сегодня', tone: 'soon' })
   assert.deepEqual(loadingDue('2026-11-27', '2026-11-26'), { days: 1, text: 'завтра', tone: 'soon' })
   assert.deepEqual(loadingDue('2026-12-03', '2026-11-26'), { days: 7, text: 'через 7 дн.', tone: 'ok' })
+})
+
+test('loading turns red after 5 days', () => {
+  assert.deepEqual(loadingProgress('2026-11-25', '2026-11-26'), { days: 4, text: '1 из 5 дн.', tone: 'ok' })
+  assert.equal(loadingProgress('2026-11-21', '2026-11-26').tone, 'soon') // day 5, the last one
+  assert.deepEqual(loadingProgress('2026-11-18', '2026-11-26'), { days: -3, text: '8 из 5 дн.', tone: 'late' })
 })

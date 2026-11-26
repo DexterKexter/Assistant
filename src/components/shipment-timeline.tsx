@@ -5,7 +5,7 @@ import { Package, Anchor, Ship, Flag, Stamp, CircleCheck } from 'lucide-react'
 import { cn, fmtDate } from '@/lib/utils'
 import type { Shipment } from '@/types/database'
 
-export type TimelineField = 'export_date' | 'departure_date' | 'arrival_date' | 'customs_date' | 'delivery_date'
+export type TimelineField = 'loading_date' | 'export_date' | 'departure_date' | 'arrival_date' | 'customs_date' | 'delivery_date'
 const DAY = 86400000
 
 // Same six stages as the pipeline board. Export and customs are optional: an empty one before a filled one reads "пропущен".
@@ -13,10 +13,10 @@ export function ShipmentTimeline({ shipment: s, canEdit, onDate }: { shipment: S
   // Imported shipments were created long after they actually moved: only trust created_at when it precedes the first real date.
   const created = s.created_at?.slice(0, 10) ?? null
   const first = s.export_date || s.departure_date || s.arrival_date || s.customs_date || s.delivery_date
-  const loaded = created && (!first || created <= first) ? created : null
+  const loaded = s.loading_date || (created && (!first || created <= first) ? created : null)
   const inputs = useRef<Record<string, HTMLInputElement | null>>({})
   const steps: { title: string; place?: string | null; icon: typeof Ship; date: string | null; field?: TimelineField }[] = [
-    { title: 'Загрузка', place: s.origin, icon: Package, date: loaded },
+    { title: 'Загрузка', place: s.origin, icon: Package, date: loaded, field: 'loading_date' },
     { title: 'Экспорт', icon: Anchor, date: s.export_date, field: 'export_date' },
     { title: 'В пути', icon: Ship, date: s.departure_date, field: 'departure_date' },
     { title: 'Граница', place: s.destination_station, icon: Flag, date: s.arrival_date, field: 'arrival_date' },
@@ -55,7 +55,7 @@ export function ShipmentTimeline({ shipment: s, canEdit, onDate }: { shipment: S
                 <p className={cn('mt-1.5 text-[12px] font-bold leading-tight', reached ? 'text-slate-900' : 'text-slate-400')}>{st.title}</p>
                 {st.place && <p className="truncate text-[10.5px] text-slate-500" title={st.place}>{st.place}</p>}
                 <p className="mt-0.5 text-[10.5px] tabular-nums text-slate-500">
-                  {st.date ? fmtDate(st.date) : i === 0 ? '' : skipped ? <span className="text-slate-300">пропущен</span> : editable ? <span className="text-indigo-500">+ дата</span> : '—'}
+                  {st.date ? fmtDate(st.date) : skipped ? <span className="text-slate-300">пропущен</span> : editable ? <span className="text-indigo-500">+ дата</span> : '—'}
                 </p>
               </div>
               {i < steps.length - 1 && (
