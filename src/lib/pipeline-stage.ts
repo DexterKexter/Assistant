@@ -27,7 +27,7 @@ export function movePatch(from: Stage, to: Stage, today: string): Record<string,
 // How urgent a request's loading date is. Dates are plain YYYY-MM-DD, compared as calendar days.
 export function loadingDue(date: string, today: string): { text: string; tone: 'late' | 'soon' | 'ok' } {
   const d = Math.round((Date.parse(date) - Date.parse(today)) / 86400000)
-  if (d < 0) return { text: `просрочено ${-d} дн.`, tone: 'late' }
+  if (d < 0) return { text: `${-d} дн.`, tone: 'late' }
   if (d === 0) return { text: 'сегодня', tone: 'soon' }
   if (d === 1) return { text: 'завтра', tone: 'soon' }
   return { text: `через ${d} дн.`, tone: d <= 3 ? 'soon' : 'ok' }
