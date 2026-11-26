@@ -26,14 +26,14 @@ export const chatTime = (d: string) => new Date(d).toLocaleTimeString('ru', { ho
 function Media({ path, type }: { path: string; type: string }) {
   const [url, setUrl] = useState('')
   useEffect(() => { supabase.storage.from('crm-media').createSignedUrl(path, 3600).then(({ data }) => setUrl(data?.signedUrl || '')) }, [path])
-  if (!url) return <span className="block h-40 w-56 rounded-xl bg-slate-100" />
+  if (!url) return <span className="block h-36 w-48 rounded-xl bg-slate-100" />
   if (type.startsWith('image/')) return (
     <a href={url} target="_blank" rel="noreferrer">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={url} alt="Фото от клиента" className="-mx-1.5 mb-1 mt-0.5 block max-h-72 max-w-[calc(100%+12px)] rounded-xl" />
+      <img src={url} alt="Фото от клиента" className="-mx-1.5 mb-1 mt-0.5 block max-h-52 max-w-[220px] object-cover rounded-xl" />
     </a>
   )
-  if (type.startsWith('video/')) return <video src={url} controls className="-mx-1.5 mb-1 mt-0.5 block max-h-72 max-w-[calc(100%+12px)] rounded-xl" />
+  if (type.startsWith('video/')) return <video src={url} controls className="-mx-1.5 mb-1 mt-0.5 block max-h-52 max-w-[220px] object-cover rounded-xl" />
   if (type.startsWith('audio/')) return <audio src={url} controls className="mb-1 block" />
   return <a href={url} target="_blank" rel="noreferrer" className="mb-1 block underline">Открыть файл</a>
 }
