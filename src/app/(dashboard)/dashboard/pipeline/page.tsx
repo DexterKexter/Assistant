@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ClipboardList, ClipboardCheck, Package, Ship, Flag, CircleCheck, Globe } from 'lucide-react'
+import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, CircleCheck, Globe } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { movePatch, STAGES, type Stage } from '@/lib/pipeline-stage'
 
 // The board has no data of its own: every card is a cargo request or a shipment,
-// and its column is derived from that record. Moving a card = editing the record where it lives.
-type Card = { id: string; href: string; title: string; line?: string; mono?: string; foot?: string; since: string | null; alert?: string; warn?: string; site?: boolean }
-type Column = { key: string; title: string; icon: typeof Ship; cards: Card[]; total: number; more?: string; note?: string }
+// and its column is derived from that record. Dragging a shipment card just edits its dates.
+type Card = { id: string; stage?: Stage; href: string; title: string; line?: string; mono?: string; foot?: string; since: string | null; alert?: string; warn?: string; site?: boolean }
+type Column = { key: string; title: string; icon: typeof Ship; cards: Card[]; total: number; more?: string }
 
 const LIMIT = 15
 const SLOW_TRANSIT_DAYS = 50 // ponytail: fixed threshold (median Dubai → border is 36); per-route norms if it gets noisy
@@ -26,106 +27,119 @@ export default function PipelinePage() {
   const [columns, setColumns] = useState<Column[] | null>(null)
   const [error, setError] = useState('')
   const [now] = useState(() => Date.now())
+  const [tick, setTick] = useState(0)
+  const [drag, setDrag] = useState<Card | null>(null)
+  const [over, setOver] = useState('')
 
   useEffect(() => {
     const supabase = createClient()
-    const ship = () => supabase.from('shipments')
-      .select('id, container_number, container_size, origin, destination_city, destination_station, departure_date, arrival_date, delivery_date, created_at, client:clients(name, is_russia)', { count: 'exact' })
+    const open = () => supabase.from('shipments')
+      .select('id, container_number, origin, destination_city, destination_station, export_date, departure_date, arrival_date, customs_date, delivery_date, created_at, client:clients(name, is_russia)', { count: 'exact' })
+    const active = () => open().is('delivery_date', null).eq('is_completed', false)
     const twoWeeksAgo = new Date(now - 14 * DAY).toISOString().slice(0, 10)
 
     Promise.all([
-      supabase.from('cargo_requests').select('id, request_number, client_name, origin, destination, container_size, status, created_at, shipment_id')
+      supabase.from('cargo_requests').select('id, request_number, client_name, origin, destination, container_size, status, created_at')
         .eq('is_demo', false).is('shipment_id', null).order('created_at', { ascending: false }).limit(200),
-      ship().is('departure_date', null).is('arrival_date', null).is('delivery_date', null).eq('is_completed', false).order('created_at', { ascending: false }).limit(LIMIT),
-      ship().not('departure_date', 'is', null).is('arrival_date', null).is('delivery_date', null).eq('is_completed', false).order('departure_date').limit(LIMIT),
-      ship().not('arrival_date', 'is', null).is('delivery_date', null).eq('is_completed', false).order('arrival_date').limit(LIMIT),
-      ship().gte('delivery_date', twoWeeksAgo).order('delivery_date', { ascending: false }).limit(LIMIT),
-    ]).then(([requests, loading, transit, border, delivered]) => {
-      const failed = [requests, loading, transit, border, delivered].find(r => r.error)
-      if (failed) { setError('Не удалось загрузить воронку. Обновите страницу.'); return }
+      active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).is('export_date', null).order('created_at', { ascending: false }).limit(LIMIT),
+      active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).not('export_date', 'is', null).order('export_date').limit(LIMIT),
+      active().is('customs_date', null).is('arrival_date', null).not('departure_date', 'is', null).order('departure_date').limit(LIMIT),
+      active().is('customs_date', null).not('arrival_date', 'is', null).order('arrival_date').limit(LIMIT),
+      active().not('customs_date', 'is', null).order('customs_date').limit(LIMIT),
+      open().gte('delivery_date', twoWeeksAgo).order('delivery_date', { ascending: false }).limit(LIMIT),
+    ]).then(([requests, ...ships]) => {
+      if (requests.error || ships.some(r => r.error)) { setError('Не удалось загрузить воронку. Обновите страницу.'); return }
 
-      const reqCard = (r: NonNullable<typeof requests.data>[number]): Card => ({
+      const reqs = (requests.data || []).map((r): Card => ({
         id: r.id, href: '/dashboard/cargo-requests', title: r.client_name, line: `${r.origin || '—'} → ${r.destination || '—'} · ${r.container_size} ft`,
         foot: `№${String(r.request_number).padStart(4, '0')}`, since: r.created_at, site: r.status === 'submitted',
-        warn: r.status === 'changes_requested' ? 'нужны исправления' : r.status === 'waiting' ? 'ждём данные' : undefined,
-      })
-      const shipCard = (stage: 'loading' | 'transit' | 'border' | 'delivered') => (s: NonNullable<typeof transit.data>[number]): Card => {
+        warn: r.status === 'changes_requested' ? 'нужны исправления' : r.status === 'waiting' ? 'ждём данные' : r.status === 'accepted' ? 'принята' : undefined,
+      }))
+      const shipCard = (stage: Stage) => (s: NonNullable<(typeof ships)[number]['data']>[number]): Card => {
         const client = Array.isArray(s.client) ? s.client[0] : s.client
-        const since = stage === 'loading' ? s.created_at : stage === 'transit' ? s.departure_date : stage === 'border' ? s.arrival_date : s.delivery_date
+        const since = { loading: s.created_at, export: s.export_date, transit: s.departure_date, border: s.arrival_date, customs: s.customs_date, delivered: s.delivery_date }[stage]
         const inTransit = days(s.departure_date, now)
         return {
-          id: s.id, href: `/dashboard/shipments/${s.id}`, title: client?.name || 'Без клиента', mono: s.container_number || undefined,
+          id: s.id, stage, href: `/dashboard/shipments/${s.id}`, title: client?.name || 'Без клиента', mono: s.container_number || undefined,
           line: `${s.origin || '—'} → ${s.destination_city || s.destination_station || '—'}`, since,
-          foot: stage === 'transit' ? `${inTransit} дн. в пути` : stage === 'border' ? (client?.is_russia ? 'Транзит КЗ' : 'На границе') : undefined,
+          foot: stage === 'transit' ? `${inTransit} дн. в пути` : stage === 'border' && client?.is_russia ? 'Транзит КЗ' : undefined,
           alert: stage === 'transit' && inTransit > SLOW_TRANSIT_DAYS ? `${inTransit} дн.` : undefined,
         }
       }
-
-      const reqs = requests.data || []
-      const pick = (...statuses: string[]) => reqs.filter(r => statuses.includes(r.status)).map(reqCard)
-      const drafts = pick('submitted', 'draft', 'waiting', 'changes_requested'), accepted = pick('accepted')
-
+      const meta: Record<Stage, Pick<Column, 'title' | 'icon' | 'more'>> = {
+        loading: { title: 'Загрузка', icon: Package },
+        export: { title: 'Экспорт', icon: Anchor },
+        transit: { title: 'В пути', icon: Ship, more: '/dashboard/shipments?status=in_transit' },
+        border: { title: 'Граница', icon: Flag, more: '/dashboard/shipments?status=arrived' },
+        customs: { title: 'Таможня', icon: Stamp },
+        delivered: { title: 'Доставлен', icon: CircleCheck, more: '/dashboard/shipments?status=delivered' },
+      }
+      setError('')
       setColumns([
-        { key: 'request', title: 'Заявка', icon: ClipboardList, cards: drafts, total: drafts.length, note: 'С сайта и от менеджера' },
-        { key: 'accepted', title: 'Принята', icon: ClipboardCheck, cards: accepted, total: accepted.length, note: 'Согласовано, перевозка не создана' },
-        { key: 'loading', title: 'Загрузка', icon: Package, cards: (loading.data || []).map(shipCard('loading')), total: loading.count || 0 },
-        { key: 'transit', title: 'В пути', icon: Ship, cards: (transit.data || []).map(shipCard('transit')), total: transit.count || 0, more: '/dashboard/shipments?status=in_transit', note: 'Сначала самые долгие' },
-        { key: 'border', title: 'Граница / транзит', icon: Flag, cards: (border.data || []).map(shipCard('border')), total: border.count || 0, more: '/dashboard/shipments?status=arrived', note: 'Сначала самые долгие' },
-        { key: 'delivered', title: 'Доставлен', icon: CircleCheck, cards: (delivered.data || []).map(shipCard('delivered')), total: delivered.count || 0, more: '/dashboard/shipments?status=delivered', note: 'За последние 14 дней' },
+        { key: 'request', title: 'Заявка', icon: ClipboardList, cards: reqs, total: reqs.length },
+        ...STAGES.map((st, i) => ({ key: st, ...meta[st], cards: (ships[i].data || []).map(shipCard(st)), total: ships[i].count || 0 })),
       ])
     })
-  }, [now])
+  }, [now, tick])
+
+  async function drop(to: string) {
+    const card = drag
+    setDrag(null); setOver('')
+    if (!card?.stage || to === 'request' || to === card.stage) return
+    const back = STAGES.indexOf(to as Stage) < STAGES.indexOf(card.stage)
+    if (back && !confirm('Вернуть перевозку на этап назад? Даты следующих этапов будут очищены.')) return
+    const { error } = await createClient().from('shipments').update(movePatch(card.stage, to as Stage, new Date().toLocaleDateString('sv-SE'))).eq('id', card.id)
+    if (error) setError('Не удалось переместить. Попробуйте ещё раз.')
+    else setTick(t => t + 1)
+  }
 
   return (
-    <div className="space-y-5 pb-6">
-      <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Воронка</h1>
-      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-600">{error}</p>}
-      {!columns && !error && <div role="status" aria-label="Загружаем воронку" className="grid gap-3 md:grid-cols-3">{[...Array(3)].map((_, i) => <div key={i} className="skeleton h-64 rounded-xl" />)}</div>}
-      {columns && <>
-        <Row label="Продажи" columns={columns.slice(0, 3)} now={now} className="md:grid-cols-3" />
-        <Row label="Перевозка" columns={columns.slice(3)} now={now} className="md:grid-cols-3" />
-      </>}
-    </div>
-  )
-}
-
-function Row({ label, columns, now, className }: { label: string; columns: Column[]; now: number; className: string }) {
-  return (
-    <section>
-      <h2 className="mb-2 text-[12px] font-medium text-slate-400">{label}</h2>
-      <div className={cn('grid items-start gap-3', className)}>
-        {columns.map(col => (
-          <div key={col.key} className="min-w-0 rounded-xl bg-slate-100/70 p-2.5">
-            <div className="flex items-center gap-1.5 px-1 pb-0.5 text-[13px] font-semibold text-slate-800">
-              <col.icon className="h-4 w-4 text-slate-400" />{col.title}
-              <span className="ml-auto text-[12px] font-medium tabular-nums text-slate-400">{col.total}</span>
-            </div>
-            {col.note && <p className="px-1 pb-1 text-[11px] text-slate-400">{col.note}</p>}
-            {col.cards.length === 0 && <p className="px-1 py-6 text-center text-[12px] text-slate-400">Пусто</p>}
-            <ul className="space-y-1.5">
-              {col.cards.map(card => (
-                <li key={card.id}>
-                  <Link href={card.href} className="block rounded-lg border border-slate-200/70 bg-white px-2.5 py-2 hover:border-slate-300">
-                    <p className="truncate text-[13px] font-semibold text-slate-900">{card.title}</p>
-                    {card.mono && <p className="truncate font-mono text-[12px] text-slate-700">{card.mono}</p>}
-                    {card.line && <p className="truncate text-[12px] text-slate-500">{card.line}</p>}
-                    <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-400">
-                      {card.site && <Globe className="h-3 w-3" aria-label="С сайта" />}
-                      {card.alert && <span className="rounded bg-red-50 px-1.5 py-px font-medium text-red-600">{card.alert}</span>}
-                      {card.warn && <span className="rounded bg-amber-50 px-1.5 py-px font-medium text-amber-700">{card.warn}</span>}
-                      {card.foot && !card.alert && <span className="truncate">{card.foot}</span>}
-                      <span className="ml-auto shrink-0 tabular-nums">{ago(card.since, now)}</span>
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            {col.total > col.cards.length && (col.more
-              ? <Link href={col.more} className="mt-2 block text-center text-[12px] text-slate-500 hover:text-slate-900">ещё {col.total - col.cards.length}</Link>
-              : <p className="mt-2 text-center text-[12px] text-slate-400">ещё {col.total - col.cards.length}</p>)}
-          </div>
-        ))}
+    <div className="space-y-4 pb-6">
+      <div className="flex items-baseline gap-3">
+        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Воронка</h1>
+        <p className="text-[12px] text-slate-400">Перетащите карточку в колонку — этап сменится, дата проставится сегодняшняя</p>
       </div>
-    </section>
+      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-600">{error}</p>}
+      {!columns && !error && <div role="status" aria-label="Загружаем воронку" className="skeleton h-64 rounded-xl" />}
+      {columns && (
+        <div className="overflow-x-auto pb-2">
+          <div className="grid min-w-[1180px] grid-cols-7 items-start gap-2.5">
+            {columns.map(col => (
+              // ponytail: mouse drag only; keyboard users change the dates on the shipment page
+              <div key={col.key} onDragOver={e => { if (drag && col.key !== 'request') { e.preventDefault(); setOver(col.key) } }} onDrop={() => drop(col.key)}
+                className={cn('min-w-0 rounded-xl bg-slate-100/70 p-2', over === col.key && drag?.stage !== col.key && 'ring-2 ring-indigo-400')}>
+                <div className="flex items-center gap-1.5 px-1 pb-1.5 text-[13px] font-semibold text-slate-800">
+                  <col.icon className="h-4 w-4 text-slate-400" />{col.title}
+                  <span className="ml-auto text-[12px] font-medium tabular-nums text-slate-400">{col.total}</span>
+                </div>
+                {col.cards.length === 0 && <p className="px-1 py-6 text-center text-[12px] text-slate-400">Пусто</p>}
+                <ul className="space-y-1.5">
+                  {col.cards.map(card => (
+                    <li key={card.id} draggable={!!card.stage} onDragStart={() => setDrag(card)} onDragEnd={() => { setDrag(null); setOver('') }}
+                      className={cn(card.stage && 'cursor-grab active:cursor-grabbing', drag?.id === card.id && 'opacity-40')}>
+                      <Link href={card.href} draggable={false} className="block rounded-lg border border-slate-200/70 bg-white px-2.5 py-2 hover:border-slate-300">
+                        <p className="truncate text-[13px] font-semibold text-slate-900">{card.title}</p>
+                        {card.mono && <p className="truncate font-mono text-[12px] text-slate-700">{card.mono}</p>}
+                        {card.line && <p className="truncate text-[12px] text-slate-500">{card.line}</p>}
+                        <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-400">
+                          {card.site && <Globe className="h-3 w-3" aria-label="С сайта" />}
+                          {card.alert && <span className="rounded bg-red-50 px-1.5 py-px font-medium text-red-600">{card.alert}</span>}
+                          {card.warn && <span className="rounded bg-amber-50 px-1.5 py-px font-medium text-amber-700">{card.warn}</span>}
+                          {card.foot && !card.alert && <span className="truncate">{card.foot}</span>}
+                          <span className="ml-auto shrink-0 tabular-nums">{ago(card.since, now)}</span>
+                        </p>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                {col.total > col.cards.length && (col.more
+                  ? <Link href={col.more} className="mt-2 block text-center text-[12px] text-slate-500 hover:text-slate-900">ещё {col.total - col.cards.length}</Link>
+                  : <p className="mt-2 text-center text-[12px] text-slate-400">ещё {col.total - col.cards.length}</p>)}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
