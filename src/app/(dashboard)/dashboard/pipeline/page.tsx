@@ -142,8 +142,8 @@ export default function PipelinePage() {
                           <span className="truncate"><Place name={card.to} /></span>
                         </p>
                         {card.chip?.[2] && (
-                          <p title={card.chip[1]} className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-indigo-50 px-2 py-0.5 text-[11.5px] font-medium text-indigo-700">
-                            {createElement(card.chip[0], { className: 'size-3.5 shrink-0', 'aria-label': card.chip[1] })}<span className="truncate">{card.chip[2]}</span>
+                          <p title={card.chip[1]} className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                            {createElement(card.chip[0], { className: 'size-3 shrink-0 text-slate-400', 'aria-label': card.chip[1] })}<span className="truncate">{card.chip[2]}</span>
                           </p>
                         )}
                         {card.facts.some(f => f[2]) && (
