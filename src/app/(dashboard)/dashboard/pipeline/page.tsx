@@ -50,7 +50,7 @@ export default function PipelinePage() {
   useEffect(() => {
     const supabase = createClient()
     const open = () => supabase.from('shipments')
-      .select('id, container_number, container_size, container_type, cargo_description, sender_name, carrier:carriers(name), recipient:recipients(name), origin, destination_city, destination_station, loading_date, export_date, departure_date, arrival_date, customs_date, delivery_date, created_at, client:clients(name, is_russia)', { count: 'exact' })
+      .select('id, container_number, container_size, container_type, sender_name, carrier:carriers(name), recipient:recipients(name), origin, destination_city, destination_station, loading_date, export_date, departure_date, arrival_date, customs_date, delivery_date, created_at, client:clients(name, is_russia)', { count: 'exact' })
     const today = new Date(now).toLocaleDateString('sv-SE')
     const active = () => open().is('delivery_date', null).eq('is_completed', false)
 
@@ -78,7 +78,7 @@ export default function PipelinePage() {
         const atBorder = stage === 'border' || stage === 'customs'
         // Each stage shows what the manager needs at that moment.
         const facts: Record<Stage, Fact[]> = {
-          loading: [sender, [Package, 'Груз', s.cargo_description]],
+          loading: [sender],
           export: [sender, truck],
           transit: [[MapPin, 'Погранпереход', s.destination_station && `через ${s.destination_station}`], truck],
           border: [[Building2, 'Получатель', recipient], truck],
@@ -161,7 +161,7 @@ export default function PipelinePage() {
                         </p>
                         {card.mono && <p className="mt-1 truncate text-[12px] text-slate-500"><span className="font-mono text-[13px] font-medium text-slate-800">{card.mono}</span>{card.kind && ` · ${card.kind}`}</p>}
                         {card.facts.some(f => f[2]) && (
-                          <ul className={cn('mt-2 space-y-1 text-[12px] text-slate-600', card.stage && 'border-t border-slate-100 pt-2')}>
+                          <ul className={cn('mt-2 space-y-1 text-[12px] text-slate-600', card.stage && card.facts.filter(f => f[2]).length > 1 && 'border-t border-slate-100 pt-2')}>
                             {card.facts.filter(f => f[2]).map(([Icon, label, value]) => (
                               <li key={label} title={label} className="flex items-center gap-1.5">
                                 <Icon className="size-3.5 shrink-0 text-slate-400" aria-label={label} /><span className="truncate">{value}</span>
