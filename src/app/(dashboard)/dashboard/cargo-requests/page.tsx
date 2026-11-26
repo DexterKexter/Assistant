@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
-const emptyDraft = { client_name: '', phone: '', container_number: '', origin: '', destination: '', loading_date: '' }
+const emptyDraft = { client_name: '', phone: '', container_number: '', origin: '', destination: '', loading_date: '', supplier: '' }
 const date = (value: string) => new Date(value).toLocaleDateString('ru-RU')
 
 export default function CargoRequestsPage() {
@@ -59,7 +59,7 @@ export default function CargoRequestsPage() {
     try {
       const { error } = await createClient().from('cargo_requests').insert({
         ...draft, client_name: draft.client_name.trim(), container_number: draft.container_number || null,
-        loading_date: draft.loading_date || null, status: 'draft',
+        loading_date: draft.loading_date || null, supplier: draft.supplier.trim() || null, status: 'draft',
       })
       if (error) throw error
       setCreateOpen(false)
@@ -119,6 +119,16 @@ export default function CargoRequestsPage() {
           {selected && <><DialogHeader><DialogTitle>Заявка №{selected.request_number.toString().padStart(4,'0')}</DialogTitle><DialogDescription>{selected.client_name} · {CARGO_STATUSES[selected.status].label}</DialogDescription></DialogHeader>
             {selected.is_demo && <p className="rounded-lg bg-indigo-50 p-3 text-xs text-indigo-700">Демонстрационная заявка. Все сведения вымышлены.</p>}
             <dl className="grid grid-cols-2 gap-4 text-sm">{[['Контейнер',`${selected.container_number || 'Не указан'} · ${selected.container_size} ft`],['Телефон',selected.phone || 'Не указан'],['Маршрут',`${selected.origin || '—'} → ${selected.destination || '—'}`],['Дата загрузки',selected.loading_date ? date(selected.loading_date) : 'Не указана']].map(([label,value])=><div key={label}><dt className="mb-1 text-xs text-slate-500">{label}</dt><dd className="break-words font-medium">{value}</dd></div>)}</dl>
+            {/* Uncontrolled + save on blur: the supplier is usually known only after the request arrives. */}
+            <label className="block space-y-1.5 text-xs text-slate-500"><span>Поставщик контейнера</span>
+              <Input key={selected.id} className="h-10 bg-white text-sm text-slate-900" maxLength={120} defaultValue={selected.supplier ?? ''} placeholder="Не указан"
+                onBlur={async e => {
+                  const supplier = e.target.value.trim() || null
+                  if (supplier === (selected.supplier ?? null)) return
+                  const { error } = await createClient().from('cargo_requests').update({ supplier }).eq('id', selected.id)
+                  if (error) setError('Не удалось сохранить поставщика.')
+                  else { setSelected({ ...selected, supplier }); setVersion(v => v + 1) }
+                }} /></label>
             <div className="space-y-2"><h2 className="mt-2 text-sm font-semibold">Состав груза</h2>{selected.cargo_request_items.length ? [...selected.cargo_request_items].sort((a,b)=>a.position-b.position).map(item=><div key={item.id} className="rounded-xl border border-slate-200 p-3"><div className="flex justify-between gap-3"><p className="font-medium">{item.name}</p><span className="shrink-0 text-slate-600">{item.quantity} {item.unit}</span></div><p className="mt-1 text-xs text-slate-500">{[`Мест: ${item.packages ?? '—'}`,`Вес: ${item.weight_kg ?? '—'} кг`,`Объём: ${item.volume_m3 ?? '—'} м³`].join(' · ')}</p>{item.notes && <p className="mt-2 text-xs">{item.notes}</p>}</div>) : <p className="text-sm text-slate-500">Клиент ещё не добавил товары.</p>}</div>
             {selected.notes && <p className="whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{selected.notes}</p>}
           </>}
@@ -129,7 +139,7 @@ export default function CargoRequestsPage() {
         <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle>Новая заявка на груз</DialogTitle><DialogDescription>Сохраните черновик. Для начала достаточно имени клиента.</DialogDescription></DialogHeader>
           <form onSubmit={saveDraft} className="space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {([['client_name','Имя клиента *','text',120],['phone','Телефон','tel',40],['container_number','Номер контейнера','text',11],['loading_date','Дата загрузки','date',undefined],['origin','Откуда','text',160],['destination','Куда','text',160]] as const).map(([key,label,type,maxLength]) => <label key={key} className="space-y-1.5 text-xs text-slate-600"><span>{label}</span><Input type={type} className="h-11 bg-white" required={key==='client_name'} maxLength={maxLength} value={draft[key]} onChange={e=>setDraft(d=>({...d,[key]:key==='container_number' ? editContainerNumber(e.target.value,d.container_number) : e.target.value}))} /></label>)}
+              {([['client_name','Имя клиента *','text',120],['phone','Телефон','tel',40],['container_number','Номер контейнера','text',11],['loading_date','Дата загрузки','date',undefined],['origin','Откуда','text',160],['destination','Куда','text',160],['supplier','Поставщик контейнера','text',120]] as const).map(([key,label,type,maxLength]) => <label key={key} className="space-y-1.5 text-xs text-slate-600"><span>{label}</span><Input type={type} className="h-11 bg-white" required={key==='client_name'} maxLength={maxLength} value={draft[key]} onChange={e=>setDraft(d=>({...d,[key]:key==='container_number' ? editContainerNumber(e.target.value,d.container_number) : e.target.value}))} /></label>)}
             </div>
             <p className="text-xs text-slate-500">Ссылка для настоящей отправки клиенту появится на следующем этапе.</p>
             {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}

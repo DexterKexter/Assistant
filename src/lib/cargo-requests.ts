@@ -28,6 +28,7 @@ export interface CargoRequest {
   origin: string
   destination: string
   loading_date: string | null
+  supplier: string | null
   status: keyof typeof CARGO_STATUSES
   notes: string
   review_note: string

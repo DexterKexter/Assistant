@@ -2,7 +2,7 @@
 
 import { createElement, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, ArrowRight, Warehouse, Truck, Building2, MapPin, CalendarDays, Flame, TriangleAlert, BellRing, Hourglass, CircleCheck } from 'lucide-react'
+import { ClipboardList, Package, Anchor, Ship, Flag, Stamp, ArrowRight, Warehouse, Truck, Building2, MapPin, CalendarDays, Container, Flame, TriangleAlert, BellRing, Hourglass, CircleCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, fmtDate } from '@/lib/utils'
 import { Place } from '@/components/place'
@@ -40,7 +40,7 @@ export default function PipelinePage() {
     const active = () => open().is('delivery_date', null).eq('is_completed', false)
 
     Promise.all([
-      supabase.from('cargo_requests').select('id, request_number, client_name, origin, destination, container_size, loading_date, status, created_at')
+      supabase.from('cargo_requests').select('id, request_number, client_name, origin, destination, container_size, loading_date, supplier, status, created_at')
         .eq('is_demo', false).is('shipment_id', null).order('loading_date', { nullsFirst: false }).order('created_at', { ascending: false }).limit(200), // most urgent loading first
       active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).is('export_date', null).order('created_at', { ascending: false }).limit(LIMIT),
       active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).not('export_date', 'is', null).order('export_date').limit(LIMIT),
@@ -52,7 +52,7 @@ export default function PipelinePage() {
 
       const reqs = (requests.data || []).map((r): Card => ({
         id: r.id, href: '/dashboard/cargo-requests', title: r.client_name,
-        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, facts: [], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
+        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, facts: [[Container, 'Поставщик контейнера', r.supplier]], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
         warn: r.status === 'changes_requested' ? 'нужны исправления' : r.status === 'waiting' ? 'ждём данные' : r.status === 'accepted' ? 'принята' : undefined,
       }))
       const shipCard = (stage: Stage) => (s: NonNullable<(typeof ships)[number]['data']>[number]): Card => {
