@@ -10,7 +10,7 @@ import { loadingDue, movePatch, STAGES, type Stage } from '@/lib/pipeline-stage'
 
 // The board has no data of its own: every card is a cargo request or a shipment,
 // and its column is derived from that record. Dragging a shipment card just edits its dates.
-type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; facts: Fact[]; due?: { date: string; days: number; text: string; tone: 'late' | 'soon' | 'ok' }; foot?: string; alert?: string; warn?: string }
+type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; facts: Fact[]; chip?: Fact; due?: { date: string; days: number; text: string; tone: 'late' | 'soon' | 'ok' }; foot?: string; alert?: string; warn?: string }
 // icon, what it means (tooltip), value
 type Fact = [typeof Ship, string, string | null | undefined]
 type Column = { key: string; title: string; icon: typeof Ship; cards: Card[]; total: number; more?: string }
@@ -52,7 +52,7 @@ export default function PipelinePage() {
 
       const reqs = (requests.data || []).map((r): Card => ({
         id: r.id, href: '/dashboard/cargo-requests', title: r.client_name,
-        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, facts: [[Container, 'Поставщик контейнера', r.supplier]], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
+        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, facts: [], chip: [Container, 'Поставщик контейнера', r.supplier], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
         warn: r.status === 'changes_requested' ? 'нужны исправления' : r.status === 'waiting' ? 'ждём данные' : r.status === 'accepted' ? 'принята' : undefined,
       }))
       const shipCard = (stage: Stage) => (s: NonNullable<(typeof ships)[number]['data']>[number]): Card => {
@@ -141,6 +141,11 @@ export default function PipelinePage() {
                           <ArrowRight className="size-3.5 shrink-0 text-slate-300" />
                           <span className="truncate"><Place name={card.to} /></span>
                         </p>
+                        {card.chip?.[2] && (
+                          <p title={card.chip[1]} className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-indigo-50 px-2 py-0.5 text-[11.5px] font-medium text-indigo-700">
+                            {createElement(card.chip[0], { className: 'size-3.5 shrink-0', 'aria-label': card.chip[1] })}<span className="truncate">{card.chip[2]}</span>
+                          </p>
+                        )}
                         {card.facts.some(f => f[2]) && (
                           <ul className="mt-2 space-y-1 border-t border-slate-100 pt-2 text-[12px] text-slate-600">
                             {card.facts.filter(f => f[2]).map(([Icon, label, value]) => (
