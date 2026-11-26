@@ -134,7 +134,7 @@ export default function PipelinePage() {
       {!columns && !error && <div role="status" aria-label="Загружаем воронку" className="skeleton h-64 rounded-xl" />}
       {columns && (
         <div className="overflow-x-auto pb-2">
-          <div className="grid min-w-[1400px] grid-cols-6 items-start gap-2.5">
+          <div className="grid min-w-[1620px] grid-cols-6 items-start gap-2.5">
             {columns.map(col => (
               // ponytail: mouse drag only; keyboard users change the dates on the shipment page
               <div key={col.key} onDragOver={e => { if (drag && col.key !== 'request') { e.preventDefault(); setOver(col.key) } }} onDrop={() => drop(col.key)}
