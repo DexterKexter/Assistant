@@ -37,6 +37,23 @@ export async function waSendTemplate(to: string, name: string, language: string,
   return data
 }
 
+// Meta keeps media for ~30 days, so copy it into our bucket. Returns null on any failure: the text still gets saved.
+async function waFetchMedia(id: string, folder: string) {
+  try {
+    const auth = { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` }
+    const meta = await (await fetch(`https://graph.facebook.com/v26.0/${id}`, { headers: auth })).json()
+    if (!meta.url) return null
+    const file = await fetch(meta.url, { headers: auth })
+    if (!file.ok) return null
+    const type = String(meta.mime_type || 'application/octet-stream').split(';')[0]
+    const path = `${folder}/${id}.${type.split('/')[1] || 'bin'}`
+    const { error } = await createServiceClient().storage.from('crm-media').upload(path, await file.arrayBuffer(), { contentType: type, upsert: true })
+    return error ? null : { path, type }
+  } catch {
+    return null
+  }
+}
+
 export const phoneDigits = (p: string | null | undefined) => (p || '').replace(/\D/g, '').slice(-10)
 
 type Inbound = {
@@ -46,6 +63,7 @@ type Inbound = {
   username?: string | null
   phone?: string | null
   text: string
+  mediaId?: string
 }
 
 // Upserts the chat (auto-linking a client by phone) and stores the incoming message.
@@ -71,5 +89,6 @@ export async function saveInbound(m: Inbound) {
     : await supabase.from('crm_chats').insert({ ...patch, channel: m.channel, external_id: m.externalId, unread_count: 1 }).select('id').single()
   if (error) throw error
 
-  await supabase.from('crm_messages').insert({ chat_id: chat.id, direction: 'in', text: m.text, sender_id: null })
+  const media = m.mediaId ? await waFetchMedia(m.mediaId, chat.id) : null
+  await supabase.from('crm_messages').insert({ chat_id: chat.id, direction: 'in', text: m.text, sender_id: null, media_path: media?.path ?? null, media_type: media?.type ?? null })
 }

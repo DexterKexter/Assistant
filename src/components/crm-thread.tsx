@@ -9,18 +9,34 @@ import { TEMPLATES, TEMPLATE_FIELDS, compileTemplate, fillTemplate } from '@/lib
 import { SearchableSelect } from '@/components/searchable-select'
 import { WaText } from '@/components/wa-text'
 import Link from 'next/link'
-import { ArrowLeft, Send, UserPlus, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Send, UserPlus, ExternalLink, PanelRight } from 'lucide-react'
 
 export type CrmChat = {
   id: string; channel: 'whatsapp'; name: string; username: string | null; phone: string | null
   client_id: string | null; last_message_text: string | null; last_message_at: string; unread_count: number
 }
-type Msg = { id: string; chat_id: string; direction: 'in' | 'out'; text: string; created_at: string; pending?: boolean }
+type Msg = { id: string; chat_id: string; direction: 'in' | 'out'; text: string; created_at: string; pending?: boolean; media_path?: string | null; media_type?: string | null }
 export type CrmClient = { id: string; name: string; is_russia: boolean }
 type ShipmentRow = Parameters<typeof shipmentStatusText>[0] & { id: string }
 
 const supabase = createClient()
 export const chatTime = (d: string) => new Date(d).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })
+
+// The bucket is private: staff get a short-lived signed link.
+function Media({ path, type }: { path: string; type: string }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => { supabase.storage.from('crm-media').createSignedUrl(path, 3600).then(({ data }) => setUrl(data?.signedUrl || '')) }, [path])
+  if (!url) return <span className="block h-40 w-56 rounded-xl bg-slate-100" />
+  if (type.startsWith('image/')) return (
+    <a href={url} target="_blank" rel="noreferrer">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="Фото от клиента" className="-mx-1.5 mb-1 mt-0.5 block max-h-72 max-w-[calc(100%+12px)] rounded-xl" />
+    </a>
+  )
+  if (type.startsWith('video/')) return <video src={url} controls className="-mx-1.5 mb-1 mt-0.5 block max-h-72 max-w-[calc(100%+12px)] rounded-xl" />
+  if (type.startsWith('audio/')) return <audio src={url} controls className="mb-1 block" />
+  return <a href={url} target="_blank" rel="noreferrer" className="mb-1 block underline">Открыть файл</a>
+}
 
 export function ClientBadge({ isNew }: { isNew: boolean }) {
   return (
@@ -40,6 +56,7 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
   const [error, setError] = useState('')
   const list = useRef<HTMLDivElement>(null)
   const [openedAt] = useState(() => Date.now())
+  const [panel, setPanel] = useState(false)
   const client = clients.find(c => c.id === chat.client_id)
 
   useEffect(() => {
@@ -127,6 +144,10 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
             <p className="text-[14px] font-semibold text-slate-900 truncate leading-tight">{title}</p>
             {chat.phone && <p className="text-[12px] text-slate-400 truncate leading-tight">{chat.phone}</p>}
           </div>
+          {side && <button onClick={() => setPanel(v => !v)} aria-label="Клиент и перевозки" title="Клиент и перевозки" aria-pressed={panel}
+            className={`ml-auto w-8 h-8 shrink-0 rounded-lg flex items-center justify-center hover:bg-slate-100 ${panel ? 'bg-slate-100 text-slate-900' : 'text-slate-400'}`}>
+            <PanelRight className="w-4 h-4" />
+          </button>}
         </div>
 
         <div ref={list} className="flex-1 overflow-y-auto px-4 py-3">
@@ -140,7 +161,8 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
                 <div className={cn('flex', out ? 'justify-end' : 'justify-start', !newDay && prev.direction === m.direction ? 'mt-0.5' : 'mt-2.5')}>
                   <div className={cn('max-w-[72%] rounded-[18px] px-3 py-1.5 text-[13.5px] leading-snug', m.pending && 'opacity-50',
                     out ? 'bg-slate-900 text-white' : 'bg-white text-slate-900 shadow-[0_1px_1px_rgba(15,23,42,0.06)]')}>
-                    <WaText text={m.text} />
+                    {m.media_path && <Media path={m.media_path} type={m.media_type || ''} />}
+                    <WaText text={m.media_path ? m.text.replace(/^\[(фото|видео|голосовое)\]\s*/, '') : m.text} />
                     <span className={cn('ml-2 inline-block translate-y-0.5 text-[10px] tabular-nums', out ? 'text-white/50' : 'text-slate-400')}>
                       {m.pending ? '…' : chatTime(m.created_at)}
                     </span>
@@ -189,7 +211,7 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
         )}
       </div>
 
-      {side && <aside className="hidden lg:flex flex-col w-[272px] shrink-0 border-l border-slate-100 bg-white overflow-y-auto">
+      {side && panel && <aside className="absolute inset-y-0 right-0 z-10 shadow-xl lg:static lg:shadow-none flex flex-col w-[272px] shrink-0 border-l border-slate-100 bg-white overflow-y-auto animate-in slide-in-from-right duration-200">
         <ClientLink chat={chat} clients={clients} client={client} onClientCreated={onClientCreated} />
         <div className="px-4 py-3">
           <p className="mb-1 text-[12px] font-medium text-slate-400">Перевозки{chat.client_id && shipments.length > 0 ? ` · ${shipments.length}` : ''}</p>

@@ -5,9 +5,10 @@ type WaMessage = {
   from: string
   type: string
   text?: { body: string }
-  image?: { caption?: string }
-  video?: { caption?: string }
-  document?: { filename?: string; caption?: string }
+  image?: { id?: string; caption?: string }
+  video?: { id?: string; caption?: string }
+  document?: { id?: string; filename?: string; caption?: string }
+  audio?: { id?: string }
   location?: { latitude: number; longitude: number }
   button?: { text: string }
   interactive?: { button_reply?: { title: string }; list_reply?: { title: string } }
@@ -56,6 +57,7 @@ export async function POST(req: Request) {
           name: contact?.profile?.name ?? '',
           phone: `+${m.from}`,
           text: messageText(m),
+          mediaId: (m.image ?? m.video ?? m.document ?? m.audio)?.id,
         })
       }
     }
