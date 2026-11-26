@@ -63,6 +63,25 @@ function Media({ path, type }: { path: string; type: string }) {
   return <a href={url} target="_blank" rel="noreferrer" className="mb-1 block underline">Открыть файл</a>
 }
 
+// Opt-in switch for automatic shipment-status messages; off by default for every client.
+function NotifyToggle({ clientId }: { clientId: string }) {
+  const [on, setOn] = useState<boolean | null>(null)
+  useEffect(() => { supabase.from('clients').select('wa_notify').eq('id', clientId).maybeSingle().then(({ data }) => setOn(!!data?.wa_notify)) }, [clientId])
+  if (on === null) return null
+  return (
+    <label className="flex cursor-pointer items-start gap-2 py-1 text-[12.5px] text-slate-700">
+      <input type="checkbox" checked={on} className="mt-0.5 size-4 accent-slate-900"
+        onChange={async e => {
+          const next = e.target.checked
+          setOn(next)
+          const { error } = await supabase.from('clients').update({ wa_notify: next }).eq('id', clientId)
+          if (error) setOn(!next)
+        }} />
+      <span>Автоуведомления о статусе<span className="block text-[11px] text-slate-400">Оформлена, отправлена, на границе, доставлена — через 10 минут после изменения</span></span>
+    </label>
+  )
+}
+
 export function ClientBadge({ isNew }: { isNew: boolean }) {
   return (
     <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0',
@@ -317,6 +336,7 @@ function ClientLink({ chat, clients, client, onClientCreated }: {
             <span className="flex-1 truncate">{client ? `${client.is_russia ? '🇷🇺' : '🇰🇿'} ${client.name}` : 'Клиент'}</span>
             <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
           </Link>
+          <NotifyToggle key={chat.client_id} clientId={chat.client_id} />
           <button onClick={() => link(null)} className="text-[12px] text-slate-400 hover:text-slate-600">Отвязать от клиента</button>
         </>
       ) : creating ? (
