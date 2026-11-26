@@ -479,18 +479,13 @@ function MessageBubble({ message, userInitials }: { message: any; userInitials: 
 
   return (
     <div className={cn('flex gap-3', isUser && 'flex-row-reverse')}>
-      <div
-        className={cn(
-          'w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5',
-          isUser
-            ? 'bg-slate-200 text-slate-600'
-            : 'bg-gradient-to-br from-indigo-500 to-violet-600 text-white'
-        )}
-      >
-        {isUser ? userInitials : <Sparkles className="w-3.5 h-3.5" strokeWidth={2.2} />}
-      </div>
+      {isUser && (
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 bg-slate-200 text-slate-600">
+          {userInitials}
+        </div>
+      )}
 
-      <div className={cn('flex flex-col max-w-[85%] min-w-0', isUser && 'items-end')}>
+      <div className={cn('flex flex-col min-w-0', isUser ? 'max-w-[85%] items-end' : 'max-w-full')}>
         {/* Tool calls (only for assistant) */}
         {!isUser && toolCalls.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-2">
@@ -785,9 +780,6 @@ function ThinkingIndicator() {
   }, [])
   return (
     <div className="flex gap-3">
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0 mt-0.5 animate-pulse">
-        <Sparkles className="w-3.5 h-3.5 text-white" strokeWidth={2.2} />
-      </div>
       <div className="bg-slate-50 rounded-2xl rounded-bl-md px-4 py-2.5 flex items-center gap-2 max-w-fit">
         <span
           key={idx}
