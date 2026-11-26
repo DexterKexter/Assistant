@@ -9,6 +9,7 @@ import { ShipmentModalGlobal } from '@/components/shipment-modal-global'
 import { TaskModalProvider } from '@/lib/task-modal'
 import { TaskDetailGlobal } from '@/components/task-detail-global'
 import { OnboardingModal } from '@/components/onboarding-modal'
+import { AgentFab } from '@/components/agent-fab'
 import { useUnreadCount } from '@/lib/useMessages'
 import { useMyTaskCount } from '@/lib/useTasks'
 
@@ -45,6 +46,7 @@ export default function DashboardLayout({
         <ShipmentModalGlobal />
         <TaskDetailGlobal />
         <OnboardingModal />
+        <AgentFab />
       </TaskModalProvider>
     </ShipmentModalProvider>
   )
