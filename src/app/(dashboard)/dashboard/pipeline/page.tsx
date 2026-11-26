@@ -13,7 +13,7 @@ import { loadingDue, loadingProgress, movePatch, STAGES, type Stage } from '@/li
 
 // The board has no data of its own: every card is a cargo request or a shipment,
 // and its column is derived from that record. Dragging a shipment card just edits its dates.
-type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; facts: Fact[]; chip?: Fact; due?: { date: string; days: number; text: string; tone: 'late' | 'soon' | 'ok' }; foot?: string; alert?: string; }
+type Card = { id: string; stage?: Stage; href: string; title: string; from: string; to: string; size?: string; mono?: string; kind?: string; facts: Fact[]; chip?: Fact; due?: { date: string; days: number; text: string; tone: 'late' | 'soon' | 'ok' }; foot?: string; alert?: string; }
 // icon, what it means (tooltip), value
 type Fact = [typeof Ship, string, string | null | undefined]
 type Column = { key: string; title: string; icon: typeof Ship; cards: Card[]; total: number; more?: string }
@@ -87,7 +87,7 @@ export default function PipelinePage() {
         }
         const inTransit = days(s.departure_date, now)
         return {
-          id: s.id, stage, href: `/dashboard/shipments/${s.id}`, title: client?.name || 'Без клиента', mono: [s.container_number, s.container_type].filter(Boolean).join(' · ') || undefined,
+          id: s.id, stage, href: `/dashboard/shipments/${s.id}`, title: client?.name || 'Без клиента', mono: s.container_number || undefined, kind: s.container_type || undefined,
           // At the border the card reads "where it stands → where it goes next".
           from: (atBorder ? s.destination_station : s.origin) || '—', to: s.destination_city || '—',
           // Loading clock: from the day the container was delivered (or the shipment was created).
@@ -154,12 +154,12 @@ export default function PipelinePage() {
                           {/* Same colours as the size badge on the cargo requests page. */}
                           {card.size && <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold', card.size.startsWith('20') ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600')}>{card.size}</span>}
                         </div>
-                        {card.mono && <p className="truncate font-mono text-[11.5px] text-slate-500">{card.mono}</p>}
                         <p className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-slate-800">
                           <span className="truncate"><Place name={card.from} /></span>
                           <ArrowRight className="size-3.5 shrink-0 text-slate-300" />
                           <span className="truncate"><Place name={card.to} /></span>
                         </p>
+                        {card.mono && <p className="mt-1 truncate text-[12px] text-slate-500"><span className="font-mono text-[13px] font-medium text-slate-800">{card.mono}</span>{card.kind && ` · ${card.kind}`}</p>}
                         {card.facts.some(f => f[2]) && (
                           <ul className={cn('mt-2 space-y-1 text-[12px] text-slate-600', card.stage && 'border-t border-slate-100 pt-2')}>
                             {card.facts.filter(f => f[2]).map(([Icon, label, value]) => (
