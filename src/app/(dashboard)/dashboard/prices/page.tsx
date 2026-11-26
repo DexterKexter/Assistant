@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Price = {
-  id: string; origin: string; destination: string; border: string; transport: string; container: string
+  id: string; title: string; origin: string; destination: string; border: string; transport: string; container: string
   price: number | null; currency: string; transit_days: string; notes: string; updated_at: string
 }
 type Draft = Omit<Price, 'id' | 'updated_at' | 'price'> & { id?: string; price: string }
@@ -16,7 +16,7 @@ const TRANSPORTS = ['Море + ж/д', 'Море', 'Ж/д', 'Авто', 'Ави
 const CONTAINERS = ['20 ft', '40 ft', '40 HC', '45 ft', 'Сборный']
 const BORDERS = ['Актау Порт', 'Алтынколь', 'Сарыагаш', 'Темир-Баба', 'Калжат', 'Нурлы Жолы']
 const CURRENCIES = ['USD', 'KZT', 'RUB', 'AED', 'CNY', 'EUR']
-const empty: Draft = { origin: '', destination: '', border: '', transport: TRANSPORTS[0], container: '40 ft', price: '', currency: 'USD', transit_days: '', notes: '' }
+const empty: Draft = { title: '', origin: '', destination: '', border: '', transport: TRANSPORTS[0], container: '40 ft', price: '', currency: 'USD', transit_days: '', notes: '' }
 
 const field = 'h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-[14px] text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-900'
 const caption = 'mb-1.5 block text-[12px] font-medium text-slate-500'
@@ -56,7 +56,7 @@ export default function PricesPage() {
   const set = (patch: Partial<Draft>) => setDraft(d => (d ? { ...d, ...patch } : d))
   const openForm = (d: Draft) => { setFormError(''); setView(null); setDraft(d) }
   const q = search.trim().toLowerCase()
-  const shown = (prices || []).filter(p => !q || [p.origin, p.destination, p.border, p.transport, p.container, p.notes].some(v => v.toLowerCase().includes(q)))
+  const shown = (prices || []).filter(p => !q || [p.title, p.origin, p.destination, p.border, p.transport, p.container, p.notes].some(v => v.toLowerCase().includes(q)))
 
   async function save(e: FormEvent) {
     e.preventDefault()
@@ -65,7 +65,7 @@ export default function PricesPage() {
     if (price !== null && (!Number.isFinite(price) || price < 0)) { setFormError('Цена должна быть числом, например 4500.'); return }
     setSaving(true); setFormError('')
     const { id, ...rest } = draft
-    const row = { ...rest, origin: rest.origin.trim(), destination: rest.destination.trim(), price, updated_at: new Date().toISOString() }
+    const row = { ...rest, title: rest.title.trim(), origin: rest.origin.trim(), destination: rest.destination.trim(), price, updated_at: new Date().toISOString() }
     const supabase = createClient()
     const { error } = id ? await supabase.from('prices').update(row).eq('id', id) : await supabase.from('prices').insert(row)
     setSaving(false)
@@ -121,7 +121,8 @@ export default function PricesPage() {
                   onClick={() => setView(p)} onKeyDown={e => { if (e.key === 'Enter') setView(p) }}
                   className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none">
                   <td className="px-4 py-3">
-                    <p className="flex items-center gap-1.5 font-semibold text-slate-900">{p.origin}<ArrowRight className="size-3.5 shrink-0 text-slate-300" />{p.destination}</p>
+                    {p.title && <p className="max-w-[360px] truncate font-semibold text-slate-900">{p.title}</p>}
+                    <p className={cn('flex items-center gap-1.5', p.title ? 'text-[12.5px] text-slate-500' : 'font-semibold text-slate-900')}>{p.origin}<ArrowRight className="size-3.5 shrink-0 text-slate-300" />{p.destination}</p>
                     {p.notes && <p className="mt-0.5 max-w-[360px] truncate text-[12px] text-slate-400">{p.notes}</p>}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-slate-600">{p.border || '—'}</td>
@@ -141,7 +142,7 @@ export default function PricesPage() {
         <DialogContent className="gap-0 p-0 sm:max-w-md">
           {view && <>
             <DialogHeader className="border-b border-slate-100 p-6 pb-5">
-              <DialogDescription className="text-[12px] text-slate-400">Цена перевозки</DialogDescription>
+              <DialogDescription className="text-[12px] text-slate-400">{view.title || 'Цена перевозки'}</DialogDescription>
               <DialogTitle className="flex flex-wrap items-center gap-2 pr-6 font-heading text-[20px] font-bold leading-tight text-slate-900">{view.origin}<ArrowRight className="size-4 text-slate-300" />{view.destination}</DialogTitle>
               <p className={cn('pt-2 font-heading text-[30px] font-extrabold leading-none tracking-tight tabular-nums', view.price == null ? 'text-slate-400' : 'text-slate-900')}>{money(view)}</p>
             </DialogHeader>
@@ -170,10 +171,13 @@ export default function PricesPage() {
                 <DialogTitle className="font-heading text-[18px] font-bold text-slate-900">{draft.id ? 'Изменить цену' : 'Новая цена'}</DialogTitle>
               </DialogHeader>
               <div className="space-y-5 p-6">
+                <label className="block"><span className={caption}>Название</span>
+                  <input maxLength={120} autoFocus value={draft.title} onChange={e => set({ title: e.target.value })} placeholder="Например: Запчасти Дубай — Алматы, морем" className={field} />
+                </label>
                 <div>
                   <span className={caption}>Маршрут</span>
                   <div className="flex items-center gap-2">
-                    <input required maxLength={160} autoFocus value={draft.origin} onChange={e => set({ origin: e.target.value })} placeholder="Откуда" aria-label="Откуда" className={field} />
+                    <input required maxLength={160} value={draft.origin} onChange={e => set({ origin: e.target.value })} placeholder="Откуда" aria-label="Откуда" className={field} />
                     <ArrowRight className="size-4 shrink-0 text-slate-300" />
                     <input required maxLength={160} value={draft.destination} onChange={e => set({ destination: e.target.value })} placeholder="Куда" aria-label="Куда" className={field} />
                   </div>
