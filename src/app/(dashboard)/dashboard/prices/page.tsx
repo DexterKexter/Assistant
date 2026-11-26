@@ -133,8 +133,8 @@ export default function PricesPage() {
           <table className="w-full min-w-[900px] text-left">
             <thead>
               <tr className="border-b border-slate-200/80 text-[12px] text-slate-400">
-                <th className="py-3 pl-5 pr-4 font-medium">Маршрут</th>
-                <th className="px-4 py-3 font-medium">Название</th>
+                <th className="py-3 pl-5 pr-4 font-medium">Название</th>
+                <th className="px-4 py-3 font-medium">Маршрут</th>
                 <th className="px-4 py-3 font-medium">Граница</th>
                 <th className="px-4 py-3 font-medium">Транспорт</th>
                 <th className="px-4 py-3 font-medium">Контейнер</th>
@@ -150,10 +150,10 @@ export default function PricesPage() {
                   <tr key={p.id} tabIndex={0} role="button" aria-label={`Открыть ${p.origin} → ${p.destination}`}
                     onClick={() => setView(p)} onKeyDown={e => { if (e.key === 'Enter') setView(p) }}
                     className="h-[52px] cursor-pointer border-b border-slate-100 text-[13px] text-slate-500 last:border-0 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none">
-                    <td className="whitespace-nowrap py-0 pl-5 pr-4">
-                      <span className="inline-flex items-center gap-2 text-[14px] font-semibold text-slate-900"><Place name={p.origin} /><ArrowRight className="size-3.5 text-slate-300" /><Place name={p.destination} /></span>
+                    <td className="max-w-[280px] truncate py-0 pl-5 pr-4 text-[14px] font-semibold text-slate-900" title={p.notes || undefined}>{p.title || dash}</td>
+                    <td className="whitespace-nowrap px-4 py-0">
+                      <span className="inline-flex items-center gap-2"><Place name={p.origin} /><ArrowRight className="size-3.5 text-slate-300" /><Place name={p.destination} /></span>
                     </td>
-                    <td className="max-w-[240px] truncate px-4 py-0" title={p.notes || undefined}>{p.title || dash}</td>
                     <td className="whitespace-nowrap px-4 py-0">{p.border ? <span className="inline-flex items-center gap-1.5"><MapPin className="size-3.5 text-slate-400" />{p.border}</span> : dash}</td>
                     <td className="whitespace-nowrap px-4 py-0">{p.transport ? <span className="inline-flex items-center gap-1.5"><TransportIcon className="size-3.5 text-slate-400" />{p.transport}</span> : dash}</td>
                     <td className="whitespace-nowrap px-4 py-0">{p.container ? <span className="rounded-md bg-slate-100 px-2 py-1 text-[12px] font-medium text-slate-700">{p.container}</span> : dash}</td>
