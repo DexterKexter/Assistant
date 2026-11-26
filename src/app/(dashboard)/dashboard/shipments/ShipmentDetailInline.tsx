@@ -1,12 +1,12 @@
 'use client'
 
 import { NotifyButton } from '@/components/notify-button'
-import { useEffect, useState, useRef } from 'react'
+import { ShipmentTimeline, type TimelineField } from '@/components/shipment-timeline'
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { Ship, ArrowRight, X, Filter, Package, FileText, Wallet, User, Building2, Truck, Pencil, Check, Save, Trash2, Upload, Image, Plus, Send, MessageSquare } from 'lucide-react'
 import { getShipmentStatus, type Shipment } from '@/types/database'
-import { fmtDate } from '@/lib/utils'
 import { DetailIcon } from '@/components/detail-icon'
 import { useProfile } from '@/lib/useProfile'
 
@@ -36,9 +36,6 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
   const [uploading, setUploading] = useState(false)
 
   // Inline date picker refs for timeline icons
-  const arrivalDateRef = useRef<HTMLInputElement>(null)
-  const deliveryDateRef = useRef<HTMLInputElement>(null)
-  const departureDateRef = useRef<HTMLInputElement>(null)
 
   // Notify all admin/manager users about shipment changes
   const notifyShipmentChange = async (type: 'document_added' | 'photo_added' | 'shipment_comment', containerNumber: string, extraMsg?: string) => {
@@ -66,7 +63,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
     )
   }
 
-  const handleInlineDate = async (field: 'departure_date' | 'arrival_date' | 'delivery_date', value: string) => {
+  const handleInlineDate = async (field: TimelineField, value: string) => {
     if (!shipment || !value || isCreateMode) return
     const supabase = createClient()
     const update: Record<string, unknown> = { [field]: value }
@@ -552,54 +549,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
       {/* Route — view mode: timeline, edit mode: simple grid */}
       {tab === 'shipment' && !editing && (
-        <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] px-6 py-4">
-          <div className="flex items-start">
-            {/* Origin */}
-            <div className="flex-1 text-center">
-              <button
-                onClick={() => !shipment.departure_date && canEdit && departureDateRef.current?.showPicker()}
-                className={`w-9 h-9 rounded-full flex items-center justify-center mx-auto ${shipment.departure_date ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-400 ring-2 ring-dashed ring-slate-300 cursor-pointer active:ring-indigo-400'}`}
-              >
-                <Ship className="w-4 h-4" />
-              </button>
-              <input ref={departureDateRef} type="date" className="sr-only" onChange={e => handleInlineDate('departure_date', e.target.value)} />
-              <p className="text-[12px] font-bold text-slate-900 mt-1.5 leading-tight">{shipment.origin || '—'}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{shipment.departure_date ? fmtDate(shipment.departure_date) : canEdit ? <span className="text-indigo-500">+ дата</span> : '—'}</p>
-            </div>
-            <div className="flex-1 relative flex flex-col items-center" style={{ marginTop: 17 }}>
-              <div className={`h-0.5 w-full rounded-full ${shipment.arrival_date ? 'bg-slate-400' : 'bg-slate-200'}`} />
-              {shipment.departure_date && <div className="mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">{(() => { if (!shipment.departure_date) return ''; const end = shipment.arrival_date ? new Date(shipment.arrival_date).getTime() : Date.now(); return Math.round((end - new Date(shipment.departure_date).getTime()) / 86400000) + 'д' })()}</div>}
-            </div>
-            {/* Border */}
-            <div className="flex-1 text-center">
-              <button
-                onClick={() => !shipment.arrival_date && canEdit && arrivalDateRef.current?.showPicker()}
-                className={`w-9 h-9 rounded-full flex items-center justify-center mx-auto ${shipment.arrival_date ? 'bg-slate-600 text-white' : 'bg-slate-100 text-slate-400 ring-2 ring-dashed ring-slate-300 cursor-pointer active:ring-indigo-400'}`}
-              >
-                <Filter className="w-4 h-4" />
-              </button>
-              <input ref={arrivalDateRef} type="date" className="sr-only" onChange={e => handleInlineDate('arrival_date', e.target.value)} />
-              <p className="text-[12px] font-bold text-slate-900 mt-1.5 leading-tight">{shipment.destination_station || '—'}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{shipment.arrival_date ? fmtDate(shipment.arrival_date) : canEdit ? <span className="text-indigo-500">+ дата</span> : '—'}</p>
-            </div>
-            <div className="flex-1 relative flex flex-col items-center" style={{ marginTop: 17 }}>
-              <div className={`h-0.5 w-full rounded-full ${shipment.delivery_date ? 'bg-slate-400' : 'bg-slate-200'}`} />
-              {shipment.arrival_date && <div className="mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">{(() => { const end = shipment.delivery_date ? new Date(shipment.delivery_date).getTime() : Date.now(); return Math.round((end - new Date(shipment.arrival_date!).getTime()) / 86400000) + 'д' })()}</div>}
-            </div>
-            {/* Delivery */}
-            <div className="flex-1 text-center">
-              <button
-                onClick={() => !shipment.delivery_date && canEdit && deliveryDateRef.current?.showPicker()}
-                className={`w-9 h-9 rounded-full flex items-center justify-center mx-auto ${shipment.delivery_date || shipment.is_completed ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400 ring-2 ring-dashed ring-slate-300 cursor-pointer active:ring-indigo-400'}`}
-              >
-                <Ship className="w-4 h-4" />
-              </button>
-              <input ref={deliveryDateRef} type="date" className="sr-only" onChange={e => handleInlineDate('delivery_date', e.target.value)} />
-              <p className="text-[12px] font-bold text-slate-900 mt-1.5 leading-tight">{shipment.destination_city || '—'}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{shipment.delivery_date ? fmtDate(shipment.delivery_date) : canEdit ? <span className="text-indigo-500">+ дата</span> : '—'}</p>
-            </div>
-          </div>
-        </div>
+        <ShipmentTimeline shipment={shipment} canEdit={!!canEdit} onDate={handleInlineDate} />
       )}
 
       {tab === 'shipment' && editing && (

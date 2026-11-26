@@ -59,6 +59,7 @@ export interface Shipment {
   origin: string | null
   destination_station: string | null
   destination_city: string | null
+  export_date: string | null
   departure_date: string | null
   arrival_date: string | null
   delivery_date: string | null
