@@ -109,7 +109,7 @@ export async function POST(req: Request) {
 
   const modelMessages = await convertToModelMessages(messages)
   const result = streamText({
-    model: openrouter.chat('deepseek/deepseek-chat-v3.1'),
+    model: openrouter.chat('deepseek/deepseek-v4.1-flash'),
     system: SYSTEM_PROMPT,
     messages: modelMessages,
     stopWhen: stepCountIs(12),
