@@ -20,8 +20,6 @@ const SLOW_TRANSIT_DAYS = 50 // ponytail: fixed threshold (median Dubai → bord
 const DAY = 86400000
 const BOARD = STAGES.filter((st): st is Exclude<Stage, 'delivered'> => st !== 'delivered')
 
-// Urgent loading paints the whole card.
-const hot = (c: Card) => c.due?.tone === 'late' || c.due?.tone === 'soon'
 const days = (d: string | null, now: number) => (d ? Math.floor((now - new Date(d).getTime()) / DAY) : 0)
 
 export default function PipelinePage() {
@@ -130,28 +128,17 @@ export default function PipelinePage() {
                   {col.cards.map(card => (
                     <li key={card.id} draggable={!!card.stage} onDragStart={() => setDrag(card)} onDragEnd={() => { setDrag(null); setOver('') }}
                       className={cn(card.stage && 'cursor-grab active:cursor-grabbing', drag?.id === card.id && 'opacity-40')}>
-                      <Link href={card.href} draggable={false} data-hot={hot(card) || undefined}
-                        className={cn('group block rounded-xl border p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:shadow-md',
-                          card.due?.tone === 'late' ? 'border-red-600 bg-red-600 text-white' : card.due?.tone === 'soon' ? 'border-orange-500 bg-orange-500 text-white' : 'border-slate-200/80 bg-white hover:border-slate-300')}>
+                      <Link href={card.href} draggable={false} className="block overflow-hidden rounded-xl border border-slate-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-md">
                         <div className="flex items-start gap-2">
-                          <p className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-5 text-slate-900 group-data-hot:text-white">{card.title}</p>
-                          {card.size && <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 group-data-hot:bg-white/20 group-data-hot:text-white">{card.size}</span>}
+                          <p className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-5 text-slate-900">{card.title}</p>
+                          {card.size && <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">{card.size}</span>}
                         </div>
                         {card.mono && <p className="truncate font-mono text-[11.5px] text-slate-500">{card.mono}</p>}
-                        <p className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-slate-800 group-data-hot:text-white">
+                        <p className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-slate-800">
                           <span className="truncate"><Place name={card.from} /></span>
-                          <ArrowRight className="size-3.5 shrink-0 text-slate-300 group-data-hot:text-white/60" />
+                          <ArrowRight className="size-3.5 shrink-0 text-slate-300" />
                           <span className="truncate"><Place name={card.to} /></span>
                         </p>
-                        {card.due && (
-                          <div className="mt-2 flex items-center gap-2 border-t border-slate-100 pt-2 text-slate-600 group-data-hot:border-white/25 group-data-hot:text-white">
-                            <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
-                            <p className="min-w-0 leading-tight">
-                              <span className="block truncate text-[12.5px] font-semibold first-letter:uppercase">{card.due.text}</span>
-                              <span className="block text-[11px] opacity-90">загрузка {card.due.date}</span>
-                            </p>
-                          </div>
-                        )}
                         {card.facts.some(f => f[2]) && (
                           <ul className="mt-2 space-y-1 border-t border-slate-100 pt-2 text-[12px] text-slate-600">
                             {card.facts.filter(f => f[2]).map(([Icon, label, value]) => (
@@ -164,9 +151,16 @@ export default function PipelinePage() {
                         {(card.alert || card.warn || card.foot) && (
                           <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
                             {card.alert && <span className="whitespace-nowrap rounded bg-red-50 px-1.5 py-px font-medium text-red-600">{card.alert} в пути</span>}
-                            {card.warn && <span className="whitespace-nowrap rounded bg-amber-50 px-1.5 py-px font-medium text-amber-700 group-data-hot:bg-white/20 group-data-hot:text-white">{card.warn}</span>}
+                            {card.warn && <span className="whitespace-nowrap rounded bg-amber-50 px-1.5 py-px font-medium text-amber-700">{card.warn}</span>}
                             {card.foot && !card.alert && <span className="truncate">{card.foot}</span>}
                           </p>
+                        )}
+                        {card.due && (
+                          <div className={cn('-mx-3 -mb-3 mt-3 flex items-center gap-2 px-3 py-2 text-white', { late: 'bg-red-600', soon: 'bg-orange-500', ok: 'bg-emerald-600' }[card.due.tone])}>
+                            <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
+                            <span className="truncate text-[12.5px] font-semibold first-letter:uppercase">{card.due.text}</span>
+                            <span className="ml-auto shrink-0 text-[11.5px] tabular-nums opacity-90">{card.due.date.slice(0, 5)}</span>
+                          </div>
                         )}
                       </Link>
                     </li>
