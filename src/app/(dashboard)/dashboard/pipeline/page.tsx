@@ -55,7 +55,7 @@ export default function PipelinePage() {
     const active = () => open().is('delivery_date', null).eq('is_completed', false)
 
     Promise.all([
-      supabase.from('cargo_requests').select('id, client_name, origin, destination, container_size, loading_date, supplier, cargo_request_items(name, position)')
+      supabase.from('cargo_requests').select('id, client_name, container_number, origin, destination, container_size, loading_date, supplier, cargo_request_items(name, position)')
         .eq('is_demo', false).is('shipment_id', null).order('loading_date', { nullsFirst: false }).order('created_at', { ascending: false }).limit(200), // most urgent loading first
       active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).is('export_date', null).order('loading_date', { nullsFirst: false }).order('created_at').limit(LIMIT), // longest in loading first
       active().is('customs_date', null).is('arrival_date', null).is('departure_date', null).not('export_date', 'is', null).order('export_date').limit(LIMIT),
@@ -67,9 +67,11 @@ export default function PipelinePage() {
 
       const reqs = (requests.data || []).map((r): Card => {
         const goods = [...(r.cargo_request_items || [])].sort((a, b) => a.position - b.position).map(i => i.name)
+        const cargo = goods.length > 1 ? `${goods[0]} +${goods.length - 1}` : goods[0]
+        // With a container number the cargo rides on the same line, so every card keeps one height.
         return {
         id: r.id, href: '/dashboard/cargo-requests', title: r.client_name,
-        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, line: goods.length > 1 ? `${goods[0]} +${goods.length - 1}` : goods[0], chip: [Container, 'Поставщик контейнера', r.supplier], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
+        from: r.origin || '—', to: r.destination || '—', size: `${r.container_size} ft`, ...(r.container_number ? { mono: r.container_number, kind: cargo } : { line: cargo }), chip: [Container, 'Поставщик контейнера', r.supplier], due: r.loading_date ? { date: fmtDate(r.loading_date), ...loadingDue(r.loading_date, today) } : undefined,
       } })
       const shipCard = (stage: Stage) => (s: NonNullable<(typeof ships)[number]['data']>[number]): Card => {
         const one = <T,>(v: T | T[] | null) => (Array.isArray(v) ? v[0] : v)
