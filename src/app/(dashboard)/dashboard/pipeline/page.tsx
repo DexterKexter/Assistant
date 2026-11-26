@@ -132,7 +132,8 @@ export default function PipelinePage() {
                       <Link href={card.href} draggable={false} className="block overflow-hidden rounded-xl border border-slate-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-md">
                         <div className="flex items-start gap-2">
                           <p className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-5 text-slate-900">{card.title}</p>
-                          {card.size && <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">{card.size}</span>}
+                          {/* Same colours as the size badge on the cargo requests page. */}
+                          {card.size && <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold', card.size.startsWith('20') ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600')}>{card.size}</span>}
                         </div>
                         {card.mono && <p className="truncate font-mono text-[11.5px] text-slate-500">{card.mono}</p>}
                         <p className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-slate-800">
