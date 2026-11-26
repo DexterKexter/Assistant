@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, Clock, MapPin, Pencil, Plane, Plus, Search, Ship, TrainFront, Trash2, Truck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { Place } from '@/components/place'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Price = {
@@ -17,31 +18,6 @@ const CONTAINERS = ['20 ft', '40 ft', '40 HC', '45 ft', 'Сборный']
 const BORDERS = ['Актау Порт', 'Алтынколь', 'Сарыагаш', 'Темир-Баба', 'Калжат', 'Нурлы Жолы']
 const CURRENCIES = ['USD', 'KZT', 'RUB', 'AED', 'CNY', 'EUR']
 const TRANSPORT_ICONS: Record<string, typeof Ship> = { 'Море + ж/д': Ship, 'Море': Ship, 'Ж/д': TrainFront, 'Авто': Truck, 'Авиа': Plane }
-// Free-text place → country flag. ponytail: substring dictionary of the places we actually ship to; unknown places simply get no flag.
-const FLAGS: [string, string[]][] = [
-  ['🇦🇪', ['дубай', 'оаэ', 'шардж', 'абу-даби', 'джебель']],
-  ['🇭🇰', ['гонконг']],
-  ['🇹🇼', ['тайван']],
-  ['🇨🇳', ['китай', 'гуанчжоу', 'гуаньчжоу', 'шанхай', 'циндао', 'чингдао', 'иу', 'шэньчжэн', 'нинбо', 'тяньцзин', 'урумчи']],
-  ['🇯🇵', ['япони', 'иокохам', 'йокогам', 'токио', 'осака']],
-  ['🇰🇷', ['коре', 'пусан', 'сеул']],
-  ['🇺🇸', ['сша', 'америк']],
-  ['🇹🇷', ['турци', 'стамбул', 'мерсин']],
-  ['🇮🇳', ['инди', 'мумбаи']],
-  ['🇱🇰', ['шри']],
-  ['🇩🇪', ['германи', 'гамбург']],
-  ['🇰🇿', ['казахстан', 'алматы', 'астан', 'актау', 'шымкент', 'кызылорд', 'караганд', 'семей', 'атырау', 'актобе', 'павлодар', 'костанай', 'тараз', 'усть-каменогорск']],
-  ['🇷🇺', ['росси', 'москв', 'челябинск', 'новосибирск', 'бийск', 'тула', 'тольятти', 'краснодар', 'екатеринбург', 'омск', 'грозн', 'петербург', 'казань', 'самар', 'уфа', 'красноярск', 'владивосток']],
-  ['🇧🇾', ['беларус', 'минск']],
-  ['🇺🇿', ['узбекистан', 'ташкент']],
-  ['🇰🇬', ['кыргыз', 'бишкек']],
-]
-const flag = (name: string) => FLAGS.find(([, keys]) => keys.some(k => name.toLowerCase().includes(k)))?.[0]
-function Place({ name }: { name: string }) {
-  const f = flag(name)
-  return <span className="inline-flex items-center gap-1.5">{f && <span aria-hidden="true" className="text-[15px] leading-none">{f}</span>}{name}</span>
-}
-
 const empty: Draft = { title: '', origin: '', destination: '', border: '', transport: TRANSPORTS[0], container: '40 ft', price: '', currency: 'USD', transit_days: '', notes: '' }
 
 const field = 'h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-[14px] text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-900'
