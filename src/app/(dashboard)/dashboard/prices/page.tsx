@@ -7,15 +7,16 @@ import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Price = {
-  id: string; origin: string; destination: string; transport: string; container: string
+  id: string; origin: string; destination: string; border: string; transport: string; container: string
   price: number | null; currency: string; transit_days: string; notes: string; updated_at: string
 }
 type Draft = Omit<Price, 'id' | 'updated_at' | 'price'> & { id?: string; price: string }
 
 const TRANSPORTS = ['Море + ж/д', 'Море', 'Ж/д', 'Авто', 'Авиа']
-const CONTAINERS = ['20 ft', '40 ft', '40 HC', 'Сборный']
+const CONTAINERS = ['20 ft', '40 ft', '40 HC', '45 ft', 'Сборный']
+const BORDERS = ['Актау Порт', 'Алтынколь', 'Сарыагаш', 'Темир-Баба', 'Калжат', 'Нурлы Жолы']
 const CURRENCIES = ['USD', 'KZT', 'RUB', 'AED', 'CNY', 'EUR']
-const empty: Draft = { origin: '', destination: '', transport: TRANSPORTS[0], container: '40 ft', price: '', currency: 'USD', transit_days: '', notes: '' }
+const empty: Draft = { origin: '', destination: '', border: '', transport: TRANSPORTS[0], container: '40 ft', price: '', currency: 'USD', transit_days: '', notes: '' }
 
 const field = 'h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-[14px] text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-900'
 const caption = 'mb-1.5 block text-[12px] font-medium text-slate-500'
@@ -55,7 +56,7 @@ export default function PricesPage() {
   const set = (patch: Partial<Draft>) => setDraft(d => (d ? { ...d, ...patch } : d))
   const openForm = (d: Draft) => { setFormError(''); setView(null); setDraft(d) }
   const q = search.trim().toLowerCase()
-  const shown = (prices || []).filter(p => !q || [p.origin, p.destination, p.transport, p.container, p.notes].some(v => v.toLowerCase().includes(q)))
+  const shown = (prices || []).filter(p => !q || [p.origin, p.destination, p.border, p.transport, p.container, p.notes].some(v => v.toLowerCase().includes(q)))
 
   async function save(e: FormEvent) {
     e.preventDefault()
@@ -103,10 +104,11 @@ export default function PricesPage() {
             {!prices?.length && <button onClick={() => openForm(empty)} className="mt-5 inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 text-[13px] font-semibold text-white hover:bg-slate-800"><Plus className="size-4" />Добавить цену</button>}
           </div>
         ) : (
-          <table className="w-full min-w-[720px] text-left text-[13.5px]">
+          <table className="w-full min-w-[820px] text-left text-[13.5px]">
             <thead>
               <tr className="border-b border-slate-200/80 bg-slate-50/70 text-[12px] text-slate-500">
                 <th className="px-4 py-2.5 font-medium">Маршрут</th>
+                <th className="px-4 py-2.5 font-medium">Граница</th>
                 <th className="px-4 py-2.5 font-medium">Транспорт</th>
                 <th className="px-4 py-2.5 font-medium">Контейнер</th>
                 <th className="px-4 py-2.5 font-medium">Срок</th>
@@ -122,6 +124,7 @@ export default function PricesPage() {
                     <p className="flex items-center gap-1.5 font-semibold text-slate-900">{p.origin}<ArrowRight className="size-3.5 shrink-0 text-slate-300" />{p.destination}</p>
                     {p.notes && <p className="mt-0.5 max-w-[360px] truncate text-[12px] text-slate-400">{p.notes}</p>}
                   </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-600">{p.border || '—'}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-slate-600">{p.transport || '—'}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-slate-600">{p.container || '—'}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-slate-600">{p.transit_days || '—'}</td>
@@ -143,6 +146,7 @@ export default function PricesPage() {
               <p className={cn('pt-2 font-heading text-[30px] font-extrabold leading-none tracking-tight tabular-nums', view.price == null ? 'text-slate-400' : 'text-slate-900')}>{money(view)}</p>
             </DialogHeader>
             <dl className="grid grid-cols-[110px_1fr] gap-y-3 p-6 text-[14px]">
+              <dt className="text-slate-400">Граница</dt><dd className="text-slate-900">{view.border || '—'}</dd>
               <dt className="text-slate-400">Транспорт</dt><dd className="text-slate-900">{view.transport || '—'}</dd>
               <dt className="text-slate-400">Контейнер</dt><dd className="text-slate-900">{view.container || '—'}</dd>
               <dt className="text-slate-400">Срок</dt><dd className="text-slate-900">{view.transit_days || '—'}</dd>
@@ -174,6 +178,7 @@ export default function PricesPage() {
                     <input required maxLength={160} value={draft.destination} onChange={e => set({ destination: e.target.value })} placeholder="Куда" aria-label="Куда" className={field} />
                   </div>
                 </div>
+                <Chips label="Граница" options={BORDERS} value={draft.border} onChange={border => set({ border })} />
                 <Chips label="Транспорт" options={TRANSPORTS} value={draft.transport} onChange={transport => set({ transport })} />
                 <Chips label="Контейнер" options={CONTAINERS} value={draft.container} onChange={container => set({ container })} />
                 <div className="grid grid-cols-2 gap-3">
