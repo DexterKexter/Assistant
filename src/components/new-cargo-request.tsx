@@ -15,7 +15,6 @@ const CONTAINER_TYPES = [
 // Classes shared with the new shipment window (shipments/page.tsx).
 const inpCls = 'h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300'
 const labelCls = 'mb-1 block text-[11px] font-medium uppercase tracking-wider text-slate-500'
-const rowLabelCls = 'text-[11px] font-medium uppercase tracking-wider text-slate-500'
 const sectionCls = 'mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400'
 const cardCls = 'rounded-2xl bg-white/60 p-4 ring-1 ring-white/80'
 const pill = (label: string, active: boolean, onClick: () => void, activeCls = 'border-slate-900 bg-slate-900 text-white') => (
@@ -122,13 +121,14 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
 
           {/* Container: illustration + size, type and the rest, as in the new shipment window. A request has no container number yet. */}
           <div className="grid grid-cols-1 items-center gap-5 rounded-2xl bg-white/50 p-4 ring-1 ring-white/80 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-            <div className="flex min-h-[140px] items-center justify-center"><ContainerArt size={draft.container_size} color={containerTypeColor(draft.container_type)} /></div>
+            {/* The size sits right under the picture it changes. */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex min-h-[140px] w-full items-center justify-center"><ContainerArt size={draft.container_size} color={containerTypeColor(draft.container_type)} /></div>
+              <div className="flex gap-1" role="group" aria-label="Размер контейнера">{(['20', '40', '45'] as const).map(v => pill(`${v} ft`, draft.container_size === v, () => set('container_size', v)))}</div>
+            </div>
             <div className="space-y-4">
-              {/* Choices: one row each, label on the left, so the groups line up. */}
-              <div className="grid grid-cols-[112px_minmax(0,1fr)] items-center gap-x-3 gap-y-3">
-                <p className={rowLabelCls}>Размер</p>
-                <div className="flex gap-1">{(['20', '40', '45'] as const).map(v => pill(`${v} ft`, draft.container_size === v, () => set('container_size', v)))}</div>
-                <p className={rowLabelCls}>Тип</p>
+              <div>
+                <p className={labelCls}>Тип</p>
                 <div className="flex flex-wrap gap-1">{CONTAINER_TYPES.map(([v, cls]) => pill(v, draft.container_type === v, () => set('container_type', v), cls))}</div>
               </div>
               <div className="grid grid-cols-1 gap-3 border-t border-slate-200/70 pt-4 sm:grid-cols-3">
