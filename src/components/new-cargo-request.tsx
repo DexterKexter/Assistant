@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { X, Ship, Filter, Send, Phone, Truck, Save, User } from 'lucide-react'
+import { X, Ship, Filter, Send, Truck, Save, User } from 'lucide-react'
 import { ContainerArt, containerTypeColor } from '@/components/container-art'
 import { SearchableSelect } from '@/components/searchable-select'
 import { createClient } from '@/lib/supabase/client'
@@ -82,9 +82,6 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
       if (error) throw error
       // The request is saved either way; a failed item insert only loses the cargo name.
       if (cargo) await createClient().from('cargo_request_items').insert({ request_id: data.id, name: cargo, quantity: 1 })
-      // A phone typed for a client who had none is kept on the client, so next time it is prefilled.
-      const client = clients.find(c => c.id === draft.client_id)
-      if (client && !client.phone && draft.phone.trim()) await createClient().from('clients').update({ phone: draft.phone.trim() }).eq('id', client.id)
       // The carrier endpoint posts the request to the carrier's Telegram group.
       onCreated(willPost && !(await fetch('/api/cargo-request/carrier', { method: 'POST', body: JSON.stringify({ id: data.id }) })).ok)
     } catch {
@@ -123,17 +120,15 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
           <div>
             <p className={sectionCls}>Участники</p>
             <div className={cardCls}>
-              <div className="mb-3 hidden grid-cols-4 gap-3 lg:grid">
+              <div className="mb-3 hidden grid-cols-3 gap-3 sm:grid">
                 {step(<User className="h-4 w-4" />, 'Клиент', draft.client_id ? 'bg-indigo-500' : '')}
-                {step(<Phone className="h-4 w-4" />, 'Телефон клиента', draft.phone ? 'bg-violet-500' : '')}
                 {step(<Send className="h-4 w-4" />, 'Отправитель', draft.sender_id ? 'bg-emerald-500' : '')}
                 {step(<Truck className="h-4 w-4" />, 'Перевозчик', draft.carrier_id ? 'bg-amber-500' : '')}
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {/* Phones are not asked here: the client's comes from the client card, the sender's from the sender's record or the reference list. */}
                 <SearchableSelect placeholder="Клиент *" options={clients.map(c => ({ value: c.id, label: c.name }))} value={draft.client_id}
                   onChange={v => { const c = clients.find(c => c.id === v); setDraft(d => ({ ...d, client_id: v, client_name: c?.name ?? '', phone: c?.phone ?? '' })) }} />
-                <input type="tel" maxLength={40} aria-label="Телефон клиента" placeholder={draft.client_id && !draft.phone ? 'Нет телефона — впишите' : 'Телефон клиента'} className={inpCls} value={draft.phone} onChange={e => set('phone', e.target.value)} />
-                {/* The sender's phone is not asked here: it goes to the carrier from the sender's record or the reference list. */}
                 <SearchableSelect placeholder="Отправитель (yard)" options={senders.map(s => ({ value: s.id, label: s.name }))} value={draft.sender_id}
                   onChange={v => setDraft(d => ({ ...d, sender_id: v, shipper_phone: senders.find(s => s.id === v)?.phone ?? '' }))} />
                 <SearchableSelect placeholder="Перевозчик" options={carriers.map(c => ({ value: c.id, label: c.telegram_chat_id ? `${c.name} · Telegram` : c.name }))} value={draft.carrier_id} onChange={v => set('carrier_id', v)} />
