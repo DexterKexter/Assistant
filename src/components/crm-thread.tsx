@@ -8,6 +8,7 @@ import { cn, fmtDate } from '@/lib/utils'
 import { shipmentStatusText, shipmentStatusLabel } from '@/lib/shipment-status'
 import { templateValues } from '@/lib/template-values'
 import { TEMPLATES, TEMPLATE_FIELDS, compileTemplate, fillTemplate } from '@/lib/whatsapp-template'
+import { clientHabits, type Habit } from '@/lib/client-habits'
 import { SearchableSelect } from '@/components/searchable-select'
 import { WaText } from '@/components/wa-text'
 import Link from 'next/link'
@@ -300,6 +301,23 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
       setRefs(Object.groupBy((data || []).map(r => ({ category: r.category as string, value: r.name as string, label: r.name as string })), r => r.category) as typeof refs))
   }, [])
 
+  // What this client usually ships, as one-click presets.
+  const [habits, setHabits] = useState<Habit[]>([])
+  useEffect(() => {
+    if (!chat.client_id) return
+    // ponytail: the client's last 500 shipments, counted in the browser; move to SQL if clients outgrow that.
+    supabase.from('shipments').select('origin, destination_city, container_size, container_type, cargo_description, sender_name')
+      .eq('client_id', chat.client_id).order('created_at', { ascending: false }).limit(500)
+      .then(({ data }) => setHabits(clientHabits(data || [])))
+  }, [chat.client_id])
+  // Shipments hold free text; a value missing from the reference list is left for the manager to pick.
+  const known = (list: string, v: string) => (refs[list] || []).some(o => o.value === v) ? v : ''
+  const applyHabit = (h: Habit) => setDraft({
+    ...emptyRequest, origin: known('city', h.origin), destination: known('city', h.destination),
+    container_size: h.size === 20 || h.size === 45 ? h.size : 40, container_type: CONTAINER_TYPES.includes(h.type) ? h.type : '',
+    cargo: known('cargo', h.cargo), sender: known('sender', h.sender),
+  })
+
   const create = async () => {
     if (!draft || !draft.origin || !draft.destination) { setError('Укажите, откуда и куда.'); return }
     setSaving(true); setError('')
@@ -323,6 +341,21 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
           <Plus className="w-3.5 h-3.5" />Создать
         </button>}
       </div>
+      {chat.client_id && habits.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[11px] text-slate-400">Обычно возит — нажмите, чтобы подставить</p>
+          {habits.map(h => (
+            <button key={`${h.origin}-${h.destination}`} type="button" onClick={() => applyHabit(h)}
+              className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-left hover:border-indigo-200 hover:bg-indigo-50/50">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[12px] font-semibold text-slate-800">{h.origin} → {h.destination}</span>
+                <span className="block truncate text-[11px] text-slate-400">{[h.size && `${h.size} ft`, h.cargo, h.sender].filter(Boolean).join(' · ')}</span>
+              </span>
+              <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-600">{h.count}×</span>
+            </button>
+          ))}
+        </div>
+      )}
       {draft && (
         <form onSubmit={e => { e.preventDefault(); create() }} className="space-y-2">
           <SearchableSelect placeholder="Откуда" options={refs.city || []} value={draft.origin} onChange={v => setDraft({ ...draft, origin: v })} />
