@@ -12,7 +12,7 @@ import { clientHabits, type Habit } from '@/lib/client-habits'
 import { SearchableSelect } from '@/components/searchable-select'
 import { WaText } from '@/components/wa-text'
 import Link from 'next/link'
-import { ArrowLeft, Send, UserPlus, ExternalLink, PanelRight, X, Download, Plus, Sparkles, Ship, ClipboardList, User } from 'lucide-react'
+import { ArrowLeft, Send, UserPlus, ExternalLink, PanelRight, X, Download, Plus, Sparkles, Ship, ClipboardList, User, Unlink } from 'lucide-react'
 
 export type CrmChat = {
   id: string; channel: 'whatsapp'; name: string; username: string | null; phone: string | null
@@ -421,6 +421,22 @@ function ClientLink({ chat, clients, client, onClientCreated }: {
     setSaving(false); setCreating(false)
   }
 
+  // Linked: one compact row — the name opens the client card, the icon unlinks.
+  if (chat.client_id) return (
+    <div className="flex items-center gap-1 rounded-2xl border border-slate-200/70 bg-slate-50 py-1.5 pl-3 pr-1.5">
+      <Link href={`/dashboard/clients/${chat.client_id}`} title="Открыть карточку клиента"
+        className="flex min-w-0 flex-1 items-center gap-2 text-[13px] font-semibold text-slate-800 hover:text-indigo-600">
+        <span className="truncate">{client ? `${client.is_russia ? '🇷🇺' : '🇰🇿'} ${client.name}` : 'Клиент'}</span>
+        <ExternalLink className="size-3.5 shrink-0 text-slate-400" />
+      </Link>
+      <button onClick={() => { if (confirm('Отвязать чат от клиента?')) link(null) }} title="Отвязать от клиента" aria-label="Отвязать от клиента"
+        className="flex size-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-rose-600">
+        <Unlink className="size-3.5" />
+      </button>
+      {error && <p className="text-[12px] text-rose-600">{error}</p>}
+    </div>
+  )
+
   return (
     <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-3 space-y-2">
       <div className="flex h-7 items-center justify-between">
@@ -428,16 +444,7 @@ function ClientLink({ chat, clients, client, onClientCreated }: {
         {!chat.client_id && <ClientBadge isNew />}
       </div>
 
-      {chat.client_id ? (
-        <>
-          <Link href={`/dashboard/clients/${chat.client_id}`}
-            className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-white px-2.5 py-2 text-[13px] font-semibold text-slate-800 hover:border-slate-300">
-            <span className="flex-1 truncate">{client ? `${client.is_russia ? '🇷🇺' : '🇰🇿'} ${client.name}` : 'Клиент'}</span>
-            <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-          </Link>
-          <button onClick={() => link(null)} className="text-[12px] text-slate-400 hover:text-slate-600">Отвязать от клиента</button>
-        </>
-      ) : creating ? (
+      {creating ? (
         <form onSubmit={e => { e.preventDefault(); create() }} className="space-y-2">
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Имя клиента" aria-label="Имя клиента" autoFocus
             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] outline-none focus:border-indigo-300" />
