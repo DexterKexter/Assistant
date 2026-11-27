@@ -15,6 +15,24 @@ export async function tgSend(chatId: number, text: string) {
   for (let i = 0; i < text.length; i += 4000) await tg('sendMessage', { chat_id: chatId, text: text.slice(i, i + 4000) })
 }
 
+// HTML message (only <b> is used); `editId` rewrites an existing message instead of sending a new one.
+// If Telegram rejects the markup, the same text goes out plain rather than not at all.
+export async function tgHtml(chatId: number, html: string, editId?: number) {
+  const method = editId ? 'editMessageText' : 'sendMessage'
+  const res = await tg(method, { chat_id: chatId, message_id: editId, text: html, parse_mode: 'HTML' })
+  if (!res.ok) {
+    const plain = html.replace(/<\/?b>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+    await tg(method, { chat_id: chatId, message_id: editId, text: plain })
+  }
+}
+
+export async function tgSendFile(chatId: number, name: string, bytes: Uint8Array) {
+  const form = new FormData()
+  form.set('chat_id', String(chatId))
+  form.set('document', new Blob([bytes as BlobPart]), name)
+  await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendDocument`, { method: 'POST', body: form })
+}
+
 // Account-link token for t.me/<bot>?start=<token>: user id + expiry, signed, so no table is needed.
 // 20 bytes payload -> 27 base64url chars, + 22 chars of HMAC = 49 (Telegram allows 64).
 const sign = (payload: string) =>

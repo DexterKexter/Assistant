@@ -1,10 +1,9 @@
 import { after } from 'next/server'
-import { generateText, stepCountIs, type ModelMessage } from 'ai'
 import { createServiceClient } from '@/lib/crm'
-import { openrouter, SYSTEM_PROMPT, agentTools } from '@/lib/agent-tools'
-import { tg, tgSend, userIdFromLinkToken } from '@/lib/telegram'
+import { ask, telegramHtml, type Turn } from '@/lib/telegram-assistant'
+import { tg, tgHtml, tgSend, tgSendFile, userIdFromLinkToken } from '@/lib/telegram'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 type TgFile = { file_id: string }
 type TgMessage = {
@@ -19,31 +18,40 @@ type TgMessage = {
   video?: TgFile
   voice?: TgFile
   audio?: TgFile
-  reply_to_message?: { message_id: number; text?: string }
+  reply_to_message?: { message_id: number }
 }
 
-async function answer(m: TgMessage, managerName: string | null) {
-  await tg('sendChatAction', { chat_id: m.chat.id, action: 'typing' })
-  // ponytail: no stored history — context is only the message being replied to. Add a table if multi-turn matters.
-  const messages: ModelMessage[] = [
-    ...(m.reply_to_message?.text ? [{ role: 'assistant' as const, content: m.reply_to_message.text }] : []),
-    { role: 'user', content: m.text! },
-  ]
-  // ponytail: read-only in Telegram — no create/update tools (no confirmation UI) and no charts.
-  const { create_shipment, update_shipment, create_client, create_carrier, render_chart, ...tools } =
-    agentTools(createServiceClient())
+// The assistant remembers the last 10 turns of the last 2 hours; "/new" starts over.
+const TALK_MS = 2 * 60 * 60 * 1000
+const NEW_TALK = /^(\/new|новый разговор|забудь)/i
+
+// Runs after the 200: the model can think for a minute, and Telegram would resend the update meanwhile.
+async function answer(m: TgMessage, profile: { full_name: string | null; role: string }) {
+  const db = createServiceClient()
+  const chat = m.chat.id
+  const wait: number | undefined = (await (await tg('sendMessage', { chat_id: chat, text: '🤔 Думаю…' })).json()).result?.message_id
+  const say = async (text: string) => {
+    const [first, ...rest] = telegramHtml(text)
+    await tgHtml(chat, first, wait)
+    for (const part of rest) await tgHtml(chat, part)
+  }
   try {
-    const { text } = await generateText({
-      model: openrouter.chat('deepseek/deepseek-v4.1-flash'),
-      system: SYSTEM_PROMPT + `\n\nТы отвечаешь в Telegram: только простой текст, без markdown, без таблиц. Изменять данные и строить графики здесь нельзя — для этого дашборд.${managerName ? ` Тебе пишет сотрудник: ${managerName}.` : ''}`,
-      messages,
-      stopWhen: stepCountIs(12),
-      tools,
-    })
-    await tgSend(m.chat.id, text || 'Не удалось получить ответ.')
+    const { data: past } = await db.from('telegram_assistant_turns').select('role, content')
+      .eq('chat_id', chat).gte('created_at', new Date(Date.now() - TALK_MS).toISOString())
+      .order('id', { ascending: false }).limit(10)
+    const history = [...((past ?? []) as Turn[])].reverse()
+    // A conversation has to start with the user's turn.
+    while (history[0]?.role === 'assistant') history.shift()
+    const res = await ask(db, profile, [...history, { role: 'user', content: m.text! }])
+    await say(res.answer)
+    await db.from('telegram_assistant_turns').insert([
+      { chat_id: chat, role: 'user', content: m.text! },
+      { chat_id: chat, role: 'assistant', content: res.answer },
+    ])
+    for (const f of res.files) await tgSendFile(chat, f.name, f.bytes)
   } catch (e) {
-    console.error('telegram agent', e)
-    await tgSend(m.chat.id, 'Ошибка при обработке запроса. Попробуйте ещё раз.')
+    console.error('telegram assistant', e)
+    await say('⚠️ Ассистент сейчас не ответил. Попробуйте ещё раз.')
   }
 }
 
@@ -121,8 +129,10 @@ export async function POST(req: Request) {
       // The bot is public and the tools bypass RLS, so only linked admins/managers get answers.
       const { data: profile } = await db.from('profiles').select('full_name, role').eq('telegram_id', m.from.id).maybeSingle()
       if (profile && ['admin', 'manager'].includes(profile.role)) {
-        // Telegram retries if the 200 is slow; the model runs after the response.
-        after(() => answer(m, profile.full_name))
+        if (NEW_TALK.test(m.text)) {
+          await db.from('telegram_assistant_turns').delete().eq('chat_id', m.chat.id)
+          await tgSend(m.chat.id, '🆕 Начали разговор заново — прошлые вопросы забыл.')
+        } else after(() => answer(m, profile))
       } else {
         await tgSend(m.chat.id, 'Бот доступен сотрудникам STI Logistics. Войдите в дашборд и нажмите «Привязать Telegram» в шапке сайта.')
       }
