@@ -6,10 +6,19 @@ import { tg, tgSend, userIdFromLinkToken } from '@/lib/telegram'
 
 export const maxDuration = 60
 
+type TgFile = { file_id: string }
 type TgMessage = {
+  message_id: number
+  date: number
   chat: { id: number; type: string }
   from?: { id: number; first_name?: string; last_name?: string }
   text?: string
+  caption?: string
+  photo?: TgFile[]
+  document?: TgFile
+  video?: TgFile
+  voice?: TgFile
+  audio?: TgFile
   reply_to_message?: { message_id: number; text?: string }
 }
 
@@ -57,8 +66,22 @@ export async function POST(req: Request) {
   }
 
   const m: TgMessage | undefined = (await req.json()).message
-  if (!m?.text || !m.from) return Response.json({ ok: true })
+  if (!m?.from) return Response.json({ ok: true })
   const db = createServiceClient()
+  const author = [m.from.first_name, m.from.last_name].filter(Boolean).join(' ')
+
+  if (m.chat.type !== 'private') {
+    // Archive of carrier-group chatter. Needs the bot's privacy mode off, otherwise only replies to the bot arrive.
+    // Files are kept as Telegram file_id (largest photo size is last), not downloaded.
+    await db.from('telegram_messages').upsert({
+      chat_id: m.chat.id, message_id: m.message_id, from_id: m.from.id, from_name: author,
+      text: m.text ?? m.caption ?? null,
+      file_id: (m.photo?.at(-1) ?? m.document ?? m.video ?? m.voice ?? m.audio)?.file_id ?? null,
+      reply_to_message_id: m.reply_to_message?.message_id ?? null,
+      sent_at: new Date(m.date * 1000).toISOString(),
+    }, { onConflict: 'chat_id,message_id', ignoreDuplicates: true })
+  }
+  if (!m.text) return Response.json({ ok: true })
 
   if (m.chat.type === 'private') {
     const start = m.text.match(/^\/start (\S+)$/)
@@ -82,7 +105,7 @@ export async function POST(req: Request) {
     if (request) {
       await db.from('cargo_request_replies').insert({
         request_id: request.id,
-        author: [m.from.first_name, m.from.last_name].filter(Boolean).join(' '),
+        author,
         text: m.text,
       })
     }

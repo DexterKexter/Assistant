@@ -275,7 +275,9 @@ const looksRussian = (phone: string | null) => {
   return d.length === 11 && d[0] === '7' && d[1] !== '7' && d[1] !== '6'
 }
 
-const emptyRequest = { origin: '', destination: '', container_size: 40, loading_date: '', cargo: '' }
+const emptyRequest = { origin: '', destination: '', container_size: 40, container_type: '', loading_date: '', cargo: '', sender: '' }
+// Same list as the shipment form.
+const CONTAINER_TYPES = ['Выкупной', 'Возвратный', 'Собственный', 'Малшы', 'Арендованный', 'Sinorail']
 type ChatRequest = { id: string; request_number: number; origin: string; destination: string; container_size: number; loading_date: string | null }
 
 // Sidebar block: cargo requests created from this chat. Contact details come from the chat, the manager adds the route.
@@ -291,16 +293,24 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
       .then(({ data }) => setRequests(data || []))
   }, [chat.id])
 
+  // Dropdown options come from the reference lists (Админка → Справочники), same as the shipment form.
+  const [refs, setRefs] = useState<Record<string, { value: string; label: string }[]>>({})
+  useEffect(() => {
+    supabase.from('reference_items').select('category, name').order('name').then(({ data }) =>
+      setRefs(Object.groupBy((data || []).map(r => ({ category: r.category as string, value: r.name as string, label: r.name as string })), r => r.category) as typeof refs))
+  }, [])
+
   const create = async () => {
-    if (!draft || !draft.origin.trim() || !draft.destination.trim()) { setError('Укажите, откуда и куда.'); return }
+    if (!draft || !draft.origin || !draft.destination) { setError('Укажите, откуда и куда.'); return }
     setSaving(true); setError('')
     const { data, error } = await supabase.from('cargo_requests').insert({
       client_name: (clientName || chat.phone || 'Без имени').slice(0, 120), phone: chat.phone || '', client_id: chat.client_id, chat_id: chat.id, source: 'whatsapp',
-      origin: draft.origin.trim(), destination: draft.destination.trim(), container_size: draft.container_size, loading_date: draft.loading_date || null,
+      origin: draft.origin, destination: draft.destination, container_size: draft.container_size, container_type: draft.container_type || null,
+      loading_date: draft.loading_date || null, sender_name: draft.sender || null,
     }).select(fields).single()
     if (error || !data) { setError(error?.message || 'Не удалось создать заявку'); setSaving(false); return }
     // The request itself is saved; a failed item insert only loses the cargo name.
-    if (draft.cargo.trim()) await supabase.from('cargo_request_items').insert({ request_id: data.id, name: draft.cargo.trim().slice(0, 160), quantity: 1 })
+    if (draft.cargo) await supabase.from('cargo_request_items').insert({ request_id: data.id, name: draft.cargo, quantity: 1 })
     setRequests(r => [data, ...r]); setDraft(null); setSaving(false)
   }
 
@@ -315,8 +325,8 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
       </div>
       {draft && (
         <form onSubmit={e => { e.preventDefault(); create() }} className="space-y-2">
-          <input value={draft.origin} onChange={e => setDraft({ ...draft, origin: e.target.value })} placeholder="Откуда" aria-label="Откуда" autoFocus maxLength={160} className={input} />
-          <input value={draft.destination} onChange={e => setDraft({ ...draft, destination: e.target.value })} placeholder="Куда" aria-label="Куда" maxLength={160} className={input} />
+          <SearchableSelect placeholder="Откуда" options={refs.city || []} value={draft.origin} onChange={v => setDraft({ ...draft, origin: v })} />
+          <SearchableSelect placeholder="Куда" options={refs.city || []} value={draft.destination} onChange={v => setDraft({ ...draft, destination: v })} />
           <div className="flex gap-2">
             {[20, 40].map(size => (
               <button key={size} type="button" onClick={() => setDraft({ ...draft, container_size: size })} aria-pressed={draft.container_size === size}
@@ -325,10 +335,12 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
               </button>
             ))}
           </div>
+          <SearchableSelect placeholder="Тип контейнера" options={CONTAINER_TYPES.map(t => ({ value: t, label: t }))} value={draft.container_type} onChange={v => setDraft({ ...draft, container_type: v })} />
           <label className="block text-[12px] text-slate-400">Дата загрузки
             <input type="date" value={draft.loading_date} onChange={e => setDraft({ ...draft, loading_date: e.target.value })} className={cn(input, 'mt-1 text-slate-800')} />
           </label>
-          <input value={draft.cargo} onChange={e => setDraft({ ...draft, cargo: e.target.value })} placeholder="Товар" aria-label="Товар" maxLength={160} className={input} />
+          <SearchableSelect placeholder="Товар" options={refs.cargo || []} value={draft.cargo} onChange={v => setDraft({ ...draft, cargo: v })} />
+          <SearchableSelect placeholder="Отправитель" options={refs.sender || []} value={draft.sender} onChange={v => setDraft({ ...draft, sender: v })} />
           {error && <p className="text-[12px] text-rose-600">{error}</p>}
           <div className="flex gap-2">
             <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-slate-900 px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-50">{saving ? 'Сохраняем…' : 'Создать заявку'}</button>

@@ -8,15 +8,15 @@ export async function POST(req: Request) {
   const { id } = await req.json()
   // User session, not service role: RLS lets only admins/managers read requests and carriers.
   const supabase = await createClient()
-  const { data } = await supabase.from('cargo_requests').select('*, cargo_request_items(*)').eq('id', id).single()
-  const request = data as (CargoRequest & { carrier_id: string | null; carrier_chat_id: number | null }) | null
+  const { data } = await supabase.from('cargo_requests').select('*, sender:senders(name)').eq('id', id).single()
+  const request = data as (CargoRequest & { carrier_id: string | null; carrier_chat_id: number | null; weight_kg: number | null; container_owner: string | null; via: string | null; shipper_phone: string | null; sender: { name: string } | null }) | null
   if (!request) return new Response('not found', { status: 404 })
   if (!request.carrier_id) return Response.json({ carrier_message_id: null })
 
   const { data: carrier } = await supabase.from('carriers').select('telegram_chat_id').eq('id', request.carrier_id).maybeSingle()
   if (!carrier?.telegram_chat_id || carrier.telegram_chat_id === request.carrier_chat_id) return Response.json({ carrier_message_id: null })
 
-  const sent = await (await tg('sendMessage', { chat_id: carrier.telegram_chat_id, text: carrierRequestText(request) })).json()
+  const sent = await (await tg('sendMessage', { chat_id: carrier.telegram_chat_id, text: carrierRequestText({ ...request, yard: request.sender?.name }) })).json()
   if (!sent.ok) return new Response('telegram error', { status: 502 })
 
   const carrier_message_id: number = sent.result.message_id

@@ -5,14 +5,15 @@ import Link from 'next/link'
 import { ClipboardList, ExternalLink, Plus, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/useProfile'
-import { CARGO_STATUSES, cargoContactError, type CargoRequest } from '@/lib/cargo-requests'
+import { CARGO_STATUSES, VIA_OPTIONS, cargoContactError, carrierRequestText, type CargoRequest } from '@/lib/cargo-requests'
 import { editContainerNumber } from '@/lib/container-number'
 import { Input } from '@/components/ui/input'
 import { CargoRequestDialog } from '@/components/cargo-request-dialog'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
-const emptyDraft = { client_name: '', phone: '', container_number: '', origin: '', destination: '', loading_date: '', supplier: '', carrier_id: '' }
+const emptyDraft = { client_name: '', phone: '', container_number: '', origin: '', destination: '', loading_date: '', supplier: '', carrier_id: '', sender_id: '', shipper_phone: '', weight_kg: '', container_size: '40', container_owner: '', via: '' }
+const selectClass = 'h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900'
 const date = (value: string) => new Date(value).toLocaleDateString('ru-RU')
 
 export default function CargoRequestsPage() {
@@ -36,6 +37,11 @@ export default function CargoRequestsPage() {
     createClient().from('carriers').select('id, name').not('telegram_chat_id', 'is', null).order('name')
       .then(({ data }) => setCarriers(data ?? []))
   }, [])
+  const [senders, setSenders] = useState<{ id: string; name: string; phone: string | null }[]>([])
+  useEffect(() => {
+    createClient().from('senders').select('id, name, phone').order('name').then(({ data }) => setSenders(data ?? []))
+  }, [version])
+  const draftSender = senders.find(s => s.id === draft.sender_id)
 
   useEffect(() => {
     if (!canManage) return
@@ -65,11 +71,16 @@ export default function CargoRequestsPage() {
     setSaving(true)
     setSaveError('')
     try {
+      const shipper_phone = draft.shipper_phone.trim() || null
       const { data, error } = await createClient().from('cargo_requests').insert({
         ...draft, client_name: draft.client_name.trim(), container_number: draft.container_number || null,
-        loading_date: draft.loading_date || null, supplier: draft.supplier.trim() || null, carrier_id: draft.carrier_id || null, status: 'draft',
+        loading_date: draft.loading_date || null, supplier: draft.supplier.trim() || null, carrier_id: draft.carrier_id || null,
+        sender_id: draft.sender_id || null, shipper_phone, weight_kg: draft.weight_kg ? Number(draft.weight_kg) : null,
+        container_size: Number(draft.container_size), container_owner: draft.container_owner || null, via: draft.via || null, status: 'draft',
       }).select('id').single()
       if (error) throw error
+      // The shipper's phone lives on the sender, so next time it is prefilled.
+      if (draftSender && shipper_phone && shipper_phone !== draftSender.phone) await createClient().from('senders').update({ phone: shipper_phone }).eq('id', draftSender.id)
       if (draft.carrier_id) {
         const res = await fetch('/api/cargo-request/carrier', { method: 'POST', body: JSON.stringify({ id: data.id }) })
         setSendFailed(!res.ok)
@@ -134,13 +145,25 @@ export default function CargoRequestsPage() {
           <form onSubmit={saveDraft} className="space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {([['client_name','Имя клиента *','text',120],['phone','Телефон','tel',40],['container_number','Номер контейнера','text',11],['loading_date','Дата загрузки','date',undefined],['origin','Откуда','text',160],['destination','Куда','text',160],['supplier','Поставщик контейнера','text',120]] as const).map(([key,label,type,maxLength]) => <label key={key} className="space-y-1.5 text-xs text-slate-600"><span>{label}</span><Input type={type} className="h-11 bg-white" required={key==='client_name'} maxLength={maxLength} value={draft[key]} onChange={e=>setDraft(d=>({...d,[key]:key==='container_number' ? editContainerNumber(e.target.value,d.container_number) : e.target.value}))} /></label>)}
-              <label className="space-y-1.5 text-xs text-slate-600"><span>Перевозчик</span>
-                <select className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900" value={draft.carrier_id} onChange={e=>setDraft(d=>({...d,carrier_id:e.target.value}))}>
+              <label className="space-y-1.5 text-xs text-slate-600"><span>📦 Контейнер</span>
+                <select className={selectClass} value={draft.container_size} onChange={e=>setDraft(d=>({...d,container_size:e.target.value}))}><option value="40">40HQ</option><option value="20">20DC</option></select></label>
+              <label className="space-y-1.5 text-xs text-slate-600"><span>🏷 SOC / COC</span>
+                <select className={selectClass} value={draft.container_owner} onChange={e=>setDraft(d=>({...d,container_owner:e.target.value}))}><option value="">Не указано</option><option value="SOC">SOC — наш контейнер</option><option value="COC">COC — контейнер перевозчика</option></select></label>
+              <label className="space-y-1.5 text-xs text-slate-600"><span>⚖️ Вес, кг</span>
+                <Input type="number" min={0} step="any" className="h-11 bg-white" value={draft.weight_kg} onChange={e=>setDraft(d=>({...d,weight_kg:e.target.value}))} /></label>
+              <label className="space-y-1.5 text-xs text-slate-600"><span>🛣 Переход (via)</span>
+                <select className={selectClass} value={draft.via} onChange={e=>setDraft(d=>({...d,via:e.target.value}))}><option value="">Не указан</option>{VIA_OPTIONS.map(v=><option key={v}>{v}</option>)}</select></label>
+              <label className="space-y-1.5 text-xs text-slate-600"><span>📍 Отправитель (yard)</span>
+                <select className={selectClass} value={draft.sender_id} onChange={e=>setDraft(d=>({...d,sender_id:e.target.value,shipper_phone:senders.find(s=>s.id===e.target.value)?.phone ?? ''}))}><option value="">Не выбран</option>{senders.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+              <label className="space-y-1.5 text-xs text-slate-600"><span>📞 Телефон отправителя</span>
+                <Input type="tel" maxLength={40} className="h-11 bg-white" value={draft.shipper_phone} onChange={e=>setDraft(d=>({...d,shipper_phone:e.target.value}))} /></label>
+              <label className="space-y-1.5 text-xs text-slate-600"><span>🚛 Перевозчик</span>
+                <select className={selectClass} value={draft.carrier_id} onChange={e=>setDraft(d=>({...d,carrier_id:e.target.value}))}>
                   <option value="">Не выбран</option>{carriers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
                 </select></label>
             </div>
             <p className="text-xs text-slate-500">Ссылка для настоящей отправки клиенту появится на следующем этапе.</p>
-            {draft.carrier_id && <p className="text-xs text-slate-500">После сохранения бот отправит заявку в Telegram-группу перевозчика.</p>}
+            {draft.carrier_id && <div className="space-y-1.5"><p className="text-xs text-slate-500">После сохранения бот отправит в Telegram-группу перевозчика:</p><pre className="whitespace-pre-wrap rounded-xl bg-slate-50 p-3 font-sans text-sm text-slate-800">{carrierRequestText({ ...draft, container_size: Number(draft.container_size), yard: draftSender?.name })}</pre></div>}
             {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
             <Button type="submit" disabled={saving} className="h-11 w-full bg-slate-900 text-white">{saving ? 'Сохраняем…' : 'Сохранить черновик'}</Button>
           </form>
