@@ -15,9 +15,11 @@ interface Props {
   onChange: (value: string) => void
   placeholder?: string
   autoFocus?: boolean
+  // For dark surfaces (the CRM chat side panel).
+  dark?: boolean
 }
 
-export function SearchableSelect({ options, value, onChange, placeholder = 'Выберите...', autoFocus }: Props) {
+export function SearchableSelect({ options, value, onChange, placeholder = 'Выберите...', autoFocus, dark }: Props) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [coords, setCoords] = useState<{ top: number; left: number; width: number; openUp: boolean } | null>(null)
@@ -125,8 +127,10 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
     <div ref={ref} className="relative">
       <div
         ref={wrapperRef}
-        className={`w-full h-9 flex items-center text-[13px] border rounded-lg px-2.5 bg-white transition-all ${
-          open ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-slate-200 hover:border-slate-300'
+        className={`w-full h-9 flex items-center text-[13px] border rounded-lg px-2.5 transition-all ${
+          dark
+            ? `bg-white/[0.06] ${open ? 'border-white/40' : 'border-white/10 hover:border-white/20'}`
+            : `bg-white ${open ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-slate-200 hover:border-slate-300'}`
         }`}
       >
         <input
@@ -138,7 +142,7 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
           onChange={e => { setQuery(e.target.value); setOpen(true) }}
           onFocus={e => { setOpen(true); e.target.select() }}
           onKeyDown={handleKeyDown}
-          className="flex-1 min-w-0 bg-transparent outline-none text-slate-800 placeholder:text-slate-400"
+          className={`flex-1 min-w-0 bg-transparent outline-none ${dark ? 'text-white placeholder:text-slate-500' : 'text-slate-800 placeholder:text-slate-400'}`}
         />
         <div className="flex items-center gap-1 shrink-0 ml-1">
           {value && (
@@ -150,7 +154,7 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
                 setQuery('')
                 inputRef.current?.focus()
               }}
-              className="w-3.5 h-3.5 rounded-full hover:bg-slate-100 flex items-center justify-center"
+              className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${dark ? 'hover:bg-white/15' : 'hover:bg-slate-100'}`}
             >
               <X className="w-2.5 h-2.5 text-slate-400" />
             </button>
@@ -176,7 +180,7 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
       {open && coords && typeof document !== 'undefined' && createPortal(
         <div
           ref={popRef}
-          className="fixed z-[1200] bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden"
+          className={`fixed z-[1200] border rounded-lg shadow-xl overflow-hidden ${dark ? 'bg-slate-800 border-white/10' : 'bg-white border-slate-200'}`}
           style={{
             top: coords.openUp ? undefined : coords.top,
             bottom: coords.openUp ? window.innerHeight - coords.top : undefined,
@@ -195,7 +199,9 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Вы
                   onMouseDown={(e) => { e.preventDefault(); handleSelect(o) }}
                   onMouseEnter={() => setHighlight(idx)}
                   className={`w-full text-left px-3 py-1.5 text-[12px] transition-colors ${
-                    o.value === value
+                    dark
+                      ? o.value === value ? 'bg-white/15 text-white font-medium' : idx === highlight ? 'bg-white/10 text-slate-100' : 'text-slate-200 hover:bg-white/10'
+                      : o.value === value
                       ? 'bg-indigo-50 text-indigo-700 font-medium'
                       : idx === highlight
                       ? 'bg-slate-50 text-slate-700'

@@ -64,15 +64,6 @@ function Media({ path, type }: { path: string; type: string }) {
   return <a href={url} target="_blank" rel="noreferrer" className="mb-1 block underline">Открыть файл</a>
 }
 
-export function ClientBadge({ isNew }: { isNew: boolean }) {
-  return (
-    <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0',
-      isNew ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600')}>
-      {isNew ? 'Новый' : 'Клиент'}
-    </span>
-  )
-}
-
 // side=false renders only the conversation (used inside a client's page).
 export function CrmThread({ chat, clients, onBack, side = true, onClientCreated }: { chat: CrmChat; clients: CrmClient[]; onBack?: () => void; side?: boolean; onClientCreated?: (c: CrmClient) => void }) {
   const [messages, setMessages] = useState<Msg[]>([])
@@ -238,29 +229,29 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
         )}
       </div>
 
-      {side && panel && <aside className="absolute inset-y-0 right-0 z-10 shadow-xl lg:static lg:shadow-none flex flex-col gap-2.5 p-2.5 w-[288px] shrink-0 bg-slate-900 overflow-y-auto animate-in slide-in-from-right duration-200">
+      {side && panel && <aside className="absolute inset-y-0 right-0 z-10 shadow-xl lg:static lg:shadow-none flex flex-col gap-2 p-2 w-[288px] shrink-0 bg-slate-900 overflow-y-auto animate-in slide-in-from-right duration-200">
         {chat.ai_category && (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
-            <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-slate-300"><Sparkles className="size-3.5 text-slate-400" aria-hidden="true" />ИИ · {CHAT_CATEGORIES[chat.ai_category].label}</p>
+          <div className={P.card}>
+            <p className={cn(P.title, 'mb-1.5')}><Sparkles className={P.icon} aria-hidden="true" />ИИ · {CHAT_CATEGORIES[chat.ai_category].label}</p>
             {chat.ai_summary && <p className="text-[13px] leading-snug text-slate-200">{chat.ai_summary}</p>}
           </div>
         )}
         <ClientLink chat={chat} clients={clients} client={client} onClientCreated={onClientCreated} />
         <ChatRequests key={chat.id} chat={chat} clientName={client?.name || chat.name} />
-        <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
-          <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-slate-300"><Ship className="size-3.5 text-slate-400" aria-hidden="true" />Перевозки{chat.client_id && shipments.length > 0 ? ` · ${shipments.length}` : ''}</p>
-          {!chat.client_id && <p className="text-[12px] text-slate-400">Появятся после привязки клиента.</p>}
-          {chat.client_id && shipments.length === 0 && <p className="text-[12px] text-slate-400">Перевозок пока нет.</p>}
+        <div className={cn(P.card, 'space-y-1.5')}>
+          <p className={P.title}><Ship className={P.icon} aria-hidden="true" />Перевозки{chat.client_id && shipments.length > 0 ? ` · ${shipments.length}` : ''}</p>
+          {!chat.client_id && <p className={P.muted}>Появятся после привязки клиента.</p>}
+          {chat.client_id && shipments.length === 0 && <p className={P.muted}>Перевозок пока нет.</p>}
           {chat.client_id && shipments.map(s => (
-            <div key={s.id} className="group -mx-1.5 flex items-center gap-2 rounded-lg px-1.5 py-1.5 hover:bg-white/10">
+            <div key={s.id} className={cn(P.row, 'group flex items-center gap-2 pr-1')}>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-mono text-[12px] font-semibold text-white">{s.container_number || 'без номера'}</p>
                 <p className="truncate text-[11px] text-slate-400">{shipmentStatusLabel(s, !!client?.is_russia)}</p>
               </div>
               <button onClick={() => send(shipmentStatusText(s, !!client?.is_russia), s.id)} disabled={sending || windowClosed}
                 title={windowClosed ? 'Клиент не писал больше 24 часов — отправьте шаблон' : 'Отправить статус клиенту'} aria-label={`Отправить статус ${s.container_number || ''}`}
-                className="w-7 h-7 shrink-0 rounded-md flex items-center justify-center text-slate-500 hover:bg-white/10 hover:text-white group-hover:text-slate-300 disabled:opacity-30">
-                <Send className="w-3.5 h-3.5" />
+                className="size-7 shrink-0 rounded-lg flex items-center justify-center text-slate-500 hover:bg-white/10 hover:text-white disabled:opacity-30">
+                <Send className="size-3.5" />
               </button>
             </div>
           ))}
@@ -274,6 +265,21 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
 const looksRussian = (phone: string | null) => {
   const d = (phone || '').replace(/\D/g, '')
   return d.length === 11 && d[0] === '7' && d[1] !== '7' && d[1] !== '6'
+}
+
+// Dark side panel: one radius for cards (2xl), one for controls (lg, 36px high), monochrome — white is the only accent.
+const P = {
+  card: 'rounded-2xl bg-white/[0.05] p-3',
+  title: 'flex items-center gap-1.5 text-[12px] font-medium text-slate-400',
+  icon: 'size-3.5 text-slate-500',
+  row: 'rounded-lg bg-white/[0.06] px-2.5 py-1.5 hover:bg-white/[0.1] transition-colors',
+  input: 'w-full h-9 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-500 focus:border-white/40 [color-scheme:dark]',
+  primary: 'h-9 rounded-lg bg-white px-3 text-[13px] font-medium text-slate-900 hover:bg-slate-200 disabled:opacity-40 transition-colors',
+  ghost: 'h-9 rounded-lg px-3 text-[13px] text-slate-400 hover:bg-white/[0.08] hover:text-white transition-colors',
+  segment: 'flex gap-0.5 rounded-lg bg-white/[0.06] p-0.5',
+  segmentOn: 'bg-white text-slate-900',
+  segmentOff: 'text-slate-400 hover:text-white',
+  muted: 'text-[12px] text-slate-500',
 }
 
 const emptyRequest = { origin: '', destination: '', container_size: 40, container_type: '', loading_date: '', cargo: '', sender: '' }
@@ -332,58 +338,56 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
     setRequests(r => [data, ...r]); setDraft(null); setSaving(false)
   }
 
-  const input = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] outline-none focus:border-indigo-300'
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3 space-y-2">
+    <div className={cn(P.card, 'space-y-2')}>
       <div className="flex h-7 items-center justify-between">
-        <p className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-300"><ClipboardList className="size-3.5 text-slate-400" aria-hidden="true" />Заявки{requests.length > 0 ? ` · ${requests.length}` : ''}</p>
-        {!draft && <button onClick={() => setDraft(emptyRequest)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-semibold text-indigo-300 hover:bg-white/10">
-          <Plus className="w-3.5 h-3.5" />Создать
+        <p className={P.title}><ClipboardList className={P.icon} aria-hidden="true" />Заявки{requests.length > 0 ? ` · ${requests.length}` : ''}</p>
+        {!draft && <button onClick={() => setDraft(emptyRequest)} className="-mr-1 flex h-7 items-center gap-1 rounded-lg px-2 text-[12px] font-medium text-white hover:bg-white/[0.08]">
+          <Plus className="size-3.5" />Создать
         </button>}
       </div>
       {chat.client_id && habits.length > 0 && (
         <div className="space-y-1">
-          <p className="text-[11px] text-slate-400">Обычно возит — нажмите, чтобы подставить</p>
+          <p className="text-[11px] text-slate-500">Обычно возит — нажмите, чтобы подставить</p>
           {habits.map(h => (
-            <button key={`${h.origin}-${h.destination}`} type="button" onClick={() => applyHabit(h)}
-              className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.08] px-2.5 py-1.5 text-left hover:border-indigo-400">
+            <button key={`${h.origin}-${h.destination}`} type="button" onClick={() => applyHabit(h)} className={cn(P.row, 'flex w-full items-center gap-2 text-left')}>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[12px] font-semibold text-white">{h.origin} → {h.destination}</span>
                 <span className="block truncate text-[11px] text-slate-400">{[h.size && `${h.size} ft`, h.cargo, h.sender].filter(Boolean).join(' · ')}</span>
               </span>
-              <span className="shrink-0 rounded-md bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-300">{h.count}×</span>
+              <span className="shrink-0 text-[11px] font-medium tabular-nums text-slate-400">{h.count}×</span>
             </button>
           ))}
         </div>
       )}
       {draft && (
-        <form onSubmit={e => { e.preventDefault(); create() }} className="space-y-2">
-          <SearchableSelect placeholder="Откуда" options={refs.city || []} value={draft.origin} onChange={v => setDraft({ ...draft, origin: v })} />
-          <SearchableSelect placeholder="Куда" options={refs.city || []} value={draft.destination} onChange={v => setDraft({ ...draft, destination: v })} />
-          <div className="flex gap-2">
+        <form onSubmit={e => { e.preventDefault(); create() }} className="space-y-1.5">
+          <SearchableSelect dark placeholder="Откуда" options={refs.city || []} value={draft.origin} onChange={v => setDraft({ ...draft, origin: v })} />
+          <SearchableSelect dark placeholder="Куда" options={refs.city || []} value={draft.destination} onChange={v => setDraft({ ...draft, destination: v })} />
+          <div className={P.segment}>
             {[20, 40, 45].map(size => (
               <button key={size} type="button" onClick={() => setDraft({ ...draft, container_size: size })} aria-pressed={draft.container_size === size}
-                className={cn('flex-1 rounded-xl border px-2 py-2 text-[13px] font-semibold', draft.container_size === size ? 'border-indigo-400 bg-indigo-500 text-white' : 'border-white/10 bg-white/[0.08] text-slate-300 hover:border-white/30')}>
+                className={cn('h-8 flex-1 rounded-md text-[13px] font-medium transition-colors', draft.container_size === size ? P.segmentOn : P.segmentOff)}>
                 {size} ft
               </button>
             ))}
           </div>
-          <SearchableSelect placeholder="Тип контейнера" options={CONTAINER_TYPES.map(t => ({ value: t, label: t }))} value={draft.container_type} onChange={v => setDraft({ ...draft, container_type: v })} />
-          <label className="block text-[12px] text-slate-400">Дата загрузки
-            <input type="date" value={draft.loading_date} onChange={e => setDraft({ ...draft, loading_date: e.target.value })} className={cn(input, 'mt-1 text-slate-800')} />
+          <SearchableSelect dark placeholder="Тип контейнера" options={CONTAINER_TYPES.map(t => ({ value: t, label: t }))} value={draft.container_type} onChange={v => setDraft({ ...draft, container_type: v })} />
+          <label className="block text-[11px] text-slate-500">Дата загрузки
+            <input type="date" value={draft.loading_date} onChange={e => setDraft({ ...draft, loading_date: e.target.value })} className={cn(P.input, 'mt-1')} />
           </label>
-          <SearchableSelect placeholder="Товар" options={refs.cargo || []} value={draft.cargo} onChange={v => setDraft({ ...draft, cargo: v })} />
-          <SearchableSelect placeholder="Отправитель" options={refs.sender || []} value={draft.sender} onChange={v => setDraft({ ...draft, sender: v })} />
+          <SearchableSelect dark placeholder="Товар" options={refs.cargo || []} value={draft.cargo} onChange={v => setDraft({ ...draft, cargo: v })} />
+          <SearchableSelect dark placeholder="Отправитель" options={refs.sender || []} value={draft.sender} onChange={v => setDraft({ ...draft, sender: v })} />
           {error && <p className="text-[12px] text-rose-400">{error}</p>}
-          <div className="flex gap-2">
-            <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-indigo-500 px-3 py-2 text-[13px] font-semibold text-white hover:bg-indigo-400 disabled:opacity-50">{saving ? 'Сохраняем…' : 'Создать заявку'}</button>
-            <button type="button" onClick={() => { setDraft(null); setError('') }} className="rounded-xl px-3 py-2 text-[13px] text-slate-400 hover:bg-white/10">Отмена</button>
+          <div className="flex gap-1.5 pt-1">
+            <button type="submit" disabled={saving} className={cn(P.primary, 'flex-1')}>{saving ? 'Сохраняем…' : 'Создать заявку'}</button>
+            <button type="button" onClick={() => { setDraft(null); setError('') }} className={P.ghost}>Отмена</button>
           </div>
         </form>
       )}
-      {!draft && requests.length === 0 && <p className="text-[12px] text-slate-400">Заявок из этого чата пока нет.</p>}
+      {!draft && requests.length === 0 && <p className={P.muted}>Заявок из этого чата пока нет.</p>}
       {requests.map(r => (
-        <Link key={r.id} href="/dashboard/pipeline" className="block rounded-xl border border-white/10 bg-white/[0.08] px-2.5 py-1.5 hover:border-white/30">
+        <Link key={r.id} href="/dashboard/pipeline" className={cn(P.row, 'block')}>
           <p className="truncate text-[12px] font-semibold text-white">№{String(r.request_number).padStart(4, '0')} · {r.origin} → {r.destination}</p>
           <p className="truncate text-[11px] text-slate-400">{r.container_size} ft · {r.loading_date ? `загрузка ${fmtDate(r.loading_date)}` : 'дата загрузки не указана'}</p>
         </Link>
@@ -423,60 +427,57 @@ function ClientLink({ chat, clients, client, onClientCreated }: {
 
   // Linked: one compact row — the name opens the client card, the icon unlinks.
   if (chat.client_id) return (
-    <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.06] py-1.5 pl-3 pr-1.5">
-      <Link href={`/dashboard/clients/${chat.client_id}`} title="Открыть карточку клиента"
-        className="flex min-w-0 flex-1 items-center gap-2 text-[13px] font-semibold text-white hover:text-indigo-300">
-        <span className="truncate">{client ? `${client.is_russia ? '🇷🇺' : '🇰🇿'} ${client.name}` : 'Клиент'}</span>
-        <ExternalLink className="size-3.5 shrink-0 text-slate-400" />
-      </Link>
-      <button onClick={() => { if (confirm('Отвязать чат от клиента?')) link(null) }} title="Отвязать от клиента" aria-label="Отвязать от клиента"
-        className="flex size-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-rose-400">
-        <Unlink className="size-3.5" />
-      </button>
-      {error && <p className="text-[12px] text-rose-400">{error}</p>}
+    <div className="rounded-2xl bg-white/[0.05] py-1.5 pl-3 pr-1.5">
+      <div className="flex items-center gap-1">
+        <Link href={`/dashboard/clients/${chat.client_id}`} title="Открыть карточку клиента"
+          className="flex min-w-0 flex-1 items-center gap-2 text-[13px] font-semibold text-white hover:text-slate-300">
+          <span className="truncate">{client ? `${client.is_russia ? '🇷🇺' : '🇰🇿'} ${client.name}` : 'Клиент'}</span>
+          <ExternalLink className="size-3.5 shrink-0 text-slate-500" />
+        </Link>
+        <button onClick={() => { if (confirm('Отвязать чат от клиента?')) link(null) }} title="Отвязать от клиента" aria-label="Отвязать от клиента"
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-white/10 hover:text-white">
+          <Unlink className="size-3.5" />
+        </button>
+      </div>
+      {error && <p className="pb-1 text-[12px] text-rose-400">{error}</p>}
     </div>
   )
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3 space-y-2">
+    <div className={cn(P.card, 'space-y-2')}>
       <div className="flex h-7 items-center justify-between">
-        <p className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-300"><User className="size-3.5 text-slate-400" aria-hidden="true" />Клиент</p>
-        {!chat.client_id && <ClientBadge isNew />}
+        <p className={P.title}><User className={P.icon} aria-hidden="true" />Клиент</p>
+        <span className="text-[11px] font-medium text-amber-400">Новый</span>
       </div>
 
       {creating ? (
-        <form onSubmit={e => { e.preventDefault(); create() }} className="space-y-2">
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Имя клиента" aria-label="Имя клиента" autoFocus
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] outline-none focus:border-indigo-300" />
-          <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Телефон" aria-label="Телефон" type="tel"
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] outline-none focus:border-indigo-300" />
-          <div className="flex gap-1 rounded-xl bg-white/10 p-1">
+        <form onSubmit={e => { e.preventDefault(); create() }} className="space-y-1.5">
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Имя клиента" aria-label="Имя клиента" autoFocus className={P.input} />
+          <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Телефон" aria-label="Телефон" type="tel" className={P.input} />
+          <div className={P.segment}>
             {[{ v: false, label: '🇰🇿 Казахстан' }, { v: true, label: '🇷🇺 Россия' }].map(o => (
               <button type="button" key={o.label} onClick={() => setIsRussia(o.v)}
-                className={cn('flex-1 py-1 rounded-lg text-[12px] font-medium', isRussia === o.v ? 'bg-white shadow-sm text-slate-900' : 'text-slate-300')}>
+                className={cn('h-8 flex-1 rounded-md text-[12px] font-medium transition-colors', isRussia === o.v ? P.segmentOn : P.segmentOff)}>
                 {o.label}
               </button>
             ))}
           </div>
-          <div className="flex gap-2">
-            <button disabled={saving || !name.trim()} className="flex-1 rounded-xl bg-indigo-500 text-white text-[13px] font-medium py-2 hover:bg-indigo-400 disabled:opacity-40">
-              {saving ? 'Сохраняю…' : 'Создать клиента'}
-            </button>
-            <button type="button" onClick={() => setCreating(false)} className="px-3 rounded-xl border border-white/15 text-[13px] text-slate-300">Отмена</button>
+          <div className="flex gap-1.5 pt-1">
+            <button disabled={saving || !name.trim()} className={cn(P.primary, 'flex-1')}>{saving ? 'Сохраняю…' : 'Создать клиента'}</button>
+            <button type="button" onClick={() => setCreating(false)} className={P.ghost}>Отмена</button>
           </div>
         </form>
       ) : (
         <>
-          <SearchableSelect placeholder="Привязать к существующему…" value=""
+          <SearchableSelect dark placeholder="Привязать к существующему…" value=""
             options={clients.map(c => ({ value: c.id, label: `${c.is_russia ? '🇷🇺' : '🇰🇿'} ${c.name}` }))}
             onChange={v => { if (v) link(v) }} />
-          <button onClick={() => setCreating(true)}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 py-2 text-[13px] font-medium text-slate-300 hover:bg-white/10">
-            <UserPlus className="w-4 h-4" /> Новый клиент
+          <button onClick={() => setCreating(true)} className={cn(P.ghost, 'flex w-full items-center justify-center gap-2 bg-white/[0.06] text-slate-200')}>
+            <UserPlus className="size-4" /> Новый клиент
           </button>
         </>
       )}
-      {error && <p className="text-[12px] text-red-500">{error}</p>}
+      {error && <p className="text-[12px] text-rose-400">{error}</p>}
     </div>
   )
 }
