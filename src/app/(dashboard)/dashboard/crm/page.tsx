@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { ChatTabs } from '@/components/chat-tabs'
 import { CrmThread, chatTime as time, type CrmChat as Chat, type CrmClient as ClientRow } from '@/components/crm-thread'
-import { Inbox, MessageSquare, Search } from 'lucide-react'
+import { Inbox, MessageSquare, Search, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
 const supabase = createClient()
 const FILTERS = [
@@ -23,6 +23,8 @@ export default function CrmPage() {
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  // Desktop only (the toggle is hidden on phones): the list shrinks to a strip of avatars.
+  const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
     const load = () => supabase.from('crm_chats').select('*').order('last_message_at', { ascending: false })
@@ -49,11 +51,15 @@ export default function CrmPage() {
 
   return (
     <div className="absolute inset-0 flex overflow-hidden bg-white">
-      <div className={cn('flex flex-col border-r border-slate-100 md:w-[300px] md:shrink-0', selectedId ? 'hidden md:flex' : 'w-full')}>
-        <div className="flex items-end px-4 h-14 shrink-0 border-b border-slate-100">
-          <ChatTabs />
+      <div className={cn('flex flex-col border-r border-slate-100 md:shrink-0', collapsed ? 'md:w-[60px]' : 'md:w-[300px]', selectedId ? 'hidden md:flex' : 'w-full')}>
+        <div className={cn('flex items-end h-14 shrink-0 border-b border-slate-100', collapsed ? 'justify-center' : 'justify-between px-4')}>
+          {!collapsed && <ChatTabs />}
+          <button onClick={() => setCollapsed(v => !v)} aria-label={collapsed ? 'Развернуть список чатов' : 'Свернуть список чатов'} title={collapsed ? 'Развернуть список чатов' : 'Свернуть список чатов'}
+            className="mb-3 hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:flex">
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
         </div>
-        <div className="px-3 pt-3 pb-1.5 space-y-2">
+        <div className={cn('px-3 pt-3 pb-1.5 space-y-2', collapsed && 'hidden')}>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Поиск" aria-label="Поиск по чатам"
@@ -69,7 +75,7 @@ export default function CrmPage() {
             ))}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-2 pb-2">
+        <div className={cn('flex-1 overflow-y-auto px-2 pb-2', collapsed && 'pt-2')}>
           {loading ? (
             <div className="p-2 space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="skeleton h-12 w-full rounded-lg" />)}</div>
           ) : chats.length === 0 ? (
@@ -81,12 +87,13 @@ export default function CrmPage() {
           ) : visible.length === 0 ? (
             <p className="p-6 text-center text-[13px] text-slate-400">Ничего не найдено</p>
           ) : visible.map(c => (
-            <button key={c.id} onClick={() => open(c)}
-              className={cn('w-full flex items-center gap-2.5 rounded-lg px-2 py-2 text-left', selectedId === c.id ? 'bg-slate-100' : 'hover:bg-slate-50')}>
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 bg-slate-200/70 text-slate-600">
+            <button key={c.id} onClick={() => open(c)} title={collapsed ? title(c) : undefined}
+              className={cn('w-full flex items-center gap-2.5 rounded-lg py-2 text-left', collapsed ? 'justify-center' : 'px-2', selectedId === c.id ? 'bg-slate-100' : 'hover:bg-slate-50')}>
+              <div className="relative w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 bg-slate-200/70 text-slate-600">
                 {title(c).slice(0, 2).toUpperCase()}
+                {collapsed && c.unread_count > 0 && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-slate-900 ring-2 ring-white" />}
               </div>
-              <div className="flex-1 min-w-0">
+              <div className={cn('flex-1 min-w-0', collapsed && 'hidden')}>
                 <div className="flex items-baseline gap-1.5">
                   <p className={cn('text-[13px] truncate', c.unread_count ? 'font-semibold text-slate-900' : 'font-medium text-slate-800')}>{title(c)}</p>
                   {!c.client_id && <span className="shrink-0 text-[10px] font-semibold text-amber-600">новый</span>}
