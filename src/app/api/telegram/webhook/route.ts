@@ -69,19 +69,30 @@ export async function POST(req: Request) {
   const db = createServiceClient()
 
   // "Accepted" button under a request the bot posted to a carrier group.
-  const cb: { id: string; from: { first_name?: string; last_name?: string }; message?: { message_id: number; chat: { id: number } } } | undefined = update.callback_query
+  // Two steps so a stray tap confirms nothing: accept -> "Yes, confirm" / "Cancel", and only the same person can confirm.
+  const cb: { id: string; data?: string; from: { id: number; first_name?: string; last_name?: string }; message?: { message_id: number; chat: { id: number } } } | undefined = update.callback_query
   if (cb?.message) {
+    const at = { chat_id: cb.message.chat.id, message_id: cb.message.message_id }
+    const buttons = (...row: [string, string][]) => ({ inline_keyboard: [row.map(([text, callback_data]) => ({ text, callback_data }))] })
     const by = [cb.from.first_name, cb.from.last_name].filter(Boolean).join(' ')
-    // `is null` makes it first-press-wins; later presses change nothing.
-    const { data: accepted } = await db.from('cargo_requests').update({ carrier_accepted_at: new Date().toISOString(), carrier_accepted_by: by })
-      .eq('carrier_chat_id', cb.message.chat.id).eq('carrier_message_id', cb.message.message_id).is('carrier_accepted_at', null).select('id')
-    await tg('answerCallbackQuery', { callback_query_id: cb.id, text: accepted?.length ? 'Accepted, thank you!' : 'Already accepted' })
-    if (accepted?.length) {
-      await tg('editMessageReplyMarkup', {
-        chat_id: cb.message.chat.id, message_id: cb.message.message_id,
-        reply_markup: { inline_keyboard: [[{ text: `✅ Accepted by ${by}`, callback_data: 'accept' }]] },
-      })
-    }
+    const { data: request } = await db.from('cargo_requests').select('id, carrier_accepted_at')
+      .eq('carrier_chat_id', at.chat_id).eq('carrier_message_id', at.message_id).maybeSingle()
+    let notice = ''
+    if (!request) notice = 'Request not found'
+    else if (request.carrier_accepted_at) notice = 'Already accepted'
+    else if (cb.data === 'accept') {
+      notice = 'Press “Yes, confirm” to accept'
+      await tg('editMessageReplyMarkup', { ...at, reply_markup: buttons(['✅ Yes, confirm', `confirm:${cb.from.id}`], ['✖ Cancel', 'cancel']) })
+    } else if (cb.data === 'cancel') {
+      await tg('editMessageReplyMarkup', { ...at, reply_markup: buttons(['✅ Accepted', 'accept']) })
+    } else if (cb.data === `confirm:${cb.from.id}`) {
+      // `is null` makes it first-confirm-wins.
+      await db.from('cargo_requests').update({ carrier_accepted_at: new Date().toISOString(), carrier_accepted_by: by })
+        .eq('id', request.id).is('carrier_accepted_at', null)
+      notice = 'Accepted, thank you!'
+      await tg('editMessageReplyMarkup', { ...at, reply_markup: buttons([`✅ Accepted by ${by}`, 'accept']) })
+    } else notice = 'Only the person who pressed “Accepted” can confirm'
+    await tg('answerCallbackQuery', { callback_query_id: cb.id, text: notice })
     return Response.json({ ok: true })
   }
 
