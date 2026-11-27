@@ -48,13 +48,14 @@ export const VIA_OPTIONS = ['Aktau', 'Altynkol', 'Nurly Zholy', 'Dostyk', 'Kalzh
 // No client name/phone: those stay inside STI Logistics.
 export function carrierRequestText(r: {
   request_number?: number; container_size: number; container_owner?: string | null; weight_kg?: number | string | null
-  yard?: string | null; loading_date?: string | null; via?: string | null; shipper_phone?: string | null
+  yard?: string | null; loading_date?: string | null; via?: string | null; shipper_phone?: string | null; maps_url?: string | null
 }): string {
   return [
     `🚛 STI Logistics${r.request_number ? ` — request #${r.request_number.toString().padStart(4, '0')}` : ''}`,
     `📦 Pls provide 1x${r.container_size === 20 ? '20DC' : r.container_size === 45 ? '45HQ' : '40HQ'}${r.container_owner ? ` · ${r.container_owner}` : ''}`,
     r.weight_kg && `⚖️ ${r.weight_kg} KG`,
     r.yard && `📍 ${r.yard} yard`,
+    r.maps_url && `🗺 ${r.maps_url}`,
     // Date-only strings parse as UTC; format in UTC so the day never shifts.
     r.loading_date && `📅 ${new Date(r.loading_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}`,
     r.via && `🛣 via ${r.via}`,

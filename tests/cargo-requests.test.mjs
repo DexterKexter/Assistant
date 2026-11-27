@@ -28,3 +28,12 @@ test('uploads enforce type and size, not just the file extension', () => {
   assert.ok(cargoFileError({type:'application/pdf',size:1024},true))
   assert.equal(cargoFileError({type:'application/pdf',size:1024}),null)
 })
+
+test('carrier message carries the yard, its map link and the shipper phone', async () => {
+  const { carrierRequestText } = await import('../src/lib/cargo-requests.ts')
+  const text = carrierRequestText({ container_size: 45, yard: 'Al Hatim', maps_url: 'https://maps.app.goo.gl/x', shipper_phone: '+971500000000' })
+  assert.match(text, /1x45HQ/)
+  assert.match(text, /📍 Al Hatim yard\n🗺 https:\/\/maps\.app\.goo\.gl\/x/)
+  assert.match(text, /Shipper: \+971500000000/)
+  assert.doesNotMatch(carrierRequestText({ container_size: 40 }), /🗺|📍|Shipper/)
+})

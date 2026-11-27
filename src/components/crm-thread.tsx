@@ -9,6 +9,7 @@ import { shipmentStatusText, shipmentStatusLabel } from '@/lib/shipment-status'
 import { templateValues } from '@/lib/template-values'
 import { TEMPLATES, TEMPLATE_FIELDS, compileTemplate, fillTemplate } from '@/lib/whatsapp-template'
 import { clientHabits, type Habit } from '@/lib/client-habits'
+import { carrierRequestText } from '@/lib/cargo-requests'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SearchableSelect } from '@/components/searchable-select'
 import { WaText } from '@/components/wa-text'
@@ -303,15 +304,18 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
 
   const [carriers, setCarriers] = useState<{ id: string; name: string; telegram_chat_id: number | null }[]>([])
   // Dropdown options come from the reference lists (Админка → Справочники), same as the shipment form.
-  const [refs, setRefs] = useState<Record<string, { value: string; label: string }[]>>({})
+  const [refs, setRefs] = useState<Record<string, { value: string; label: string; name_en?: string | null; phone?: string | null; maps_url?: string | null }[]>>({})
   useEffect(() => {
-    supabase.from('reference_items').select('category, name').order('name').then(({ data }) =>
-      setRefs(Object.groupBy((data || []).map(r => ({ category: r.category as string, value: r.name as string, label: r.name as string })), r => r.category) as typeof refs))
+    supabase.from('reference_items').select('category, name, name_en, phone, maps_url').order('name').then(({ data }) =>
+      setRefs(Object.groupBy((data || []).map(r => ({ ...r, category: r.category as string, value: r.name as string, label: r.name as string })), r => r.category) as typeof refs))
     supabase.from('carriers').select('id, name, telegram_chat_id').order('name').then(({ data }) => setCarriers(data || []))
   }, [])
   // Container suppliers are the carriers. One with a Telegram group gets the request posted there by the bot.
   const supplier = carriers.find(c => c.id === draft?.supplier)
   const willPost = !!supplier?.telegram_chat_id
+  // Mirrors what the carrier endpoint builds on the server, minus the request number.
+  const senderRef = (refs.sender || []).find(o => o.value === draft?.sender)
+  const preview = willPost && draft ? carrierRequestText({ container_size: draft.container_size, loading_date: draft.loading_date || null, yard: senderRef?.name_en || draft.sender || null, shipper_phone: senderRef?.phone, maps_url: senderRef?.maps_url }) : ''
 
   // What this client usually ships, as one-click presets.
   const [habits, setHabits] = useState<Habit[]>([])
@@ -419,6 +423,12 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
                     <SearchableSelect placeholder="Отправитель" options={refs.sender || []} value={draft.sender} onChange={v => setDraft({ ...draft, sender: v })} />
                   </div>
                 </div>
+                {preview && (
+                  <div>
+                    <p className={section}>Уйдёт в Telegram-группу {supplier?.name}</p>
+                    <pre className="whitespace-pre-wrap break-words rounded-lg bg-slate-50 px-3 py-2 font-sans text-[12.5px] leading-snug text-slate-700">{preview}</pre>
+                  </div>
+                )}
                 {requests.length > 0 && (
                   <div>
                     <p className={section}>Уже созданы из этого чата</p>
@@ -434,7 +444,7 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
               </div>
               <div className="flex items-center gap-2 border-t border-slate-100 px-5 py-3">
                 {error ? <p className="min-w-0 flex-1 text-[12px] text-red-600">{error}</p>
-                  : willPost && <p className="min-w-0 flex-1 text-[12px] text-slate-500">Заявка уйдёт в Telegram-группу {supplier?.name}</p>}
+                  : null}
                 <button type="button" onClick={() => { setDraft(null); setError('') }} className="ml-auto h-9 rounded-lg px-3 text-[13px] font-medium text-slate-600 hover:bg-slate-100">Отмена</button>
                 <button type="submit" disabled={saving} className="h-9 rounded-lg bg-slate-900 px-4 text-[13px] font-medium text-white hover:bg-slate-800 disabled:bg-slate-200">{saving ? 'Сохраняем…' : willPost ? 'Создать и отправить' : 'Создать заявку'}</button>
               </div>

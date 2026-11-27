@@ -16,7 +16,19 @@ export async function POST(req: Request) {
   const { data: carrier } = await supabase.from('carriers').select('telegram_chat_id').eq('id', request.carrier_id).maybeSingle()
   if (!carrier?.telegram_chat_id || carrier.telegram_chat_id === request.carrier_chat_id) return Response.json({ carrier_message_id: null })
 
-  const sent = await (await tg('sendMessage', { chat_id: carrier.telegram_chat_id, text: carrierRequestText({ ...request, yard: request.sender?.name ?? request.sender_name }),
+  // Requests created from a WhatsApp chat name the sender from the reference list, which holds
+  // the English name, phone and map link for the carrier. Fields set on the request itself win.
+  const { data: ref } = request.sender_name
+    ? await supabase.from('reference_items').select('name_en, phone, maps_url').eq('category', 'sender').eq('name', request.sender_name).limit(1).maybeSingle()
+    : { data: null }
+  const text = carrierRequestText({
+    ...request,
+    yard: request.sender?.name ?? ref?.name_en ?? request.sender_name,
+    shipper_phone: request.shipper_phone ?? ref?.phone,
+    maps_url: ref?.maps_url,
+  })
+
+  const sent = await (await tg('sendMessage', { chat_id: carrier.telegram_chat_id, text, link_preview_options: { is_disabled: true },
     // Pressed by the carrier to confirm; handled in the Telegram webhook.
     reply_markup: { inline_keyboard: [[{ text: '✅ Accepted', callback_data: 'accept' }]] },
   })).json()
