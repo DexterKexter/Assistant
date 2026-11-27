@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutGrid, Ship, Users, CheckSquare, MessageSquare,
   Menu as MenuIcon, X, BarChart3, Truck, Wallet, FileText,
-  Shield, Settings, LogOut, User, Save, ClipboardList, Kanban, Tag } from 'lucide-react'
+  Shield, Settings, LogOut, User, Save, ClipboardList, Kanban, Tag, Send } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/useProfile'
 import { cn } from '@/lib/utils'
@@ -43,6 +43,11 @@ export function MobileNav({ unreadCount, taskCount }: { unreadCount: number; tas
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileDraft, setProfileDraft] = useState<{ full_name: string; phone: string }>({ full_name: '', phone: '' })
   const [profileSaving, setProfileSaving] = useState(false)
+  // null while loading; the Telegram id is not part of the cached profile.
+  const [tgLinked, setTgLinked] = useState<boolean | null>(null)
+  // The user went to the bot; the status is re-read when they come back and tap "Проверить".
+  const [tgWaiting, setTgWaiting] = useState(false)
+  const loadTelegram = (id: string) => createClient().from('profiles').select('telegram_id').eq('id', id).single().then(({ data }) => setTgLinked(!!data?.telegram_id))
 
   // Hide mobile bottom nav while either sheet is open
   useEffect(() => {
@@ -56,6 +61,14 @@ export function MobileNav({ unreadCount, taskCount }: { unreadCount: number; tas
     setProfileDraft({ full_name: profile.full_name || '', phone: profile.phone || '' })
     setMenuOpen(false)
     setProfileOpen(true)
+    setTgLinked(null)
+    setTgWaiting(false)
+    loadTelegram(profile.id)
+  }
+  const unlinkTelegram = async () => {
+    if (!profile || !confirm('Отвязать Telegram от аккаунта? Бот перестанет вам отвечать.')) return
+    const { error } = await createClient().from('profiles').update({ telegram_id: null }).eq('id', profile.id)
+    if (!error) setTgLinked(false)
   }
   const saveProfile = async () => {
     if (!profile) return
@@ -307,6 +320,18 @@ export function MobileNav({ unreadCount, taskCount }: { unreadCount: number; tas
                   className="mt-1 w-full h-10 rounded-xl border border-white/80 bg-white/70 backdrop-blur-sm px-3 text-[13px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 focus:bg-white"
                   placeholder="+7 900 000 00 00"
                 />
+              </div>
+              {/* Linking happens in the bot: the link carries a one-time token, the bot writes the Telegram id to the profile. */}
+              <div>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Telegram</p>
+                <div className="mt-1 flex h-10 items-center gap-2 rounded-xl border border-white/80 bg-white/70 pl-3 pr-1.5 backdrop-blur-sm">
+                  <Send className={cn('h-4 w-4 shrink-0', tgLinked ? 'text-emerald-600' : 'text-slate-400')} />
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-slate-800">{tgLinked ? 'Привязан' : tgWaiting ? 'Ждём привязки в боте' : tgLinked === null ? 'Проверяем…' : 'Не привязан'}</span>
+                  {tgLinked === true && <button type="button" onClick={unlinkTelegram} className="h-7 shrink-0 rounded-lg px-2.5 text-[12px] font-medium text-slate-500 active:bg-white">Отвязать</button>}
+                  {tgLinked === false && !tgWaiting && <a href="/api/telegram/link" target="_blank" rel="noopener" onClick={() => setTgWaiting(true)} className="flex h-7 shrink-0 items-center rounded-lg bg-slate-900 px-2.5 text-[12px] font-medium text-white active:bg-slate-800">Привязать</a>}
+                  {tgLinked === false && tgWaiting && profile && <button type="button" onClick={() => loadTelegram(profile.id)} className="h-7 shrink-0 rounded-lg bg-slate-900 px-2.5 text-[12px] font-medium text-white active:bg-slate-800">Проверить</button>}
+                </div>
+                {tgLinked === false && <p className="mt-1 text-[11px] text-slate-500">Откроется бот — нажмите в нём «Старт». Ссылка действует 10 минут.</p>}
               </div>
             </div>
 
