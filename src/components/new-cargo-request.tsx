@@ -35,21 +35,16 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
   const [draft, setDraft] = useState(emptyDraft)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  // Carriers with a Telegram group: a request created for one is posted to that group by the bot.
-  const [carriers, setCarriers] = useState<{ id: string; name: string }[]>([])
+  const [carriers, setCarriers] = useState<{ id: string; name: string; telegram_chat_id: number | null }[]>([])
   useEffect(() => {
-    createClient().from('carriers').select('id, name').not('telegram_chat_id', 'is', null).order('name')
+    createClient().from('carriers').select('id, name, telegram_chat_id').order('name')
       .then(({ data }) => setCarriers(data ?? []))
   }, [])
   // Same reference lists as the shipment form (Справочники): cities and cargo.
-  const [refs, setRefs] = useState<Record<string, { value: string; label: string }[]>>({})
+  const [refs, setRefs] = useState<Record<string, { value: string; label: string; name_en?: string | null; phone?: string | null; maps_url?: string | null }[]>>({})
   useEffect(() => {
-    createClient().from('reference_items').select('category, name').order('name').then(({ data }) =>
-      setRefs(Object.groupBy((data ?? []).map(r => ({ category: r.category as string, value: r.name as string, label: r.name as string })), r => r.category) as Record<string, { value: string; label: string }[]>))
-  }, [])
-  const [suppliers, setSuppliers] = useState<{ value: string; label: string }[]>([])
-  useEffect(() => {
-    createClient().from('carriers').select('name').order('name').then(({ data }) => setSuppliers((data ?? []).map(c => ({ value: c.name as string, label: c.name as string }))))
+    createClient().from('reference_items').select('category, name, name_en, phone, maps_url').order('name').then(({ data }) =>
+      setRefs(Object.groupBy((data ?? []).map(r => ({ ...r, category: r.category as string, value: r.name as string, label: r.name as string })), r => r.category) as typeof refs))
   }, [])
   const [clients, setClients] = useState<{ id: string; name: string; phone: string | null }[]>([])
   useEffect(() => {
@@ -60,6 +55,11 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
     createClient().from('senders').select('id, name, phone').order('name').then(({ data }) => setSenders(data ?? []))
   }, [])
   const draftSender = senders.find(s => s.id === draft.sender_id)
+  // Справочники hold the sender's English name, phone and map link; matched by name, as the carrier endpoint does.
+  const senderRef = (refs.sender ?? []).find(o => o.value === draftSender?.name)
+  // The carrier is also the container supplier. One with a Telegram group gets the request posted there by the bot.
+  const carrier = carriers.find(c => c.id === draft.carrier_id)
+  const willPost = !!carrier?.telegram_chat_id
   const set = (key: keyof typeof emptyDraft, value: string) => setDraft(d => ({ ...d, [key]: value }))
   const closeCreate = () => { if (!saving) onClose() }
 
@@ -75,7 +75,7 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
       const { cargo, ...fields } = draft
       const { data, error } = await createClient().from('cargo_requests').insert({
         ...fields, container_type: draft.container_type || null, client_id: draft.client_id || null, client_name: draft.client_name.trim(), container_number: draft.container_number || null,
-        loading_date: draft.loading_date || null, supplier: draft.supplier.trim() || null, carrier_id: draft.carrier_id || null,
+        loading_date: draft.loading_date || null, supplier: carrier?.name ?? null, carrier_id: draft.carrier_id || null,
         sender_id: draft.sender_id || null, shipper_phone, weight_kg: draft.weight_kg ? Number(draft.weight_kg) : null,
         container_size: Number(draft.container_size), container_owner: draft.container_owner || null, via: draft.via || null, status: 'draft',
       }).select('id').single()
@@ -85,10 +85,8 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
       // A phone typed for a client who had none is kept on the client, so next time it is prefilled.
       const client = clients.find(c => c.id === draft.client_id)
       if (client && !client.phone && draft.phone.trim()) await createClient().from('clients').update({ phone: draft.phone.trim() }).eq('id', client.id)
-      // The shipper's phone lives on the sender, so next time it is prefilled.
-      if (draftSender && shipper_phone && shipper_phone !== draftSender.phone) await createClient().from('senders').update({ phone: shipper_phone }).eq('id', draftSender.id)
       // The carrier endpoint posts the request to the carrier's Telegram group.
-      onCreated(!!draft.carrier_id && !(await fetch('/api/cargo-request/carrier', { method: 'POST', body: JSON.stringify({ id: data.id }) })).ok)
+      onCreated(willPost && !(await fetch('/api/cargo-request/carrier', { method: 'POST', body: JSON.stringify({ id: data.id }) })).ok)
     } catch {
       setSaveError('Не удалось сохранить черновик. Данные остались в форме — попробуйте ещё раз.')
     } finally { setSaving(false) }
@@ -118,7 +116,6 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
                 <label><span className={labelCls}>Дата загрузки</span><input type="date" className={inpCls} value={draft.loading_date} onChange={e => set('loading_date', e.target.value)} /></label>
                 <div><span className={labelCls}>Товар</span><SearchableSelect placeholder="Выберите..." options={refs.cargo ?? []} value={draft.cargo} onChange={v => set('cargo', v)} /></div>
                 <label><span className={labelCls}>Вес, кг</span><input type="number" min={0} step="any" className={inpCls} value={draft.weight_kg} onChange={e => set('weight_kg', e.target.value)} /></label>
-                <div><span className={labelCls}>Поставщик контейнера</span><SearchableSelect placeholder="Выберите..." options={suppliers} value={draft.supplier} onChange={v => set('supplier', v)} /></div>
               </div>
             </div>
           </div>
@@ -136,12 +133,10 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
                 <SearchableSelect placeholder="Клиент *" options={clients.map(c => ({ value: c.id, label: c.name }))} value={draft.client_id}
                   onChange={v => { const c = clients.find(c => c.id === v); setDraft(d => ({ ...d, client_id: v, client_name: c?.name ?? '', phone: c?.phone ?? '' })) }} />
                 <input type="tel" maxLength={40} aria-label="Телефон клиента" placeholder={draft.client_id && !draft.phone ? 'Нет телефона — впишите' : 'Телефон клиента'} className={inpCls} value={draft.phone} onChange={e => set('phone', e.target.value)} />
-                <div className="space-y-2">
-                  <SearchableSelect placeholder="Отправитель (yard)" options={senders.map(s => ({ value: s.id, label: s.name }))} value={draft.sender_id}
-                    onChange={v => setDraft(d => ({ ...d, sender_id: v, shipper_phone: senders.find(s => s.id === v)?.phone ?? '' }))} />
-                  {draft.sender_id && <input type="tel" maxLength={40} placeholder="Телефон отправителя" aria-label="Телефон отправителя" className={inpCls} value={draft.shipper_phone} onChange={e => set('shipper_phone', e.target.value)} />}
-                </div>
-                <SearchableSelect placeholder="Перевозчик" options={carriers.map(c => ({ value: c.id, label: c.name }))} value={draft.carrier_id} onChange={v => set('carrier_id', v)} />
+                {/* The sender's phone is not asked here: it goes to the carrier from the sender's record or the reference list. */}
+                <SearchableSelect placeholder="Отправитель (yard)" options={senders.map(s => ({ value: s.id, label: s.name }))} value={draft.sender_id}
+                  onChange={v => setDraft(d => ({ ...d, sender_id: v, shipper_phone: senders.find(s => s.id === v)?.phone ?? '' }))} />
+                <SearchableSelect placeholder="Перевозчик" options={carriers.map(c => ({ value: c.id, label: c.telegram_chat_id ? `${c.name} · Telegram` : c.name }))} value={draft.carrier_id} onChange={v => set('carrier_id', v)} />
               </div>
             </div>
           </div>
@@ -166,10 +161,10 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
             </div>
           </div>
 
-          {draft.carrier_id && (
+          {willPost && (
             <div>
               <p className={sectionCls}>Уйдёт в Telegram-группу перевозчика</p>
-              <pre className={`${cardCls} whitespace-pre-wrap break-words font-sans text-[13px] leading-snug text-slate-700`}>{carrierRequestText({ ...draft, container_size: Number(draft.container_size), yard: draftSender?.name })}</pre>
+              <pre className={`${cardCls} whitespace-pre-wrap break-words font-sans text-[13px] leading-snug text-slate-700`}>{carrierRequestText({ ...draft, container_size: Number(draft.container_size), yard: senderRef?.name_en || draftSender?.name, shipper_phone: draft.shipper_phone || senderRef?.phone, maps_url: senderRef?.maps_url })}</pre>
             </div>
           )}
           <p className="px-1 text-[12px] text-slate-500">Ссылка для настоящей отправки клиенту появится на следующем этапе.</p>
@@ -179,7 +174,7 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
         <div className="flex items-center gap-2 border-t border-white/60 bg-white/20 px-5 pb-3 pt-3">
           <button type="button" onClick={closeCreate} className="h-10 flex-1 rounded-xl border border-white/80 bg-white/60 text-[13px] font-medium text-slate-600 transition-colors active:bg-white/90">Отмена</button>
           <button type="submit" disabled={saving} className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-[13px] font-semibold text-white shadow-md shadow-indigo-500/25 active:bg-indigo-700 disabled:opacity-50">
-            <Save className="h-3.5 w-3.5" /> {saving ? 'Сохраняем…' : draft.carrier_id ? 'Сохранить и отправить' : 'Сохранить черновик'}
+            <Save className="h-3.5 w-3.5" /> {saving ? 'Сохраняем…' : willPost ? 'Сохранить и отправить' : 'Сохранить черновик'}
           </button>
         </div>
       </form>

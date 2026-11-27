@@ -16,14 +16,15 @@ export async function POST(req: Request) {
   const { data: carrier } = await supabase.from('carriers').select('telegram_chat_id').eq('id', request.carrier_id).maybeSingle()
   if (!carrier?.telegram_chat_id || carrier.telegram_chat_id === request.carrier_chat_id) return Response.json({ carrier_message_id: null })
 
-  // Requests created from a WhatsApp chat name the sender from the reference list, which holds
-  // the English name, phone and map link for the carrier. Fields set on the request itself win.
-  const { data: ref } = request.sender_name
-    ? await supabase.from('reference_items').select('name_en, phone, maps_url').eq('category', 'sender').eq('name', request.sender_name).limit(1).maybeSingle()
+  // The reference list (Справочники) holds the sender's English name, phone and map link for the carrier,
+  // matched by the sender's name. A phone saved on the request itself wins.
+  const senderName = request.sender?.name ?? request.sender_name
+  const { data: ref } = senderName
+    ? await supabase.from('reference_items').select('name_en, phone, maps_url').eq('category', 'sender').eq('name', senderName).limit(1).maybeSingle()
     : { data: null }
   const text = carrierRequestText({
     ...request,
-    yard: request.sender?.name ?? ref?.name_en ?? request.sender_name,
+    yard: ref?.name_en ?? senderName,
     shipper_phone: request.shipper_phone ?? ref?.phone,
     maps_url: ref?.maps_url,
   })
