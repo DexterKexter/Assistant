@@ -6,7 +6,7 @@ import { openrouter, SYSTEM_PROMPT, agentTools } from '@/lib/agent-tools'
 export const maxDuration = 60
 
 type TgMessage = {
-  chat: { id: number }
+  chat: { id: number; type: string }
   from?: { id: number }
   text?: string
   reply_to_message?: { text?: string }
@@ -58,7 +58,8 @@ export async function POST(req: Request) {
   }
 
   const m: TgMessage | undefined = (await req.json()).message
-  if (m?.text && m.from) {
+  // The assistant talks only in private chats; in carrier groups the bot stays silent.
+  if (m?.text && m.from && m.chat.type === 'private') {
     // The bot is public and the tools bypass RLS, so only listed Telegram user ids get answers.
     const allowed = (process.env.TELEGRAM_ALLOWED_IDS ?? '').split(',').map((s) => s.trim())
     if (allowed.includes(String(m.from.id))) {
