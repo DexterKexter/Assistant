@@ -101,25 +101,6 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
-          {/* Container: illustration + size, type and the rest, as in the new shipment window. A request has no container number yet. */}
-          <div className="grid grid-cols-1 items-center gap-5 rounded-2xl bg-white/50 p-4 ring-1 ring-white/80 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-            <div className="flex min-h-[140px] items-center justify-center"><ContainerArt size={draft.container_size} color={containerTypeColor(draft.container_type)} /></div>
-            <div className="space-y-4">
-              {/* Choices: one row each, label on the left, so the groups line up. */}
-              <div className="grid grid-cols-[112px_minmax(0,1fr)] items-center gap-x-3 gap-y-3">
-                <p className={rowLabelCls}>Размер</p>
-                <div className="flex gap-1">{(['20', '40', '45'] as const).map(v => pill(`${v} ft`, draft.container_size === v, () => set('container_size', v)))}</div>
-                <p className={rowLabelCls}>Тип</p>
-                <div className="flex flex-wrap gap-1">{CONTAINER_TYPES.map(([v, cls]) => pill(v, draft.container_type === v, () => set('container_type', v), cls))}</div>
-              </div>
-              <div className="grid grid-cols-1 gap-3 border-t border-slate-200/70 pt-4 sm:grid-cols-3">
-                <label><span className={labelCls}>Дата загрузки</span><input type="date" className={inpCls} value={draft.loading_date} onChange={e => set('loading_date', e.target.value)} /></label>
-                <div><span className={labelCls}>Товар</span><SearchableSelect placeholder="Выберите..." options={refs.cargo ?? []} value={draft.cargo} onChange={v => set('cargo', v)} /></div>
-                <label><span className={labelCls}>Вес, кг</span><input type="number" min={0} step="any" placeholder="—" className={inpCls} value={draft.weight_kg} onChange={e => set('weight_kg', e.target.value)} /></label>
-              </div>
-            </div>
-          </div>
-
           <div>
             <p className={sectionCls}>Участники</p>
             <div className={cardCls}>
@@ -135,6 +116,25 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
                 <SearchableSelect placeholder="Отправитель (yard)" options={senders.map(s => ({ value: s.id, label: s.name }))} value={draft.sender_id}
                   onChange={v => setDraft(d => ({ ...d, sender_id: v, shipper_phone: senders.find(s => s.id === v)?.phone ?? '' }))} />
                 <SearchableSelect placeholder="Перевозчик" options={carriers.map(c => ({ value: c.id, label: c.telegram_chat_id ? `${c.name} · Telegram` : c.name }))} value={draft.carrier_id} onChange={v => set('carrier_id', v)} />
+              </div>
+            </div>
+          </div>
+
+          {/* Container: illustration + size, type and the rest, as in the new shipment window. A request has no container number yet. */}
+          <div className="grid grid-cols-1 items-center gap-5 rounded-2xl bg-white/50 p-4 ring-1 ring-white/80 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+            <div className="flex min-h-[140px] items-center justify-center"><ContainerArt size={draft.container_size} color={containerTypeColor(draft.container_type)} /></div>
+            <div className="space-y-4">
+              {/* Choices: one row each, label on the left, so the groups line up. */}
+              <div className="grid grid-cols-[112px_minmax(0,1fr)] items-center gap-x-3 gap-y-3">
+                <p className={rowLabelCls}>Размер</p>
+                <div className="flex gap-1">{(['20', '40', '45'] as const).map(v => pill(`${v} ft`, draft.container_size === v, () => set('container_size', v)))}</div>
+                <p className={rowLabelCls}>Тип</p>
+                <div className="flex flex-wrap gap-1">{CONTAINER_TYPES.map(([v, cls]) => pill(v, draft.container_type === v, () => set('container_type', v), cls))}</div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 border-t border-slate-200/70 pt-4 sm:grid-cols-3">
+                <label><span className={labelCls}>Дата загрузки</span><input type="date" className={inpCls} value={draft.loading_date} onChange={e => set('loading_date', e.target.value)} /></label>
+                <div><span className={labelCls}>Товар</span><SearchableSelect placeholder="Выберите..." options={refs.cargo ?? []} value={draft.cargo} onChange={v => set('cargo', v)} /></div>
+                <label><span className={labelCls}>Вес, кг</span><input type="number" min={0} step="any" placeholder="—" className={inpCls} value={draft.weight_kg} onChange={e => set('weight_kg', e.target.value)} /></label>
               </div>
             </div>
           </div>
