@@ -12,7 +12,7 @@ import { CargoRequestDialog } from '@/components/cargo-request-dialog'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
-const emptyDraft = { client_name: '', phone: '', container_number: '', origin: '', destination: '', loading_date: '', supplier: '' }
+const emptyDraft = { client_name: '', phone: '', container_number: '', origin: '', destination: '', loading_date: '', supplier: '', carrier_id: '' }
 const date = (value: string) => new Date(value).toLocaleDateString('ru-RU')
 
 export default function CargoRequestsPage() {
@@ -29,6 +29,13 @@ export default function CargoRequestsPage() {
   const [draft, setDraft] = useState(emptyDraft)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [sendFailed, setSendFailed] = useState(false)
+  // Carriers with a Telegram group: a request created for one is posted to that group by the bot.
+  const [carriers, setCarriers] = useState<{ id: string; name: string }[]>([])
+  useEffect(() => {
+    createClient().from('carriers').select('id, name').not('telegram_chat_id', 'is', null).order('name')
+      .then(({ data }) => setCarriers(data ?? []))
+  }, [])
 
   useEffect(() => {
     if (!canManage) return
@@ -58,11 +65,15 @@ export default function CargoRequestsPage() {
     setSaving(true)
     setSaveError('')
     try {
-      const { error } = await createClient().from('cargo_requests').insert({
+      const { data, error } = await createClient().from('cargo_requests').insert({
         ...draft, client_name: draft.client_name.trim(), container_number: draft.container_number || null,
-        loading_date: draft.loading_date || null, supplier: draft.supplier.trim() || null, status: 'draft',
-      })
+        loading_date: draft.loading_date || null, supplier: draft.supplier.trim() || null, carrier_id: draft.carrier_id || null, status: 'draft',
+      }).select('id').single()
       if (error) throw error
+      if (draft.carrier_id) {
+        const res = await fetch('/api/cargo-request/carrier', { method: 'POST', body: JSON.stringify({ id: data.id }) })
+        setSendFailed(!res.ok)
+      }
       setCreateOpen(false)
       setDraft(emptyDraft)
       setVersion(v => v + 1)
@@ -117,13 +128,19 @@ export default function CargoRequestsPage() {
 
       <CargoRequestDialog request={selected} onClose={() => setSelected(null)} onChange={r => { setSelected(r); setVersion(v => v + 1) }} />
 
+      {sendFailed && <p role="alert" className="text-sm text-red-600">Заявка сохранена, но отправить её перевозчику в Telegram не удалось.</p>}
       <Dialog open={createOpen} onOpenChange={open => { if (!saving) setCreateOpen(open) }}>
         <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle>Новая заявка на груз</DialogTitle><DialogDescription>Сохраните черновик. Для начала достаточно имени клиента.</DialogDescription></DialogHeader>
           <form onSubmit={saveDraft} className="space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {([['client_name','Имя клиента *','text',120],['phone','Телефон','tel',40],['container_number','Номер контейнера','text',11],['loading_date','Дата загрузки','date',undefined],['origin','Откуда','text',160],['destination','Куда','text',160],['supplier','Поставщик контейнера','text',120]] as const).map(([key,label,type,maxLength]) => <label key={key} className="space-y-1.5 text-xs text-slate-600"><span>{label}</span><Input type={type} className="h-11 bg-white" required={key==='client_name'} maxLength={maxLength} value={draft[key]} onChange={e=>setDraft(d=>({...d,[key]:key==='container_number' ? editContainerNumber(e.target.value,d.container_number) : e.target.value}))} /></label>)}
+              <label className="space-y-1.5 text-xs text-slate-600"><span>Перевозчик</span>
+                <select className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900" value={draft.carrier_id} onChange={e=>setDraft(d=>({...d,carrier_id:e.target.value}))}>
+                  <option value="">Не выбран</option>{carriers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+                </select></label>
             </div>
             <p className="text-xs text-slate-500">Ссылка для настоящей отправки клиенту появится на следующем этапе.</p>
+            {draft.carrier_id && <p className="text-xs text-slate-500">После сохранения бот отправит заявку в Telegram-группу перевозчика.</p>}
             {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
             <Button type="submit" disabled={saving} className="h-11 w-full bg-slate-900 text-white">{saving ? 'Сохраняем…' : 'Сохранить черновик'}</Button>
           </form>
