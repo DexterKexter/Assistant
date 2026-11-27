@@ -5,7 +5,7 @@ import { useProfile } from '@/lib/useProfile'
 import { useNotifications } from '@/lib/useNotifications'
 import { useTaskModal } from '@/lib/task-modal'
 import { useShipmentModal } from '@/lib/shipment-modal'
-import { Bell, CheckCheck, UserPlus, MessageSquare, X, HelpCircle, Eye, Shield, Users, Wallet, FileText, Camera, Calendar, DollarSign } from 'lucide-react'
+import { Bell, CheckCheck, UserPlus, MessageSquare, X, HelpCircle, Eye, Shield, Users, Wallet, FileText, Camera, Calendar, DollarSign, Send } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
@@ -117,6 +117,15 @@ export function Header() {
           >
             <HelpCircle className="h-4 w-4 text-slate-400" strokeWidth={1.8} />
           </Link>
+          <a
+            href="/api/telegram/link"
+            target="_blank"
+            rel="noopener"
+            className="w-9 h-9 rounded-lg border border-slate-200/60 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors"
+            title="Привязать Telegram"
+          >
+            <Send className="h-4 w-4 text-slate-400" strokeWidth={1.8} />
+          </a>
           <button
             onClick={() => setShowNotifs(!showNotifs)}
             className="relative w-9 h-9 rounded-lg border border-slate-200/60 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors"

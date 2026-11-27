@@ -35,6 +35,24 @@ export interface CargoRequest {
   is_demo: boolean
   created_at: string
   cargo_request_items: CargoItem[]
+  carrier_message_id?: number | null
+  cargo_request_replies?: { id: string; author: string; text: string; created_at: string }[]
+}
+
+// What the bot posts to the carrier's Telegram group. No client name/phone and no free-form notes:
+// those stay inside STI Logistics.
+export function carrierRequestText(r: CargoRequest): string {
+  const items = [...r.cargo_request_items].sort((a, b) => a.position - b.position).map((i, n) =>
+    `${n + 1}. ${[`${i.name} — ${i.quantity} ${i.unit}`, i.packages != null && `мест ${i.packages}`, i.weight_kg != null && `${i.weight_kg} кг`, i.volume_m3 != null && `${i.volume_m3} м³`].filter(Boolean).join(', ')}`)
+  return [
+    `STI Logistics · Заявка на перевозку №${r.request_number.toString().padStart(4, '0')}`,
+    `Маршрут: ${r.origin || '—'} → ${r.destination || '—'}`,
+    `Контейнер: ${r.container_size} ft${r.container_number ? `, ${r.container_number}` : ''}`,
+    `Дата загрузки: ${r.loading_date ? new Date(r.loading_date).toLocaleDateString('ru-RU') : 'уточняется'}`,
+    ...(items.length ? ['Груз:', ...items] : []),
+    '',
+    'Ответьте на это сообщение — ответ попадёт в заявку.',
+  ].join('\n')
 }
 
 export function cargoContactError(value: { client_name: string; phone: string; container_number: string }, complete = false): string | null {

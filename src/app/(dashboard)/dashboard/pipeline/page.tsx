@@ -42,7 +42,7 @@ export default function PipelinePage() {
     if (e.metaKey || e.ctrlKey) return // new tab still works
     e.preventDefault()
     if (card.stage) return openShipment(card.id)
-    const { data } = await createClient().from('cargo_requests').select('*, cargo_request_items(*)').eq('id', card.id).single()
+    const { data } = await createClient().from('cargo_requests').select('*, cargo_request_items(*), cargo_request_replies(*)').eq('id', card.id).single()
     if (data) setRequest(data as CargoRequest)
     else setError('Не удалось открыть заявку.')
   }

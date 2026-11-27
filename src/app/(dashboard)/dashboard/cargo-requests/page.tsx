@@ -37,7 +37,7 @@ export default function CargoRequestsPage() {
       setLoading(true)
       setError('')
       try {
-        const { data, error } = await createClient().from('cargo_requests').select('*, cargo_request_items(*)').order('created_at', { ascending: false }).abortSignal(controller.signal)
+        const { data, error } = await createClient().from('cargo_requests').select('*, cargo_request_items(*), cargo_request_replies(*)').order('created_at', { ascending: false }).abortSignal(controller.signal)
         if (controller.signal.aborted) return
         if (error) throw error
         setRequests(data as CargoRequest[])

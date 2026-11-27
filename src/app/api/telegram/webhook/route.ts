@@ -2,30 +2,18 @@ import { after } from 'next/server'
 import { generateText, stepCountIs, type ModelMessage } from 'ai'
 import { createServiceClient } from '@/lib/crm'
 import { openrouter, SYSTEM_PROMPT, agentTools } from '@/lib/agent-tools'
+import { tg, tgSend, userIdFromLinkToken } from '@/lib/telegram'
 
 export const maxDuration = 60
 
 type TgMessage = {
   chat: { id: number; type: string }
-  from?: { id: number }
+  from?: { id: number; first_name?: string; last_name?: string }
   text?: string
-  reply_to_message?: { text?: string }
+  reply_to_message?: { message_id: number; text?: string }
 }
 
-function tg(method: string, body: object) {
-  return fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/${method}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-}
-
-async function send(chatId: number, text: string) {
-  // Telegram caps a message at 4096 chars.
-  for (let i = 0; i < text.length; i += 4000) await tg('sendMessage', { chat_id: chatId, text: text.slice(i, i + 4000) })
-}
-
-async function answer(m: TgMessage) {
+async function answer(m: TgMessage, managerName: string | null) {
   await tg('sendChatAction', { chat_id: m.chat.id, action: 'typing' })
   // ponytail: no stored history — context is only the message being replied to. Add a table if multi-turn matters.
   const messages: ModelMessage[] = [
@@ -38,16 +26,27 @@ async function answer(m: TgMessage) {
   try {
     const { text } = await generateText({
       model: openrouter.chat('deepseek/deepseek-v4.1-flash'),
-      system: SYSTEM_PROMPT + '\n\nТы отвечаешь в Telegram: только простой текст, без markdown, без таблиц. Изменять данные и строить графики здесь нельзя — для этого дашборд.',
+      system: SYSTEM_PROMPT + `\n\nТы отвечаешь в Telegram: только простой текст, без markdown, без таблиц. Изменять данные и строить графики здесь нельзя — для этого дашборд.${managerName ? ` Тебе пишет сотрудник: ${managerName}.` : ''}`,
       messages,
       stopWhen: stepCountIs(12),
       tools,
     })
-    await send(m.chat.id, text || 'Не удалось получить ответ.')
+    await tgSend(m.chat.id, text || 'Не удалось получить ответ.')
   } catch (e) {
     console.error('telegram agent', e)
-    await send(m.chat.id, 'Ошибка при обработке запроса. Попробуйте ещё раз.')
+    await tgSend(m.chat.id, 'Ошибка при обработке запроса. Попробуйте ещё раз.')
   }
+}
+
+// `/start <token>` from the dashboard's "link Telegram" button.
+async function linkAccount(m: TgMessage, token: string) {
+  const userId = userIdFromLinkToken(token)
+  if (!userId) return tgSend(m.chat.id, 'Ссылка устарела. Нажмите «Привязать Telegram» на сайте ещё раз.')
+  const db = createServiceClient()
+  // One Telegram account ↔ one profile: relinking moves it.
+  await db.from('profiles').update({ telegram_id: null }).eq('telegram_id', m.from!.id)
+  const { data } = await db.from('profiles').update({ telegram_id: m.from!.id }).eq('id', userId).select('full_name').single()
+  return tgSend(m.chat.id, data ? `Готово, Telegram привязан к аккаунту ${data.full_name ?? ''}. Можете задавать вопросы по базе.` : 'Не удалось привязать аккаунт.')
 }
 
 export async function POST(req: Request) {
@@ -58,15 +57,34 @@ export async function POST(req: Request) {
   }
 
   const m: TgMessage | undefined = (await req.json()).message
-  // The assistant talks only in private chats; in carrier groups the bot stays silent.
-  if (m?.text && m.from && m.chat.type === 'private') {
-    // The bot is public and the tools bypass RLS, so only listed Telegram user ids get answers.
-    const allowed = (process.env.TELEGRAM_ALLOWED_IDS ?? '').split(',').map((s) => s.trim())
-    if (allowed.includes(String(m.from.id))) {
-      // Telegram retries if the 200 is slow; the model runs after the response.
-      after(() => answer(m))
+  if (!m?.text || !m.from) return Response.json({ ok: true })
+  const db = createServiceClient()
+
+  if (m.chat.type === 'private') {
+    const start = m.text.match(/^\/start (\S+)$/)
+    if (start) {
+      await linkAccount(m, start[1])
     } else {
-      await send(m.chat.id, `Нет доступа. Ваш Telegram ID: ${m.from.id}`)
+      // The bot is public and the tools bypass RLS, so only linked admins/managers get answers.
+      const { data: profile } = await db.from('profiles').select('full_name, role').eq('telegram_id', m.from.id).maybeSingle()
+      if (profile && ['admin', 'manager'].includes(profile.role)) {
+        // Telegram retries if the 200 is slow; the model runs after the response.
+        after(() => answer(m, profile.full_name))
+      } else {
+        await tgSend(m.chat.id, 'Бот доступен сотрудникам STI Logistics. Войдите в дашборд и нажмите «Привязать Telegram» в шапке сайта.')
+      }
+    }
+  } else if (m.reply_to_message) {
+    // Carrier group: keep replies to a request the bot posted there. Everything else in groups is ignored.
+    // ponytail: text replies only; photos/files in the thread are not stored.
+    const { data: request } = await db.from('cargo_requests').select('id')
+      .eq('carrier_chat_id', m.chat.id).eq('carrier_message_id', m.reply_to_message.message_id).maybeSingle()
+    if (request) {
+      await db.from('cargo_request_replies').insert({
+        request_id: request.id,
+        author: [m.from.first_name, m.from.last_name].filter(Boolean).join(' '),
+        text: m.text,
+      })
     }
   }
   return Response.json({ ok: true })

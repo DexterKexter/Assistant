@@ -1,0 +1,27 @@
+import { createClient } from '@/lib/supabase/server'
+import { carrierRequestText, type CargoRequest } from '@/lib/cargo-requests'
+import { tg } from '@/lib/telegram'
+
+// Called after a request's supplier is saved: if the supplier is a carrier with a Telegram group,
+// the bot posts the request there (once per group).
+export async function POST(req: Request) {
+  const { id } = await req.json()
+  // User session, not service role: RLS lets only admins/managers read requests and carriers.
+  const supabase = await createClient()
+  const { data } = await supabase.from('cargo_requests').select('*, cargo_request_items(*)').eq('id', id).single()
+  const request = data as (CargoRequest & { carrier_chat_id: number | null }) | null
+  if (!request) return new Response('not found', { status: 404 })
+  if (!request.supplier) return Response.json({ carrier_message_id: null })
+
+  const { data: carrier } = await supabase.from('carriers').select('telegram_chat_id')
+    .ilike('name', request.supplier.replace(/[%_\\]/g, '\\$&')).not('telegram_chat_id', 'is', null).limit(1).maybeSingle()
+  // ponytail: no lock — two blurs in the same second could post twice.
+  if (!carrier || carrier.telegram_chat_id === request.carrier_chat_id) return Response.json({ carrier_message_id: null })
+
+  const sent = await (await tg('sendMessage', { chat_id: carrier.telegram_chat_id, text: carrierRequestText(request) })).json()
+  if (!sent.ok) return new Response('telegram error', { status: 502 })
+
+  const carrier_message_id: number = sent.result.message_id
+  await supabase.from('cargo_requests').update({ carrier_chat_id: carrier.telegram_chat_id, carrier_message_id }).eq('id', id)
+  return Response.json({ carrier_message_id })
+}
