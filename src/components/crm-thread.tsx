@@ -301,18 +301,17 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
       .then(({ data }) => setRequests(data || []))
   }, [chat.id])
 
+  const [carriers, setCarriers] = useState<{ id: string; name: string; telegram_chat_id: number | null }[]>([])
   // Dropdown options come from the reference lists (Админка → Справочники), same as the shipment form.
   const [refs, setRefs] = useState<Record<string, { value: string; label: string }[]>>({})
   useEffect(() => {
-    // Container suppliers are the carriers; they live in their own table, not in the reference lists.
-    Promise.all([
-      supabase.from('reference_items').select('category, name').order('name'),
-      supabase.from('carriers').select('name').order('name'),
-    ]).then(([items, carriers]) => setRefs(Object.groupBy([
-      ...(items.data || []).map(r => ({ category: r.category as string, value: r.name as string, label: r.name as string })),
-      ...(carriers.data || []).map(c => ({ category: 'supplier', value: c.name as string, label: c.name as string })),
-    ], r => r.category) as typeof refs))
+    supabase.from('reference_items').select('category, name').order('name').then(({ data }) =>
+      setRefs(Object.groupBy((data || []).map(r => ({ category: r.category as string, value: r.name as string, label: r.name as string })), r => r.category) as typeof refs))
+    supabase.from('carriers').select('id, name, telegram_chat_id').order('name').then(({ data }) => setCarriers(data || []))
   }, [])
+  // Container suppliers are the carriers. One with a Telegram group gets the request posted there by the bot.
+  const supplier = carriers.find(c => c.id === draft?.supplier)
+  const willPost = !!supplier?.telegram_chat_id
 
   // What this client usually ships, as one-click presets.
   const [habits, setHabits] = useState<Habit[]>([])
@@ -337,12 +336,17 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
     const { data, error } = await supabase.from('cargo_requests').insert({
       client_name: (clientName || chat.phone || 'Без имени').slice(0, 120), phone: chat.phone || '', client_id: chat.client_id, chat_id: chat.id, source: 'whatsapp',
       origin: draft.origin, destination: draft.destination, container_size: draft.container_size, container_type: draft.container_type || null,
-      loading_date: draft.loading_date || null, sender_name: draft.sender || null, supplier: draft.supplier || null,
+      loading_date: draft.loading_date || null, sender_name: draft.sender || null, supplier: supplier?.name || null, carrier_id: supplier?.id || null,
     }).select(fields).single()
     if (error || !data) { setError(error?.message || 'Не удалось создать заявку'); setSaving(false); return }
     // The request itself is saved; a failed item insert only loses the cargo name.
     if (draft.cargo) await supabase.from('cargo_request_items').insert({ request_id: data.id, name: draft.cargo, quantity: 1 })
-    setRequests(r => [data, ...r]); setDraft(null); setSaving(false)
+    setRequests(r => [data, ...r]); setSaving(false)
+    // Same endpoint as the cargo requests page: posts to the carrier's Telegram group, once.
+    if (willPost && !(await fetch('/api/cargo-request/carrier', { method: 'POST', body: JSON.stringify({ id: data.id }) })).ok) {
+      setDraft(emptyRequest); setError('Заявка сохранена, но отправить её в Telegram не удалось.'); return
+    }
+    setDraft(null)
   }
 
   const section = 'mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400'
@@ -400,7 +404,7 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
                       ))}
                     </div>
                     <SearchableSelect placeholder="Тип контейнера" options={CONTAINER_TYPES.map(t => ({ value: t, label: t }))} value={draft.container_type} onChange={v => setDraft({ ...draft, container_type: v })} />
-                    <SearchableSelect placeholder="Поставщик контейнера" options={refs.supplier || []} value={draft.supplier} onChange={v => setDraft({ ...draft, supplier: v })} />
+                    <SearchableSelect placeholder="Поставщик контейнера" options={carriers.map(c => ({ value: c.id, label: c.telegram_chat_id ? `${c.name} · Telegram` : c.name }))} value={draft.supplier} onChange={v => setDraft({ ...draft, supplier: v })} />
                     <label className="relative block">
                       <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-slate-400">Загрузка</span>
                       <input type="date" aria-label="Дата загрузки" value={draft.loading_date} onChange={e => setDraft({ ...draft, loading_date: e.target.value })}
@@ -429,9 +433,10 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
                 )}
               </div>
               <div className="flex items-center gap-2 border-t border-slate-100 px-5 py-3">
-                {error && <p className="min-w-0 flex-1 truncate text-[12px] text-red-600">{error}</p>}
+                {error ? <p className="min-w-0 flex-1 text-[12px] text-red-600">{error}</p>
+                  : willPost && <p className="min-w-0 flex-1 text-[12px] text-slate-500">Заявка уйдёт в Telegram-группу {supplier?.name}</p>}
                 <button type="button" onClick={() => { setDraft(null); setError('') }} className="ml-auto h-9 rounded-lg px-3 text-[13px] font-medium text-slate-600 hover:bg-slate-100">Отмена</button>
-                <button type="submit" disabled={saving} className="h-9 rounded-lg bg-slate-900 px-4 text-[13px] font-medium text-white hover:bg-slate-800 disabled:bg-slate-200">{saving ? 'Сохраняем…' : 'Создать заявку'}</button>
+                <button type="submit" disabled={saving} className="h-9 rounded-lg bg-slate-900 px-4 text-[13px] font-medium text-white hover:bg-slate-800 disabled:bg-slate-200">{saving ? 'Сохраняем…' : willPost ? 'Создать и отправить' : 'Создать заявку'}</button>
               </div>
             </form>
           )}

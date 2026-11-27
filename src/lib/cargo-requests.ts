@@ -52,7 +52,7 @@ export function carrierRequestText(r: {
 }): string {
   return [
     `🚛 STI Logistics${r.request_number ? ` — request #${r.request_number.toString().padStart(4, '0')}` : ''}`,
-    `📦 Pls provide 1x${r.container_size === 20 ? '20DC' : '40HQ'}${r.container_owner ? ` · ${r.container_owner}` : ''}`,
+    `📦 Pls provide 1x${r.container_size === 20 ? '20DC' : r.container_size === 45 ? '45HQ' : '40HQ'}${r.container_owner ? ` · ${r.container_owner}` : ''}`,
     r.weight_kg && `⚖️ ${r.weight_kg} KG`,
     r.yard && `📍 ${r.yard} yard`,
     // Date-only strings parse as UTC; format in UTC so the day never shifts.
