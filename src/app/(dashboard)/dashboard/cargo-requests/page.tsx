@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { CargoRequestDialog } from '@/components/cargo-request-dialog'
 import { Button } from '@/components/ui/button'
 
-const emptyDraft = { client_name: '', phone: '', container_number: '', origin: '', destination: '', loading_date: '', supplier: '', carrier_id: '', sender_id: '', shipper_phone: '', weight_kg: '', container_size: '40', container_owner: '', via: '' }
+const emptyDraft = { client_id: '', client_name: '', phone: '', container_number: '', origin: '', destination: '', loading_date: '', supplier: '', carrier_id: '', sender_id: '', shipper_phone: '', weight_kg: '', container_size: '40', container_owner: '', via: '' }
 // Classes shared with the new shipment window (shipments/page.tsx).
 const inpCls = 'h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300'
 const labelCls = 'mb-1 block text-[11px] font-medium uppercase tracking-wider text-slate-500'
@@ -53,6 +53,10 @@ export default function CargoRequestsPage({ searchParams }: { searchParams: Prom
     createClient().from('carriers').select('id, name').not('telegram_chat_id', 'is', null).order('name')
       .then(({ data }) => setCarriers(data ?? []))
   }, [])
+  const [clients, setClients] = useState<{ id: string; name: string; phone: string | null }[]>([])
+  useEffect(() => {
+    createClient().from('clients').select('id, name, phone').order('name').then(({ data }) => setClients(data ?? []))
+  }, [version])
   const [senders, setSenders] = useState<{ id: string; name: string; phone: string | null }[]>([])
   useEffect(() => {
     createClient().from('senders').select('id, name, phone').order('name').then(({ data }) => setSenders(data ?? []))
@@ -91,12 +95,15 @@ export default function CargoRequestsPage({ searchParams }: { searchParams: Prom
     try {
       const shipper_phone = draft.shipper_phone.trim() || null
       const { data, error } = await createClient().from('cargo_requests').insert({
-        ...draft, client_name: draft.client_name.trim(), container_number: draft.container_number || null,
+        ...draft, client_id: draft.client_id || null, client_name: draft.client_name.trim(), container_number: draft.container_number || null,
         loading_date: draft.loading_date || null, supplier: draft.supplier.trim() || null, carrier_id: draft.carrier_id || null,
         sender_id: draft.sender_id || null, shipper_phone, weight_kg: draft.weight_kg ? Number(draft.weight_kg) : null,
         container_size: Number(draft.container_size), container_owner: draft.container_owner || null, via: draft.via || null, status: 'draft',
       }).select('id').single()
       if (error) throw error
+      // A phone typed for a client who had none is kept on the client, so next time it is prefilled.
+      const client = clients.find(c => c.id === draft.client_id)
+      if (client && !client.phone && draft.phone.trim()) await createClient().from('clients').update({ phone: draft.phone.trim() }).eq('id', client.id)
       // The shipper's phone lives on the sender, so next time it is prefilled.
       if (draftSender && shipper_phone && shipper_phone !== draftSender.phone) await createClient().from('senders').update({ phone: shipper_phone }).eq('id', draftSender.id)
       if (draft.carrier_id) {
@@ -173,8 +180,10 @@ export default function CargoRequestsPage({ searchParams }: { searchParams: Prom
               <div>
                 <p className={sectionCls}>Клиент</p>
                 <div className={`${cardCls} grid grid-cols-1 gap-3 sm:grid-cols-2`}>
-                  <label><span className={labelCls}>Имя клиента *</span><input type="text" required autoFocus maxLength={120} className={inpCls} value={draft.client_name} onChange={e => set('client_name', e.target.value)} /></label>
-                  <label><span className={labelCls}>Телефон</span><input type="tel" maxLength={40} className={inpCls} value={draft.phone} onChange={e => set('phone', e.target.value)} /></label>
+                  <div><span className={labelCls}>Клиент *</span>
+                    <SearchableSelect autoFocus placeholder="Выберите клиента" options={clients.map(c => ({ value: c.id, label: c.name }))} value={draft.client_id}
+                      onChange={v => { const c = clients.find(c => c.id === v); setDraft(d => ({ ...d, client_id: v, client_name: c?.name ?? '', phone: c?.phone ?? '' })) }} /></div>
+                  <label><span className={labelCls}>Телефон</span><input type="tel" maxLength={40} placeholder={draft.client_id && !draft.phone ? 'У клиента нет телефона — впишите' : undefined} className={inpCls} value={draft.phone} onChange={e => set('phone', e.target.value)} /></label>
                 </div>
               </div>
 
