@@ -36,6 +36,8 @@ export interface CargoRequest {
   created_at: string
   cargo_request_items: CargoItem[]
   carrier_message_id?: number | null
+  carrier_accepted_at?: string | null
+  carrier_accepted_by?: string | null
   cargo_request_replies?: { id: string; author: string; text: string; created_at: string }[]
 }
 
@@ -58,7 +60,7 @@ export function carrierRequestText(r: {
     r.via && `🛣 via ${r.via}`,
     r.shipper_phone && `📞 Shipper: ${r.shipper_phone} — time to be agreed with shipper`,
     '',
-    '↩️ Reply to this message — your answer is saved to the request.',
+    '✅ Press “Accepted” to confirm. ↩️ Questions — reply to this message.',
   ].filter(line => typeof line === 'string').join('\n')
 }
 

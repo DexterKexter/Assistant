@@ -65,9 +65,28 @@ export async function POST(req: Request) {
     return new Response('forbidden', { status: 403 })
   }
 
-  const m: TgMessage | undefined = (await req.json()).message
-  if (!m?.from) return Response.json({ ok: true })
+  const update = await req.json()
   const db = createServiceClient()
+
+  // "Accepted" button under a request the bot posted to a carrier group.
+  const cb: { id: string; from: { first_name?: string; last_name?: string }; message?: { message_id: number; chat: { id: number } } } | undefined = update.callback_query
+  if (cb?.message) {
+    const by = [cb.from.first_name, cb.from.last_name].filter(Boolean).join(' ')
+    // `is null` makes it first-press-wins; later presses change nothing.
+    const { data: accepted } = await db.from('cargo_requests').update({ carrier_accepted_at: new Date().toISOString(), carrier_accepted_by: by })
+      .eq('carrier_chat_id', cb.message.chat.id).eq('carrier_message_id', cb.message.message_id).is('carrier_accepted_at', null).select('id')
+    await tg('answerCallbackQuery', { callback_query_id: cb.id, text: accepted?.length ? 'Accepted, thank you!' : 'Already accepted' })
+    if (accepted?.length) {
+      await tg('editMessageReplyMarkup', {
+        chat_id: cb.message.chat.id, message_id: cb.message.message_id,
+        reply_markup: { inline_keyboard: [[{ text: `✅ Accepted by ${by}`, callback_data: 'accept' }]] },
+      })
+    }
+    return Response.json({ ok: true })
+  }
+
+  const m: TgMessage | undefined = update.message
+  if (!m?.from) return Response.json({ ok: true })
   const author = [m.from.first_name, m.from.last_name].filter(Boolean).join(' ')
 
   if (m.chat.type !== 'private') {

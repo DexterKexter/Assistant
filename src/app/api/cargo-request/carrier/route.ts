@@ -16,7 +16,10 @@ export async function POST(req: Request) {
   const { data: carrier } = await supabase.from('carriers').select('telegram_chat_id').eq('id', request.carrier_id).maybeSingle()
   if (!carrier?.telegram_chat_id || carrier.telegram_chat_id === request.carrier_chat_id) return Response.json({ carrier_message_id: null })
 
-  const sent = await (await tg('sendMessage', { chat_id: carrier.telegram_chat_id, text: carrierRequestText({ ...request, yard: request.sender?.name }) })).json()
+  const sent = await (await tg('sendMessage', { chat_id: carrier.telegram_chat_id, text: carrierRequestText({ ...request, yard: request.sender?.name }),
+    // Pressed by the carrier to confirm; handled in the Telegram webhook.
+    reply_markup: { inline_keyboard: [[{ text: '✅ Accepted', callback_data: 'accept' }]] },
+  })).json()
   if (!sent.ok) return new Response('telegram error', { status: 502 })
 
   const carrier_message_id: number = sent.result.message_id

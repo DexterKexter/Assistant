@@ -27,7 +27,9 @@ export function CargoRequestDialog({ request: selected, onClose, onChange }: { r
                 if (error) setError('Не удалось сохранить поставщика.')
                 else { setError(''); onChange({ ...selected, supplier }) }
               }} /></label>
-          {selected.carrier_message_id && <p className="text-xs text-emerald-700">Заявка отправлена в Telegram-группу перевозчика.</p>}
+          {selected.carrier_accepted_at
+            ? <p className="text-xs text-emerald-700">✅ Перевозчик принял заявку: {selected.carrier_accepted_by}, {new Date(selected.carrier_accepted_at).toLocaleString('ru-RU')}</p>
+            : selected.carrier_message_id && <p className="text-xs text-amber-700">Заявка отправлена в Telegram-группу перевозчика, ждём подтверждения.</p>}
           {!!selected.cargo_request_replies?.length && <div className="space-y-2"><h2 className="mt-2 text-sm font-semibold">Ответы перевозчика</h2>{[...selected.cargo_request_replies].sort((a,b)=>a.created_at.localeCompare(b.created_at)).map(reply=><div key={reply.id} className="rounded-xl bg-slate-50 p-3 text-sm"><p className="mb-1 text-xs text-slate-500">{reply.author} · {new Date(reply.created_at).toLocaleString('ru-RU')}</p><p className="whitespace-pre-wrap">{reply.text}</p></div>)}</div>}
           <div className="space-y-2"><h2 className="mt-2 text-sm font-semibold">Состав груза</h2>{selected.cargo_request_items.length ? [...selected.cargo_request_items].sort((a,b)=>a.position-b.position).map(item=><div key={item.id} className="rounded-xl border border-slate-200 p-3"><div className="flex justify-between gap-3"><p className="font-medium">{item.name}</p><span className="shrink-0 text-slate-600">{item.quantity} {item.unit}</span></div><p className="mt-1 text-xs text-slate-500">{[`Мест: ${item.packages ?? '—'}`,`Вес: ${item.weight_kg ?? '—'} кг`,`Объём: ${item.volume_m3 ?? '—'} м³`].join(' · ')}</p>{item.notes && <p className="mt-2 text-xs">{item.notes}</p>}</div>) : <p className="text-sm text-slate-500">Клиент ещё не добавил товары.</p>}</div>
           {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
