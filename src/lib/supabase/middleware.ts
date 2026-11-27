@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function updateSession(request: NextRequest) {
   if (['/cargo-request/demo', '/privacy', '/en', '/api/cargo-request'].includes(request.nextUrl.pathname)) return NextResponse.next({ request })
   // No session on these: the webhook verifies Meta's signature itself, the notify job only drains its own queue.
-  if (['/api/whatsapp/webhook', '/api/crm/notify'].includes(request.nextUrl.pathname)) return NextResponse.next({ request })
+  if (['/api/whatsapp/webhook', '/api/telegram/webhook', '/api/crm/notify'].includes(request.nextUrl.pathname)) return NextResponse.next({ request })
 
   let supabaseResponse = NextResponse.next({ request })
 
