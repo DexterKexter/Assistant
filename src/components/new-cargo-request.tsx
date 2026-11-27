@@ -124,7 +124,7 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
             {/* The size sits right under the picture it changes. */}
             <div className="flex flex-col items-center gap-3">
               <div className="flex min-h-[140px] w-full items-center justify-center"><ContainerArt size={draft.container_size} color={containerTypeColor(draft.container_type)} /></div>
-              <div className="flex gap-1" role="group" aria-label="Размер контейнера">{(['20', '40', '45'] as const).map(v => pill(`${v} ft`, draft.container_size === v, () => set('container_size', v)))}</div>
+              <div className="grid w-full max-w-[440px] grid-cols-3 gap-1 [&>button]:h-8" role="group" aria-label="Размер контейнера">{(['20', '40', '45'] as const).map(v => pill(`${v} ft`, draft.container_size === v, () => set('container_size', v)))}</div>
             </div>
             <div className="space-y-4">
               <div>
