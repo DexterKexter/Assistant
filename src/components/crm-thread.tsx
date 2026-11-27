@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { SearchableSelect } from '@/components/searchable-select'
 import { WaText } from '@/components/wa-text'
 import Link from 'next/link'
-import { ArrowLeft, Send, UserPlus, ExternalLink, PanelRight, X, Download, Sparkles, Ship, ClipboardList, User, Unlink } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Send, UserPlus, ExternalLink, PanelRight, X, Download, Sparkles, Ship, ClipboardList, User, Unlink } from 'lucide-react'
 
 export type CrmChat = {
   id: string; channel: 'whatsapp'; name: string; username: string | null; phone: string | null
@@ -283,7 +283,7 @@ const P = {
   muted: 'text-[12px] text-slate-500',
 }
 
-const emptyRequest = { origin: '', destination: '', container_size: 40, container_type: '', loading_date: '', cargo: '', sender: '' }
+const emptyRequest = { origin: '', destination: '', container_size: 40, container_type: '', loading_date: '', cargo: '', sender: '', supplier: '' }
 // Same list as the shipment form.
 const CONTAINER_TYPES = ['Выкупной', 'Возвратный', 'Собственный', 'Малшы', 'Арендованный', 'Sinorail']
 type ChatRequest = { id: string; request_number: number; origin: string; destination: string; container_size: number; loading_date: string | null }
@@ -304,8 +304,14 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
   // Dropdown options come from the reference lists (Админка → Справочники), same as the shipment form.
   const [refs, setRefs] = useState<Record<string, { value: string; label: string }[]>>({})
   useEffect(() => {
-    supabase.from('reference_items').select('category, name').order('name').then(({ data }) =>
-      setRefs(Object.groupBy((data || []).map(r => ({ category: r.category as string, value: r.name as string, label: r.name as string })), r => r.category) as typeof refs))
+    // Container suppliers are the carriers; they live in their own table, not in the reference lists.
+    Promise.all([
+      supabase.from('reference_items').select('category, name').order('name'),
+      supabase.from('carriers').select('name').order('name'),
+    ]).then(([items, carriers]) => setRefs(Object.groupBy([
+      ...(items.data || []).map(r => ({ category: r.category as string, value: r.name as string, label: r.name as string })),
+      ...(carriers.data || []).map(c => ({ category: 'supplier', value: c.name as string, label: c.name as string })),
+    ], r => r.category) as typeof refs))
   }, [])
 
   // What this client usually ships, as one-click presets.
@@ -322,7 +328,7 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
   const applyHabit = (h: Habit) => setDraft({
     ...emptyRequest, origin: known('city', h.origin), destination: known('city', h.destination),
     container_size: h.size === 20 || h.size === 45 ? h.size : 40, container_type: CONTAINER_TYPES.includes(h.type) ? h.type : '',
-    cargo: known('cargo', h.cargo), sender: known('sender', h.sender),
+    cargo: known('cargo', h.cargo), sender: known('sender', h.sender), supplier: draft?.supplier || '',
   })
 
   const create = async () => {
@@ -331,7 +337,7 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
     const { data, error } = await supabase.from('cargo_requests').insert({
       client_name: (clientName || chat.phone || 'Без имени').slice(0, 120), phone: chat.phone || '', client_id: chat.client_id, chat_id: chat.id, source: 'whatsapp',
       origin: draft.origin, destination: draft.destination, container_size: draft.container_size, container_type: draft.container_type || null,
-      loading_date: draft.loading_date || null, sender_name: draft.sender || null,
+      loading_date: draft.loading_date || null, sender_name: draft.sender || null, supplier: draft.supplier || null,
     }).select(fields).single()
     if (error || !data) { setError(error?.message || 'Не удалось создать заявку'); setSaving(false); return }
     // The request itself is saved; a failed item insert only loses the cargo name.
@@ -339,7 +345,7 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
     setRequests(r => [data, ...r]); setDraft(null); setSaving(false)
   }
 
-  const label = 'block space-y-1 text-[12px] text-slate-500'
+  const section = 'mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400'
   return (
     <div className="mx-3 mt-1 flex">
       <button onClick={() => setDraft(emptyRequest)}
@@ -349,59 +355,84 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
       </button>
 
       <Dialog open={!!draft} onOpenChange={open => { if (!open && !saving) { setDraft(null); setError('') } }}>
-        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-md">
-          <DialogHeader><DialogTitle>Заявка на груз</DialogTitle><DialogDescription>{clientName || chat.phone}{chat.phone && clientName ? ` · ${chat.phone}` : ''}</DialogDescription></DialogHeader>
+        <DialogContent className="max-h-[90dvh] gap-0 overflow-y-auto p-0 sm:max-w-[520px]">
+          <DialogHeader className="flex-row items-center gap-3 border-b border-slate-100 px-5 py-4">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100"><ClipboardList className="size-4 text-slate-600" aria-hidden="true" /></div>
+            <div className="min-w-0 space-y-1">
+              <DialogTitle className="text-[15px] font-semibold text-slate-900">Новая заявка</DialogTitle>
+              <DialogDescription className="truncate text-[12px] text-slate-500">{clientName || chat.phone}{chat.phone && clientName ? ` · ${chat.phone}` : ''}</DialogDescription>
+            </div>
+          </DialogHeader>
           {draft && (
-            <form onSubmit={e => { e.preventDefault(); create() }} className="space-y-3">
-              {chat.client_id && habits.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[12px] text-slate-500">Обычно возит — нажмите, чтобы подставить</p>
-                  {habits.map(h => (
-                    <button key={`${h.origin}-${h.destination}`} type="button" onClick={() => applyHabit(h)}
-                      className="flex w-full items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-left hover:bg-slate-100">
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-medium text-slate-800">{h.origin} → {h.destination}</span>
-                        <span className="block truncate text-[11px] text-slate-400">{[h.size && `${h.size} ft`, h.cargo, h.sender].filter(Boolean).join(' · ')}</span>
-                      </span>
-                      <span className="shrink-0 text-[11px] font-medium tabular-nums text-slate-400">{h.count}×</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                <label className={label}>Откуда<SearchableSelect placeholder="Выберите…" options={refs.city || []} value={draft.origin} onChange={v => setDraft({ ...draft, origin: v })} /></label>
-                <label className={label}>Куда<SearchableSelect placeholder="Выберите…" options={refs.city || []} value={draft.destination} onChange={v => setDraft({ ...draft, destination: v })} /></label>
-                <div className={label}>Контейнер
-                  <div className="flex h-9 gap-0.5 rounded-lg bg-slate-100 p-0.5">
-                    {[20, 40, 45].map(size => (
-                      <button key={size} type="button" onClick={() => setDraft({ ...draft, container_size: size })} aria-pressed={draft.container_size === size}
-                        className={cn('flex-1 rounded-md text-[13px] font-medium', draft.container_size === size ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
-                        {size}
-                      </button>
-                    ))}
+            <form onSubmit={e => { e.preventDefault(); create() }}>
+              <div className="space-y-5 px-5 py-4">
+                {chat.client_id && habits.length > 0 && (
+                  <div>
+                    <p className={section}>Обычно возит</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {habits.map(h => (
+                        <button key={`${h.origin}-${h.destination}`} type="button" onClick={() => applyHabit(h)} title={[h.size && `${h.size} ft`, h.cargo, h.sender].filter(Boolean).join(' · ')}
+                          className="flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[12px] font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50">
+                          {h.origin} <ArrowRight className="size-3 text-slate-400" aria-hidden="true" /> {h.destination}
+                          <span className="tabular-nums text-slate-400">{h.count}×</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <p className={section}>Маршрут</p>
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <SearchableSelect placeholder="Откуда" options={refs.city || []} value={draft.origin} onChange={v => setDraft({ ...draft, origin: v })} />
+                    <ArrowRight className="size-4 text-slate-300" aria-hidden="true" />
+                    <SearchableSelect placeholder="Куда" options={refs.city || []} value={draft.destination} onChange={v => setDraft({ ...draft, destination: v })} />
                   </div>
                 </div>
-                <label className={label}>Тип контейнера<SearchableSelect placeholder="Не указан" options={CONTAINER_TYPES.map(t => ({ value: t, label: t }))} value={draft.container_type} onChange={v => setDraft({ ...draft, container_type: v })} /></label>
-                <label className={label}>Товар<SearchableSelect placeholder="Не указан" options={refs.cargo || []} value={draft.cargo} onChange={v => setDraft({ ...draft, cargo: v })} /></label>
-                <label className={label}>Отправитель<SearchableSelect placeholder="Не указан" options={refs.sender || []} value={draft.sender} onChange={v => setDraft({ ...draft, sender: v })} /></label>
-                <label className={label}>Дата загрузки
-                  <input type="date" value={draft.loading_date} onChange={e => setDraft({ ...draft, loading_date: e.target.value })}
-                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-800 outline-none hover:border-slate-300 focus:border-indigo-400" />
-                </label>
-              </div>
-              {error && <p className="text-[12px] text-red-600">{error}</p>}
-              <button type="submit" disabled={saving} className="h-9 w-full rounded-lg bg-slate-900 text-[13px] font-medium text-white disabled:bg-slate-200">{saving ? 'Сохраняем…' : 'Создать заявку'}</button>
-              {requests.length > 0 && (
-                <div className="space-y-1 border-t border-slate-100 pt-3">
-                  <p className="text-[12px] text-slate-500">Уже созданы из этого чата</p>
-                  {requests.map(r => (
-                    <Link key={r.id} href="/dashboard/pipeline" className="block rounded-lg px-2.5 py-1.5 hover:bg-slate-50">
-                      <p className="truncate text-[13px] font-medium text-slate-800">№{String(r.request_number).padStart(4, '0')} · {r.origin} → {r.destination}</p>
-                      <p className="truncate text-[11px] text-slate-400">{r.container_size} ft · {r.loading_date ? `загрузка ${fmtDate(r.loading_date)}` : 'дата загрузки не указана'}</p>
-                    </Link>
-                  ))}
+                <div>
+                  <p className={section}>Контейнер</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex h-9 gap-0.5 rounded-lg bg-slate-100 p-0.5">
+                      {[20, 40, 45].map(size => (
+                        <button key={size} type="button" onClick={() => setDraft({ ...draft, container_size: size })} aria-pressed={draft.container_size === size}
+                          className={cn('flex-1 rounded-md text-[13px] font-medium', draft.container_size === size ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
+                          {size} ft
+                        </button>
+                      ))}
+                    </div>
+                    <SearchableSelect placeholder="Тип контейнера" options={CONTAINER_TYPES.map(t => ({ value: t, label: t }))} value={draft.container_type} onChange={v => setDraft({ ...draft, container_type: v })} />
+                    <SearchableSelect placeholder="Поставщик контейнера" options={refs.supplier || []} value={draft.supplier} onChange={v => setDraft({ ...draft, supplier: v })} />
+                    <label className="relative block">
+                      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-slate-400">Загрузка</span>
+                      <input type="date" aria-label="Дата загрузки" value={draft.loading_date} onChange={e => setDraft({ ...draft, loading_date: e.target.value })}
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-[78px] pr-2.5 text-[13px] text-slate-800 outline-none hover:border-slate-300 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400" />
+                    </label>
+                  </div>
                 </div>
-              )}
+                <div>
+                  <p className={section}>Груз</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <SearchableSelect placeholder="Товар" options={refs.cargo || []} value={draft.cargo} onChange={v => setDraft({ ...draft, cargo: v })} />
+                    <SearchableSelect placeholder="Отправитель" options={refs.sender || []} value={draft.sender} onChange={v => setDraft({ ...draft, sender: v })} />
+                  </div>
+                </div>
+                {requests.length > 0 && (
+                  <div>
+                    <p className={section}>Уже созданы из этого чата</p>
+                    {requests.map(r => (
+                      <Link key={r.id} href="/dashboard/pipeline" className="-mx-2 flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-slate-50">
+                        <span className="tabular-nums text-slate-400">№{String(r.request_number).padStart(4, '0')}</span>
+                        <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{r.origin} → {r.destination}</span>
+                        <span className="shrink-0 text-[12px] text-slate-400">{r.container_size} ft{r.loading_date ? ` · ${fmtDate(r.loading_date)}` : ''}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 border-t border-slate-100 px-5 py-3">
+                {error && <p className="min-w-0 flex-1 truncate text-[12px] text-red-600">{error}</p>}
+                <button type="button" onClick={() => { setDraft(null); setError('') }} className="ml-auto h-9 rounded-lg px-3 text-[13px] font-medium text-slate-600 hover:bg-slate-100">Отмена</button>
+                <button type="submit" disabled={saving} className="h-9 rounded-lg bg-slate-900 px-4 text-[13px] font-medium text-white hover:bg-slate-800 disabled:bg-slate-200">{saving ? 'Сохраняем…' : 'Создать заявку'}</button>
+              </div>
             </form>
           )}
         </DialogContent>
