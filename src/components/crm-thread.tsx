@@ -4,14 +4,14 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CHAT_CATEGORIES, type ChatCategory } from '@/lib/chat-category'
 import { createClient } from '@/lib/supabase/client'
-import { cn } from '@/lib/utils'
+import { cn, fmtDate } from '@/lib/utils'
 import { shipmentStatusText, shipmentStatusLabel } from '@/lib/shipment-status'
 import { templateValues } from '@/lib/template-values'
 import { TEMPLATES, TEMPLATE_FIELDS, compileTemplate, fillTemplate } from '@/lib/whatsapp-template'
 import { SearchableSelect } from '@/components/searchable-select'
 import { WaText } from '@/components/wa-text'
 import Link from 'next/link'
-import { ArrowLeft, Send, UserPlus, ExternalLink, PanelRight, X, Download } from 'lucide-react'
+import { ArrowLeft, Send, UserPlus, ExternalLink, PanelRight, X, Download, Plus } from 'lucide-react'
 
 export type CrmChat = {
   id: string; channel: 'whatsapp'; name: string; username: string | null; phone: string | null
@@ -264,6 +264,7 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
           </div>
         )}
         <ClientLink chat={chat} clients={clients} client={client} onClientCreated={onClientCreated} />
+        <ChatRequests key={chat.id} chat={chat} clientName={client?.name || chat.name} />
         <div className="px-4 py-3">
           <p className="mb-1 text-[12px] font-medium text-slate-400">Перевозки{chat.client_id && shipments.length > 0 ? ` · ${shipments.length}` : ''}</p>
           {!chat.client_id && <p className="text-[12px] text-slate-400">Появятся после привязки клиента.</p>}
@@ -291,6 +292,78 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
 const looksRussian = (phone: string | null) => {
   const d = (phone || '').replace(/\D/g, '')
   return d.length === 11 && d[0] === '7' && d[1] !== '7' && d[1] !== '6'
+}
+
+const emptyRequest = { origin: '', destination: '', container_size: 40, loading_date: '', cargo: '' }
+type ChatRequest = { id: string; request_number: number; origin: string; destination: string; container_size: number; loading_date: string | null }
+
+// Sidebar block: cargo requests created from this chat. Contact details come from the chat, the manager adds the route.
+function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string }) {
+  const [requests, setRequests] = useState<ChatRequest[]>([])
+  const [draft, setDraft] = useState<typeof emptyRequest | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const fields = 'id, request_number, origin, destination, container_size, loading_date'
+
+  useEffect(() => {
+    supabase.from('cargo_requests').select(fields).eq('chat_id', chat.id).order('created_at', { ascending: false })
+      .then(({ data }) => setRequests(data || []))
+  }, [chat.id])
+
+  const create = async () => {
+    if (!draft || !draft.origin.trim() || !draft.destination.trim()) { setError('Укажите, откуда и куда.'); return }
+    setSaving(true); setError('')
+    const { data, error } = await supabase.from('cargo_requests').insert({
+      client_name: (clientName || chat.phone || 'Без имени').slice(0, 120), phone: chat.phone || '', client_id: chat.client_id, chat_id: chat.id, source: 'whatsapp',
+      origin: draft.origin.trim(), destination: draft.destination.trim(), container_size: draft.container_size, loading_date: draft.loading_date || null,
+    }).select(fields).single()
+    if (error || !data) { setError(error?.message || 'Не удалось создать заявку'); setSaving(false); return }
+    // The request itself is saved; a failed item insert only loses the cargo name.
+    if (draft.cargo.trim()) await supabase.from('cargo_request_items').insert({ request_id: data.id, name: draft.cargo.trim().slice(0, 160), quantity: 1 })
+    setRequests(r => [data, ...r]); setDraft(null); setSaving(false)
+  }
+
+  const input = 'w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] outline-none focus:border-indigo-300'
+  return (
+    <div className="px-4 py-3 border-b border-slate-100 space-y-2">
+      <div className="flex h-8 items-center justify-between">
+        <p className="text-[12px] font-medium text-slate-400">Заявки{requests.length > 0 ? ` · ${requests.length}` : ''}</p>
+        {!draft && <button onClick={() => setDraft(emptyRequest)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-semibold text-indigo-600 hover:bg-indigo-50">
+          <Plus className="w-3.5 h-3.5" />Создать
+        </button>}
+      </div>
+      {draft && (
+        <form onSubmit={e => { e.preventDefault(); create() }} className="space-y-2">
+          <input value={draft.origin} onChange={e => setDraft({ ...draft, origin: e.target.value })} placeholder="Откуда" aria-label="Откуда" autoFocus maxLength={160} className={input} />
+          <input value={draft.destination} onChange={e => setDraft({ ...draft, destination: e.target.value })} placeholder="Куда" aria-label="Куда" maxLength={160} className={input} />
+          <div className="flex gap-2">
+            {[20, 40].map(size => (
+              <button key={size} type="button" onClick={() => setDraft({ ...draft, container_size: size })} aria-pressed={draft.container_size === size}
+                className={cn('flex-1 rounded-xl border px-3 py-2 text-[13px] font-semibold', draft.container_size === size ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}>
+                {size} ft
+              </button>
+            ))}
+          </div>
+          <label className="block text-[12px] text-slate-400">Дата загрузки
+            <input type="date" value={draft.loading_date} onChange={e => setDraft({ ...draft, loading_date: e.target.value })} className={cn(input, 'mt-1 text-slate-800')} />
+          </label>
+          <input value={draft.cargo} onChange={e => setDraft({ ...draft, cargo: e.target.value })} placeholder="Товар" aria-label="Товар" maxLength={160} className={input} />
+          {error && <p className="text-[12px] text-rose-600">{error}</p>}
+          <div className="flex gap-2">
+            <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-slate-900 px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-50">{saving ? 'Сохраняем…' : 'Создать заявку'}</button>
+            <button type="button" onClick={() => { setDraft(null); setError('') }} className="rounded-xl px-3 py-2 text-[13px] text-slate-500 hover:bg-slate-50">Отмена</button>
+          </div>
+        </form>
+      )}
+      {!draft && requests.length === 0 && <p className="text-[12px] text-slate-400">Заявок из этого чата пока нет.</p>}
+      {requests.map(r => (
+        <Link key={r.id} href="/dashboard/pipeline" className="-mx-2 block rounded-lg px-2 py-1.5 hover:bg-slate-50">
+          <p className="truncate text-[12px] font-semibold text-slate-800">№{String(r.request_number).padStart(4, '0')} · {r.origin} → {r.destination}</p>
+          <p className="truncate text-[11px] text-slate-400">{r.container_size} ft · {r.loading_date ? `загрузка ${fmtDate(r.loading_date)}` : 'дата загрузки не указана'}</p>
+        </Link>
+      ))}
+    </div>
+  )
 }
 
 // Sidebar block: link the chat to an existing client, or create a new client from it.

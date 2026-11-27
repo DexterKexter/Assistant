@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     client_name, phone, origin, destination,
     container_size: b.size === 20 ? 20 : 40,
     notes: str(b.notes, 3000),
-    status: 'submitted',
+    status: 'submitted', source: 'site',
   })
   if (error) return new Response('server error', { status: 500 })
   return Response.json({ ok: true })
