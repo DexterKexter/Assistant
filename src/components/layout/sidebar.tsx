@@ -83,6 +83,9 @@ export function Sidebar({ unreadCount, taskCount, onNavigate, collapsed = false,
     router.refresh()
   }
 
+  // Staff open client chats; the team chat tab is gone from that section, other roles still get the team chat.
+  const linkFor = (href: string) => href === '/dashboard/messages' && hasRole('admin', 'manager') ? '/dashboard/crm' : href
+
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
     if (href.includes('?')) return false
@@ -127,7 +130,7 @@ export function Sidebar({ unreadCount, taskCount, onNavigate, collapsed = false,
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={linkFor(item.href)}
                 onClick={onNavigate}
                 title={item.label}
                 className={cn(
@@ -211,7 +214,7 @@ export function Sidebar({ unreadCount, taskCount, onNavigate, collapsed = false,
               {section.items.map((item) => {
                 const active = isActive(item.href)
                 return (
-                  <Link key={item.href} href={item.href} onClick={onNavigate}
+                  <Link key={item.href} href={linkFor(item.href)} onClick={onNavigate}
                     className={cn(
                       'flex items-center gap-3 px-3 py-[7px] rounded-xl text-[13px]',
                       active
