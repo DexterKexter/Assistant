@@ -328,9 +328,9 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
           <SearchableSelect placeholder="Откуда" options={refs.city || []} value={draft.origin} onChange={v => setDraft({ ...draft, origin: v })} />
           <SearchableSelect placeholder="Куда" options={refs.city || []} value={draft.destination} onChange={v => setDraft({ ...draft, destination: v })} />
           <div className="flex gap-2">
-            {[20, 40].map(size => (
+            {[20, 40, 45].map(size => (
               <button key={size} type="button" onClick={() => setDraft({ ...draft, container_size: size })} aria-pressed={draft.container_size === size}
-                className={cn('flex-1 rounded-xl border px-3 py-2 text-[13px] font-semibold', draft.container_size === size ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}>
+                className={cn('flex-1 rounded-xl border px-2 py-2 text-[13px] font-semibold', draft.container_size === size ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}>
                 {size} ft
               </button>
             ))}

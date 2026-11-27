@@ -152,7 +152,7 @@ export default function PipelinePage() {
                         <div className="flex items-start gap-2">
                           <p className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-5 text-slate-900">{card.title}</p>
                           {/* Same colours as the size badge on the cargo requests page. */}
-                          {card.size && <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold', card.size.startsWith('20') ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600')}>{card.size}</span>}
+                          {card.size && <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold', card.size.startsWith('20') ? 'bg-blue-50 text-blue-600' : card.size.startsWith('45') ? 'bg-amber-50 text-amber-700' : 'bg-violet-50 text-violet-600')}>{card.size}</span>}
                         </div>
                         <p className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-slate-800">
                           <span className="truncate"><Place name={card.from} /></span>
