@@ -195,8 +195,8 @@ export default function CargoRequestsPage({ searchParams }: { searchParams: Prom
                     <div className="flex gap-1">{([['20', '20DC'], ['40', '40HQ'], ['45', '45HQ']] as const).map(([v, label]) => pill(label, draft.container_size === v, () => set('container_size', v)))}</div>
                   </div>
                   <div className="sm:col-span-2">
-                    <p className={labelCls}>SOC / COC</p>
-                    <div className="flex flex-wrap gap-1">{([['', 'Не указано'], ['SOC', 'SOC — наш'], ['COC', 'COC — перевозчика']] as const).map(([v, label]) => pill(label, draft.container_owner === v, () => set('container_owner', v)))}</div>
+                    <p className={labelCls} title="SOC — наш контейнер, COC — контейнер перевозчика. Можно не указывать.">Чей контейнер</p>
+                    <div className="flex gap-1">{(['SOC', 'COC'] as const).map(v => pill(v, draft.container_owner === v, () => set('container_owner', draft.container_owner === v ? '' : v)))}</div>
                   </div>
                   <label><span className={labelCls}>Номер контейнера</span><input type="text" maxLength={11} placeholder="XXXX0000000" autoCapitalize="characters" autoComplete="off" spellCheck={false} className={`${inpCls} font-mono font-semibold tracking-wider placeholder:font-normal placeholder:tracking-normal`} value={draft.container_number} onChange={e => setDraft(d => ({ ...d, container_number: editContainerNumber(e.target.value, d.container_number) }))} /></label>
                   <label><span className={labelCls}>Вес, кг</span><input type="number" min={0} step="any" className={inpCls} value={draft.weight_kg} onChange={e => set('weight_kg', e.target.value)} /></label>
