@@ -2,22 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { Roboto_Condensed } from 'next/font/google'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle, ClipboardList } from 'lucide-react'
 import { RoutePoint } from '@/components/shipment-route-point'
 import { shipmentDateBounds, shipmentDateError, type ShipmentDateField } from '@/lib/shipment-dates'
 import { CONTAINER_NUMBER_PATTERN, editContainerNumber } from '@/lib/container-number'
 import { ReferencesModal } from '@/components/references-modal'
+import { ContainerArt, containerTypeColor } from '@/components/container-art'
+import { NewCargoRequest } from '@/components/new-cargo-request'
 import { SearchableSelect } from '@/components/searchable-select'
 import { getShipmentStatus, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
 import { useShipmentModal } from '@/lib/shipment-modal'
 import { useProfile } from '@/lib/useProfile'
 
-const containerMarkingFont = Roboto_Condensed({ subsets: ['latin'], weight: '700' })
 
 const CONTAINER_TYPE_COLORS: Record<string, { backgroundColor: string; color: string }> = {
   'Выкупной': { backgroundColor: '#fef3c7', color: '#92400e' },
@@ -103,6 +102,7 @@ export default function ShipmentsPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [showRefs, setShowRefs] = useState(false)
+  const [showRequest, setShowRequest] = useState(false)
 
   // Inline new row
   const [addingNew, setAddingNew] = useState(false)
@@ -529,11 +529,10 @@ export default function ShipmentsPage() {
         </button>
         {canEdit && (
           <>
-            {/* Opens the cargo requests page with its "new request" dialog already open. */}
-            <Link href="/dashboard/cargo-requests?new" className="h-9 flex items-center gap-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-lg text-[13px] font-medium hover:bg-slate-50 transition-colors shrink-0">
+            <button onClick={() => setShowRequest(true)} className="h-9 flex items-center gap-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-lg text-[13px] font-medium hover:bg-slate-50 transition-colors shrink-0">
               <ClipboardList className="w-4 h-4" />
               <span className="hidden md:inline">Новая заявка</span>
-            </Link>
+            </button>
             <button onClick={startAddNew} className="h-9 flex items-center gap-1.5 px-3 bg-slate-900 text-white rounded-lg text-[13px] font-medium hover:bg-slate-800 transition-colors shrink-0">
               <Plus className="w-4 h-4" />
               <span className="hidden md:inline">Новая перевозка</span>
@@ -552,20 +551,16 @@ export default function ShipmentsPage() {
         ))}
       </div>
 
+      {showRequest && <NewCargoRequest onClose={() => setShowRequest(false)} onCreated={failed => {
+        setShowRequest(false)
+        if (failed) alert('Заявка сохранена, но отправить её перевозчику в Telegram не удалось.')
+      }} />}
+
       {/* New shipment sheet */}
       {addingNew && lookups && (() => {
         const size = newRow.container_size || '40'
         const type = newRow.container_type || 'Выкупной'
-        const containerNumber = (newRow.container_number || '').trim()
-        const numberParts = containerNumber.match(/^([A-Z]{0,4})([0-9]{0,6})([0-9]?)/)
-        const typeColors: Record<string, string> = {
-          'Выкупной': '#6366f1',
-          'Возвратный': '#f59e0b',
-          'Собственный': '#10b981',
-          'Малшы': '#8b5cf6',
-          'Sinorail': '#3298df',
-        }
-        const containerColor = typeColors[type] || typeColors['Выкупной']
+        const containerColor = containerTypeColor(type)
         return (
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center md:p-4" onClick={cancelNew}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
@@ -588,79 +583,7 @@ export default function ShipmentsPage() {
               <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5 items-center bg-white/50 rounded-2xl p-4 ring-1 ring-white/80">
                 {/* Visual */}
                 <div className="flex items-center justify-center min-h-[140px]">
-                  <svg
-                    viewBox="14 12 232 116"
-                    role="img"
-                    aria-label={`Контейнер ${size} футов, верхняя половина, вид спереди${newRow.container_number ? `, ${newRow.container_number}` : ''}`}
-                    className="w-full"
-                    style={{ maxWidth: 440, height: 'auto', overflow: 'hidden' }}
-                  >
-                    <defs>
-                      <linearGradient id="shipment-container-paint" x2="0" y2="1">
-                        <stop stopColor="#fff" stopOpacity=".24" />
-                        <stop offset=".5" stopColor="#fff" stopOpacity="0" />
-                        <stop offset="1" stopColor="#071b35" stopOpacity=".25" />
-                      </linearGradient>
-                      <linearGradient id="shipment-container-steel">
-                        <stop stopColor="#526474" />
-                        <stop offset=".32" stopColor="#e7edf1" />
-                        <stop offset=".55" stopColor="#fff" />
-                        <stop offset="1" stopColor="#657886" />
-                      </linearGradient>
-                    </defs>
-                    <ellipse cx="130" cy="245" rx="111" ry="5" fill="#0f172a" opacity=".1" />
-                    <rect x="18" y="16" width="224" height="224" rx="2" fill={containerColor} />
-                    <rect x="18" y="16" width="224" height="224" rx="2" fill="url(#shipment-container-paint)" />
-                    {[30, 134].map(x => (
-                      <g key={x}>
-                        <rect x={x} y="29" width="96" height="190" fill={containerColor} stroke="#102c46" strokeOpacity=".4" />
-                        <rect x={x} y="29" width="96" height="190" fill="url(#shipment-container-paint)" />
-                        {[46, 96, 146, 199].map(y => (
-                          <g key={y}>
-                            <path d={`M${x + 1} ${y}h94`} stroke="#102c46" strokeOpacity=".25" strokeWidth="7" />
-                            <path d={`M${x + 1} ${y - 4}h94`} stroke="#fff" strokeOpacity=".3" />
-                          </g>
-                        ))}
-                        <path d={`M${x + 8} 32v183m80-183v183`} fill="none" stroke="#fff" strokeOpacity=".14" strokeWidth="2" />
-                      </g>
-                    ))}
-                    <path d="M130 27v194" stroke="#102c46" strokeOpacity=".65" strokeWidth="3" />
-                    <path d="M18 25h224M27 25v205M233 25v205M18 230h224" fill="none" stroke="#102c46" strokeOpacity=".3" strokeWidth="7" />
-                    <path d="M19 18h222M20 19v218M29 27h202M29 224h202" fill="none" stroke="#fff" strokeOpacity=".35" />
-                    {[61, 103, 133, 176].map(x => (
-                      <g key={x}>
-                        <rect x={x} y="31" width="4" height="189" rx="1" fill="#102c46" opacity=".3" />
-                        <rect x={x - 1.5} y="30" width="3" height="189" rx="1" fill="url(#shipment-container-steel)" />
-                        {[33, 93, 151, 217].map(y => (
-                          <rect key={y} x={x - 4} y={y} width="8" height="4" rx="1" fill="url(#shipment-container-steel)" stroke="#536876" strokeWidth=".5" />
-                        ))}
-                        <rect x={x - 4} y="173" width="8" height="10" rx="1" fill="url(#shipment-container-steel)" />
-                        <path d={`M${x} 178h${x < 130 ? -17 : 17}`} stroke="#233b4b" strokeWidth="4" />
-                        <path d={`M${x} 177h${x < 130 ? -17 : 17}`} stroke="#dce5ec" strokeWidth="2" />
-                      </g>
-                    ))}
-                    {[64, 119, 183].map(y => (
-                      <g key={y} fill={containerColor} stroke="#102c46" strokeOpacity=".3">
-                        <rect x="21" y={y} width="12" height="9" rx="1" />
-                        <rect x="227" y={y} width="12" height="9" rx="1" />
-                      </g>
-                    ))}
-                    {[[18, 16], [228, 16], [18, 226], [228, 226]].map(([x, y]) => (
-                      <g key={`${x}-${y}`}>
-                        <rect x={x} y={y} width="14" height="14" rx="1" fill={containerColor} stroke="#fff" strokeOpacity=".2" />
-                        <ellipse cx={x + 7} cy={y + 7} rx="3.5" ry="4" fill="#102c46" opacity=".75" />
-                      </g>
-                    ))}
-                    <text x="38" y="116" fill="#fff" fontFamily="monospace" fontSize="10" fontWeight="700">{size} FT</text>
-                    {containerNumber && numberParts && <g fill="#fff" className={containerMarkingFont.className} fontWeight="700" fontSize="12">
-                      <text x="137" y="86">{numberParts[1]}</text>
-                      <text x="182" y="86">{numberParts[2]}</text>
-                      {numberParts[3] && <>
-                          <rect x="219.8" y="74" width="9" height="16" fill="none" stroke="#fff" strokeWidth=".7" />
-                          <text x="224.3" y="86" textAnchor="middle">{numberParts[3]}</text>
-                      </>}
-                    </g>}
-                  </svg>
+                  <ContainerArt size={size} color={containerColor} number={newRow.container_number} />
                 </div>
 
                 {/* Number + size + type + date */}
