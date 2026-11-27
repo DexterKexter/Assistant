@@ -105,14 +105,12 @@ export function NewCargoRequest({ onClose, onCreated }: { onClose: () => void; o
           <div className="grid grid-cols-1 items-center gap-5 rounded-2xl bg-white/50 p-4 ring-1 ring-white/80 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
             <div className="flex min-h-[140px] items-center justify-center"><ContainerArt size={draft.container_size} color={containerTypeColor(draft.container_type)} /></div>
             <div className="space-y-4">
-              {/* Choices: one row each, label on the left, so the three groups line up. */}
+              {/* Choices: one row each, label on the left, so the groups line up. */}
               <div className="grid grid-cols-[112px_minmax(0,1fr)] items-center gap-x-3 gap-y-3">
                 <p className={rowLabelCls}>Размер</p>
                 <div className="flex gap-1">{(['20', '40', '45'] as const).map(v => pill(`${v} ft`, draft.container_size === v, () => set('container_size', v)))}</div>
                 <p className={rowLabelCls}>Тип</p>
                 <div className="flex flex-wrap gap-1">{CONTAINER_TYPES.map(([v, cls]) => pill(v, draft.container_type === v, () => set('container_type', v), cls))}</div>
-                <p className={rowLabelCls} title="SOC — наш контейнер, COC — контейнер перевозчика. Можно не указывать.">Чей контейнер</p>
-                <div className="flex gap-1">{(['SOC', 'COC'] as const).map(v => pill(v, draft.container_owner === v, () => set('container_owner', draft.container_owner === v ? '' : v)))}</div>
               </div>
               <div className="grid grid-cols-1 gap-3 border-t border-slate-200/70 pt-4 sm:grid-cols-3">
                 <label><span className={labelCls}>Дата загрузки</span><input type="date" className={inpCls} value={draft.loading_date} onChange={e => set('loading_date', e.target.value)} /></label>
