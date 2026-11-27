@@ -12,7 +12,7 @@ import { clientHabits, type Habit } from '@/lib/client-habits'
 import { SearchableSelect } from '@/components/searchable-select'
 import { WaText } from '@/components/wa-text'
 import Link from 'next/link'
-import { ArrowLeft, Send, UserPlus, ExternalLink, PanelRight, X, Download, Plus } from 'lucide-react'
+import { ArrowLeft, Send, UserPlus, ExternalLink, PanelRight, X, Download, Plus, Sparkles, Ship, ClipboardList, User } from 'lucide-react'
 
 export type CrmChat = {
   id: string; channel: 'whatsapp'; name: string; username: string | null; phone: string | null
@@ -238,28 +238,28 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
         )}
       </div>
 
-      {side && panel && <aside className="absolute inset-y-0 right-0 z-10 shadow-xl lg:static lg:shadow-none flex flex-col w-[272px] shrink-0 border-l border-slate-100 bg-white overflow-y-auto animate-in slide-in-from-right duration-200">
+      {side && panel && <aside className="absolute inset-y-0 right-0 z-10 shadow-xl lg:static lg:shadow-none flex flex-col gap-2.5 p-2.5 w-[288px] shrink-0 border-l border-slate-100 bg-white overflow-y-auto animate-in slide-in-from-right duration-200">
         {chat.ai_category && (
-          <div className="border-b border-slate-100 px-4 py-3">
-            <p className="mb-1 text-[12px] font-medium text-slate-400">ИИ · {CHAT_CATEGORIES[chat.ai_category].label}</p>
+          <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-3">
+            <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-slate-600"><Sparkles className="size-3.5 text-slate-400" aria-hidden="true" />ИИ · {CHAT_CATEGORIES[chat.ai_category].label}</p>
             {chat.ai_summary && <p className="text-[13px] leading-snug text-slate-700">{chat.ai_summary}</p>}
           </div>
         )}
         <ClientLink chat={chat} clients={clients} client={client} onClientCreated={onClientCreated} />
         <ChatRequests key={chat.id} chat={chat} clientName={client?.name || chat.name} />
-        <div className="px-4 py-3">
-          <p className="mb-1 text-[12px] font-medium text-slate-400">Перевозки{chat.client_id && shipments.length > 0 ? ` · ${shipments.length}` : ''}</p>
+        <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-3">
+          <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-slate-600"><Ship className="size-3.5 text-slate-400" aria-hidden="true" />Перевозки{chat.client_id && shipments.length > 0 ? ` · ${shipments.length}` : ''}</p>
           {!chat.client_id && <p className="text-[12px] text-slate-400">Появятся после привязки клиента.</p>}
           {chat.client_id && shipments.length === 0 && <p className="text-[12px] text-slate-400">Перевозок пока нет.</p>}
           {chat.client_id && shipments.map(s => (
-            <div key={s.id} className="group -mx-2 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50">
+            <div key={s.id} className="group -mx-1.5 flex items-center gap-2 rounded-lg px-1.5 py-1.5 hover:bg-white">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-mono text-[12px] font-semibold text-slate-800">{s.container_number || 'без номера'}</p>
                 <p className="truncate text-[11px] text-slate-400">{shipmentStatusLabel(s, !!client?.is_russia)}</p>
               </div>
               <button onClick={() => send(shipmentStatusText(s, !!client?.is_russia), s.id)} disabled={sending || windowClosed}
                 title={windowClosed ? 'Клиент не писал больше 24 часов — отправьте шаблон' : 'Отправить статус клиенту'} aria-label={`Отправить статус ${s.container_number || ''}`}
-                className="w-7 h-7 shrink-0 rounded-md flex items-center justify-center text-slate-300 hover:bg-white hover:text-slate-700 group-hover:text-slate-500 disabled:opacity-30">
+                className="w-7 h-7 shrink-0 rounded-md flex items-center justify-center text-slate-300 hover:bg-slate-100 hover:text-slate-700 group-hover:text-slate-500 disabled:opacity-30">
                 <Send className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -332,11 +332,11 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
     setRequests(r => [data, ...r]); setDraft(null); setSaving(false)
   }
 
-  const input = 'w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] outline-none focus:border-indigo-300'
+  const input = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] outline-none focus:border-indigo-300'
   return (
-    <div className="px-4 py-3 border-b border-slate-100 space-y-2">
-      <div className="flex h-8 items-center justify-between">
-        <p className="text-[12px] font-medium text-slate-400">Заявки{requests.length > 0 ? ` · ${requests.length}` : ''}</p>
+    <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-3 space-y-2">
+      <div className="flex h-7 items-center justify-between">
+        <p className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-600"><ClipboardList className="size-3.5 text-slate-400" aria-hidden="true" />Заявки{requests.length > 0 ? ` · ${requests.length}` : ''}</p>
         {!draft && <button onClick={() => setDraft(emptyRequest)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-semibold text-indigo-600 hover:bg-indigo-50">
           <Plus className="w-3.5 h-3.5" />Создать
         </button>}
@@ -346,7 +346,7 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
           <p className="text-[11px] text-slate-400">Обычно возит — нажмите, чтобы подставить</p>
           {habits.map(h => (
             <button key={`${h.origin}-${h.destination}`} type="button" onClick={() => applyHabit(h)}
-              className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-left hover:border-indigo-200 hover:bg-indigo-50/50">
+              className="flex w-full items-center gap-2 rounded-xl border border-slate-200/70 bg-white px-2.5 py-1.5 text-left hover:border-indigo-300">
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[12px] font-semibold text-slate-800">{h.origin} → {h.destination}</span>
                 <span className="block truncate text-[11px] text-slate-400">{[h.size && `${h.size} ft`, h.cargo, h.sender].filter(Boolean).join(' · ')}</span>
@@ -363,7 +363,7 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
           <div className="flex gap-2">
             {[20, 40, 45].map(size => (
               <button key={size} type="button" onClick={() => setDraft({ ...draft, container_size: size })} aria-pressed={draft.container_size === size}
-                className={cn('flex-1 rounded-xl border px-2 py-2 text-[13px] font-semibold', draft.container_size === size ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}>
+                className={cn('flex-1 rounded-xl border px-2 py-2 text-[13px] font-semibold', draft.container_size === size ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300')}>
                 {size} ft
               </button>
             ))}
@@ -377,13 +377,13 @@ function ChatRequests({ chat, clientName }: { chat: CrmChat; clientName: string 
           {error && <p className="text-[12px] text-rose-600">{error}</p>}
           <div className="flex gap-2">
             <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-slate-900 px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-50">{saving ? 'Сохраняем…' : 'Создать заявку'}</button>
-            <button type="button" onClick={() => { setDraft(null); setError('') }} className="rounded-xl px-3 py-2 text-[13px] text-slate-500 hover:bg-slate-50">Отмена</button>
+            <button type="button" onClick={() => { setDraft(null); setError('') }} className="rounded-xl px-3 py-2 text-[13px] text-slate-500 hover:bg-white">Отмена</button>
           </div>
         </form>
       )}
       {!draft && requests.length === 0 && <p className="text-[12px] text-slate-400">Заявок из этого чата пока нет.</p>}
       {requests.map(r => (
-        <Link key={r.id} href="/dashboard/pipeline" className="-mx-2 block rounded-lg px-2 py-1.5 hover:bg-slate-50">
+        <Link key={r.id} href="/dashboard/pipeline" className="block rounded-xl border border-slate-200/70 bg-white px-2.5 py-1.5 hover:border-slate-300">
           <p className="truncate text-[12px] font-semibold text-slate-800">№{String(r.request_number).padStart(4, '0')} · {r.origin} → {r.destination}</p>
           <p className="truncate text-[11px] text-slate-400">{r.container_size} ft · {r.loading_date ? `загрузка ${fmtDate(r.loading_date)}` : 'дата загрузки не указана'}</p>
         </Link>
@@ -422,16 +422,16 @@ function ClientLink({ chat, clients, client, onClientCreated }: {
   }
 
   return (
-    <div className="px-4 py-3 border-b border-slate-100 space-y-2">
-      <div className="flex h-8 items-center justify-between">
-        <p className="text-[12px] font-medium text-slate-400">Клиент</p>
+    <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-3 space-y-2">
+      <div className="flex h-7 items-center justify-between">
+        <p className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-600"><User className="size-3.5 text-slate-400" aria-hidden="true" />Клиент</p>
         {!chat.client_id && <ClientBadge isNew />}
       </div>
 
       {chat.client_id ? (
         <>
           <Link href={`/dashboard/clients/${chat.client_id}`}
-            className="-mx-2 flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-slate-800 hover:bg-slate-50">
+            className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-white px-2.5 py-2 text-[13px] font-semibold text-slate-800 hover:border-slate-300">
             <span className="flex-1 truncate">{client ? `${client.is_russia ? '🇷🇺' : '🇰🇿'} ${client.name}` : 'Клиент'}</span>
             <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
           </Link>
@@ -440,9 +440,9 @@ function ClientLink({ chat, clients, client, onClientCreated }: {
       ) : creating ? (
         <form onSubmit={e => { e.preventDefault(); create() }} className="space-y-2">
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Имя клиента" aria-label="Имя клиента" autoFocus
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] outline-none focus:border-indigo-300" />
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] outline-none focus:border-indigo-300" />
           <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Телефон" aria-label="Телефон" type="tel"
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] outline-none focus:border-indigo-300" />
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] outline-none focus:border-indigo-300" />
           <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
             {[{ v: false, label: '🇰🇿 Казахстан' }, { v: true, label: '🇷🇺 Россия' }].map(o => (
               <button type="button" key={o.label} onClick={() => setIsRussia(o.v)}
@@ -464,7 +464,7 @@ function ClientLink({ chat, clients, client, onClientCreated }: {
             options={clients.map(c => ({ value: c.id, label: `${c.is_russia ? '🇷🇺' : '🇰🇿'} ${c.name}` }))}
             onChange={v => { if (v) link(v) }} />
           <button onClick={() => setCreating(true)}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2 text-[13px] font-medium text-slate-600 hover:bg-slate-50">
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2 text-[13px] font-medium text-slate-600 hover:bg-white">
             <UserPlus className="w-4 h-4" /> Новый клиент
           </button>
         </>
