@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { Roboto_Condensed } from 'next/font/google'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle } from 'lucide-react'
+import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle, ClipboardList } from 'lucide-react'
 import { RoutePoint } from '@/components/shipment-route-point'
 import { shipmentDateBounds, shipmentDateError, type ShipmentDateField } from '@/lib/shipment-dates'
 import { CONTAINER_NUMBER_PATTERN, editContainerNumber } from '@/lib/container-number'
@@ -522,15 +523,22 @@ export default function ShipmentsPage() {
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <p role="status" className="text-[13px] text-slate-400 shrink-0">{loading ? (search.trim() ? 'Поиск...' : 'Загрузка...') : `${shipments.length} из ${totalCount}`}</p>
-        <button onClick={() => setShowRefs(true)} className="h-9 flex items-center gap-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-50 transition-colors shrink-0">
-          <BookOpen className="w-3.5 h-3.5" />
+        <button onClick={() => setShowRefs(true)} className="h-9 flex items-center gap-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-lg text-[13px] font-medium hover:bg-slate-50 transition-colors shrink-0">
+          <BookOpen className="w-4 h-4" />
           <span className="hidden md:inline">Справочники</span>
         </button>
         {canEdit && (
-          <button onClick={startAddNew} className="h-10 flex items-center gap-2 px-4 bg-slate-900 text-white rounded-lg text-[13px] font-semibold hover:bg-slate-800 transition-colors shrink-0">
-            <Plus className="w-4 h-4" />
-            <span className="hidden md:inline">Новая</span>
-          </button>
+          <>
+            {/* Opens the cargo requests page with its "new request" dialog already open. */}
+            <Link href="/dashboard/cargo-requests?new" className="h-9 flex items-center gap-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-lg text-[13px] font-medium hover:bg-slate-50 transition-colors shrink-0">
+              <ClipboardList className="w-4 h-4" />
+              <span className="hidden md:inline">Новая заявка</span>
+            </Link>
+            <button onClick={startAddNew} className="h-9 flex items-center gap-1.5 px-3 bg-slate-900 text-white rounded-lg text-[13px] font-medium hover:bg-slate-800 transition-colors shrink-0">
+              <Plus className="w-4 h-4" />
+              <span className="hidden md:inline">Новая перевозка</span>
+            </button>
+          </>
         )}
       </div>
 

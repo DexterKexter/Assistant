@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { use, useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { ClipboardList, ExternalLink, Plus, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -16,7 +16,7 @@ const emptyDraft = { client_name: '', phone: '', container_number: '', origin: '
 const selectClass = 'h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900'
 const date = (value: string) => new Date(value).toLocaleDateString('ru-RU')
 
-export default function CargoRequestsPage() {
+export default function CargoRequestsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
   const { hasRole, loading: profileLoading } = useProfile()
   const canManage = hasRole('admin', 'manager')
   const [requests, setRequests] = useState<CargoRequest[]>([])
@@ -26,7 +26,8 @@ export default function CargoRequestsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
   const [selected, setSelected] = useState<CargoRequest | null>(null)
-  const [createOpen, setCreateOpen] = useState(false)
+  // ?new opens the dialog straight away (the "Новая заявка" button on the shipments page).
+  const [createOpen, setCreateOpen] = useState(use(searchParams).new !== undefined)
   const [draft, setDraft] = useState(emptyDraft)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
