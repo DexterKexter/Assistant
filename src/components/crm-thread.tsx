@@ -69,6 +69,7 @@ function Media({ path, type }: { path: string; type: string }) {
 // side=false renders only the conversation (used inside a client's page).
 export function CrmThread({ chat, clients, onBack, side = true, onClientCreated }: { chat: CrmChat; clients: CrmClient[]; onBack?: () => void; side?: boolean; onClientCreated?: (c: CrmClient) => void }) {
   const [messages, setMessages] = useState<Msg[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [shipments, setShipments] = useState<ShipmentRow[]>([])
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
@@ -79,7 +80,7 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
   const client = clients.find(c => c.id === chat.client_id)
 
   useEffect(() => {
-    supabase.from('crm_messages').select('*').eq('chat_id', chat.id).order('created_at').then(({ data }) => setMessages(data || []))
+    supabase.from('crm_messages').select('*').eq('chat_id', chat.id).order('created_at').then(({ data }) => { setMessages(data || []); setLoaded(true) })
     const ch = supabase.channel(`crm-msg-${chat.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'crm_messages', filter: `chat_id=eq.${chat.id}` },
         p => setMessages(m => {
@@ -105,7 +106,8 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
 
   // WhatsApp only delivers free-form text within 24h of the client's last message.
   const lastIn = messages.findLast(m => m.direction === 'in')
-  const windowClosed = messages.length > 0 &&
+  // No client message yet (a chat we started) also means template only. `loaded` avoids flashing the template box before messages arrive.
+  const windowClosed = loaded &&
     (!lastIn || openedAt - new Date(lastIn.created_at).getTime() > 24 * 3600 * 1000)
 
   // Outside the 24h window only an approved template goes through; the CRM fills its fields itself.
@@ -200,7 +202,7 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
         {side && <ChatRequests key={chat.id} chat={chat} clientName={client?.name || chat.name} />}
         {windowClosed ? (
           <div className="m-3 mt-1 rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
-            <p className="text-[12px] text-slate-500">Клиент не писал больше 24 часов — WhatsApp пропустит только шаблон.</p>
+            <p className="text-[12px] text-slate-500">{lastIn ? 'Клиент не писал больше 24 часов' : 'Клиент ещё не писал'} — WhatsApp пропустит только шаблон.</p>
             <div className="flex flex-wrap gap-2">
               <select aria-label="Шаблон" value={tplName} onChange={e => setTplName(e.target.value)}
                 className="flex-1 min-w-[140px] h-9 rounded-lg bg-slate-100 px-2.5 text-[13px] outline-none">
