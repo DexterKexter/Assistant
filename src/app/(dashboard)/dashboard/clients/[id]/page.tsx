@@ -329,10 +329,10 @@ export default function ClientDetailPage() {
       {/* ── Stats Cards ── */}
       {analytics && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-          <StatCard icon={Ship} tone="indigo" label="Всего перевозок" value={analytics.total} />
-          <StatCard icon={CheckCircle2} tone="emerald" label="Доставлено" value={analytics.delivered} />
-          <StatCard icon={Truck} tone="amber" label="В пути" value={analytics.inTransit} />
-          <StatCard icon={Clock} tone="violet" label="Среднее время" value={`${analytics.avgDays} д`} />
+          <StatCard icon={Ship} label="Всего перевозок" value={analytics.total} />
+          <StatCard icon={CheckCircle2} label="Доставлено" value={analytics.delivered} />
+          <StatCard icon={Truck} label="В пути" value={analytics.inTransit} />
+          <StatCard icon={Clock} label="Среднее время" value={`${analytics.avgDays} д`} />
         </div>
       )}
 

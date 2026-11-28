@@ -37,10 +37,10 @@ export function DashboardView({ data }: { data: DashboardData }) {
   }
 
   const cards = [
-    { label: 'Загружено', value: cur.loaded, prev: prev.loaded, icon: Ship, tone: 'indigo' as const, compare: true },
-    { label: 'В пути', value: cur.inTransit, prev: 0, icon: Truck, tone: 'blue' as const, compare: false },
-    { label: 'На границе', value: cur.onBorder, prev: 0, icon: Clock, tone: 'amber' as const, compare: false },
-    { label: 'Доставлено', value: cur.delivered, prev: prev.delivered, icon: CheckCircle2, tone: 'emerald' as const, compare: true },
+    { label: 'Загружено', value: cur.loaded, prev: prev.loaded, icon: Ship, compare: true },
+    { label: 'В пути', value: cur.inTransit, prev: 0, icon: Truck, compare: false },
+    { label: 'На границе', value: cur.onBorder, prev: 0, icon: Clock, compare: false },
+    { label: 'Доставлено', value: cur.delivered, prev: prev.delivered, icon: CheckCircle2, compare: true },
   ]
 
   return (
@@ -64,7 +64,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         {cards.map(card => {
           const d = diff(card.value, card.prev)
           return (
-            <StatCard key={card.label} icon={card.icon} tone={card.tone} label={card.label} value={card.value.toLocaleString()}
+            <StatCard key={card.label} icon={card.icon} label={card.label} value={card.value.toLocaleString()}
               hint={card.compare && card.prev > 0 ? <span className={d.up ? 'text-emerald-600' : 'text-red-500'}>{d.text}</span> : undefined} />
           )
         })}

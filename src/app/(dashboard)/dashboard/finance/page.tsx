@@ -124,9 +124,9 @@ export default function FinancePage() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <StatCard icon={TrendingUp} tone="emerald" label="Доходы" value={`$${totalIncome.toLocaleString()}`} />
-        <StatCard icon={TrendingDown} tone="red" label="Расходы" value={`$${totalExpense.toLocaleString()}`} />
-        <StatCard icon={DollarSign} tone={balance >= 0 ? 'slate' : 'red'} label="Баланс" value={`$${balance.toLocaleString()}`} />
+        <StatCard icon={TrendingUp} label="Доходы" value={`$${totalIncome.toLocaleString()}`} />
+        <StatCard icon={TrendingDown} label="Расходы" value={`$${totalExpense.toLocaleString()}`} />
+        <StatCard icon={DollarSign} label="Баланс" value={`$${balance.toLocaleString()}`} />
       </div>
 
       <Card>

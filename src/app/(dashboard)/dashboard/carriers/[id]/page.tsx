@@ -146,10 +146,10 @@ export default function CarrierDetailPage() {
       {/* Stats */}
       {analytics && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard icon={Ship} tone="indigo" label="Перевозок" value={analytics.total} />
-          <StatCard icon={CheckCircle2} tone="emerald" label="Доставлено" value={analytics.delivered} />
-          <StatCard icon={DollarSign} tone="amber" label="Средняя стоимость" value={analytics.avgCost > 0 ? `$${analytics.avgCost.toLocaleString()}` : '—'} />
-          <StatCard icon={Clock} tone="violet" label="Среднее время" value={`${analytics.avgDays} д`} />
+          <StatCard icon={Ship} label="Перевозок" value={analytics.total} />
+          <StatCard icon={CheckCircle2} label="Доставлено" value={analytics.delivered} />
+          <StatCard icon={DollarSign} label="Средняя стоимость" value={analytics.avgCost > 0 ? `$${analytics.avgCost.toLocaleString()}` : '—'} />
+          <StatCard icon={Clock} label="Среднее время" value={`${analytics.avgDays} д`} />
         </div>
       )}
 

@@ -353,9 +353,9 @@ export default function ReportsPage() {
 
       {/* ── 3. Summary tiles ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <StatCard icon={Ship} tone="indigo" label="Загружено" value={yearData.loaded} />
-        <StatCard icon={CheckCircle2} tone="emerald" label="Доставлено" value={yearData.delivered} />
-        <StatCard icon={Clock} tone="violet" label="Среднее время" value={`${yearData.avgDays} д`} />
+        <StatCard icon={Ship} label="Загружено" value={yearData.loaded} />
+        <StatCard icon={CheckCircle2} label="Доставлено" value={yearData.delivered} />
+        <StatCard icon={Clock} label="Среднее время" value={`${yearData.avgDays} д`} />
         <StatCard icon={MapPin} label="Топ маршрут" value={<span className="text-[15px]">{yearData.topRoute?.route || '—'}</span>} hint={`${yearData.topRoute?.count || 0} перевозок`} />
         <StatCard icon={Truck} label="Топ перевозчик" value={<span className="text-[15px]">{yearData.topCarrier?.name || '—'}</span>} hint={`${yearData.topCarrier?.count || 0} перевозок`} />
         <StatCard icon={Container} label="Контейнеры" value={<span className="text-[15px]">20ft: {yearData.size20} · 40ft: {yearData.size40}</span>} />

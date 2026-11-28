@@ -111,7 +111,7 @@ export default function AdminPage() {
         {ALL_ROLES.map((role) => (
           <StatCard key={role} label={ROLE_LABELS[role]} value={roleCounts[role] || 0}
             icon={role === 'admin' ? Shield : role === 'manager' ? Users : role === 'accountant' ? Calculator : UserPlus}
-            tone={role === 'admin' ? 'red' : role === 'manager' ? 'indigo' : role === 'accountant' ? 'amber' : 'slate'} />
+            />
         ))}
       </div>
 
