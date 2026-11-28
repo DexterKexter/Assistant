@@ -14,10 +14,6 @@ const emptyForm = { name: '', kind: 'Банк', currency: 'KZT' as Account['curr
 // Same controls as the new shipment / new request windows.
 const inpCls = 'h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300'
 const labelCls = 'mb-1 block text-[11px] font-medium uppercase tracking-wider text-slate-500'
-const pill = (label: string, active: boolean, onClick: () => void) => (
-  <button key={label} type="button" onClick={onClick} aria-pressed={active}
-    className={cn('h-7 rounded-full border px-3 text-[11px] font-medium transition-all', active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300')}>{label}</button>
-)
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -176,59 +172,77 @@ export default function AccountsPage() {
               <p className="font-heading text-[15px] font-bold text-slate-900">{editing.id ? 'Счёт' : 'Новый счёт'}</p>
               <button type="button" onClick={close} aria-label="Закрыть" className="flex h-8 w-8 items-center justify-center rounded-full bg-white/50 active:bg-white/80"><X className="h-4 w-4 text-slate-500" /></button>
             </div>
-            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-              <div className="space-y-4 rounded-2xl bg-white/60 p-4 ring-1 ring-white/80">
-                <label className="block"><span className={labelCls}>Название *</span><input autoFocus maxLength={120} placeholder="Например, Kaspi Business" className={inpCls} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></label>
-                <div><p className={labelCls}>Тип</p>
-                  <div className="flex flex-wrap items-center gap-1">
-                    {/* An account may keep a type that is no longer in the list. */}
-                    {[...types.map(t => t.name), ...(types.some(t => t.name === form.kind) ? [] : [form.kind])].map(k => {
-                      const Icon = iconOf(k), active = form.kind === k
-                      return (
-                        <button key={k} type="button" onClick={() => setForm(f => ({ ...f, kind: k }))} aria-pressed={active}
-                          className={cn('flex h-7 items-center gap-1.5 rounded-full border pl-2.5 pr-3 text-[11px] font-medium transition-all', active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300')}>
-                          <Icon className="h-3.5 w-3.5" /> {k}
-                        </button>
-                      )
-                    })}
-                    {newType === null && (
-                      <button type="button" onClick={() => setNewType({ name: '', icon: 'wallet' })} className="flex h-7 items-center gap-1 rounded-full border border-dashed border-slate-300 px-3 text-[11px] font-medium text-slate-500 hover:border-slate-400 hover:text-slate-700">
-                        <Plus className="h-3 w-3" /> Новый тип
+            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+              {/* Type first: it is the main choice, shown as tiles that scale to any number of custom types. */}
+              <div>
+                <p className={labelCls}>Тип счёта</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[...types.map(t => t.name), ...(types.some(t => t.name === form.kind) ? [] : [form.kind])].map(k => {
+                    const Icon = iconOf(k), active = form.kind === k
+                    return (
+                      <button key={k} type="button" onClick={() => setForm(f => ({ ...f, kind: k }))} aria-pressed={active}
+                        className={cn('flex h-11 min-w-0 items-center gap-2 rounded-xl border px-3 text-left text-[12px] font-medium transition-all',
+                          active ? 'border-slate-900 bg-slate-900 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300')}>
+                        <Icon className="h-4 w-4 shrink-0" /><span className="truncate">{k}</span>
                       </button>
-                    )}
-                  </div>
-                  {newType && (
-                    <div className="mt-2 space-y-2 rounded-xl border border-slate-200 bg-white p-3">
-                      <div className="flex gap-2">
-                        <input autoFocus maxLength={40} value={newType.name} placeholder="Название типа" aria-label="Название нового типа"
-                          onChange={e => setNewType({ ...newType, name: e.target.value })}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addType() } if (e.key === 'Escape') { e.stopPropagation(); setNewType(null) } }}
-                          className={inpCls} />
-                        <button type="button" onClick={() => setNewType(null)} className="h-9 shrink-0 rounded-lg px-3 text-[12px] font-medium text-slate-500 hover:bg-slate-100">Отмена</button>
-                        <button type="button" onClick={addType} disabled={!newType.name.trim()} className="h-9 shrink-0 rounded-lg bg-slate-900 px-3 text-[12px] font-medium text-white disabled:opacity-40">Добавить</button>
-                      </div>
-                      <div className="grid grid-cols-7 gap-1" role="radiogroup" aria-label="Иконка типа">
-                        {(Object.keys(ACCOUNT_ICONS) as AccountIcon[]).map(key => {
-                          const Icon = ACCOUNT_ICONS[key], active = newType.icon === key
-                          return (
-                            <button key={key} type="button" role="radio" aria-checked={active} aria-label={key} onClick={() => setNewType({ ...newType, icon: key })}
-                              className={cn('flex h-9 items-center justify-center rounded-lg border transition-all', active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700')}>
-                              <Icon className="h-4 w-4" />
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
+                    )
+                  })}
+                  {newType === null && (
+                    <button type="button" onClick={() => setNewType({ name: '', icon: 'wallet' })}
+                      className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 text-[12px] font-medium text-slate-500 hover:border-slate-400 hover:text-slate-700">
+                      <Plus className="h-4 w-4" /> Новый тип
+                    </button>
                   )}
                 </div>
-                <div><p className={labelCls}>Валюта</p><div className="flex flex-wrap gap-1">{CURRENCIES.map(c => pill(c, form.currency === c, () => setForm(f => ({ ...f, currency: c }))))}</div></div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <label><span className={labelCls}>Банк</span><input maxLength={120} placeholder="—" className={inpCls} value={form.bank} onChange={e => setForm(f => ({ ...f, bank: e.target.value }))} /></label>
-                  <label><span className={labelCls}>Номер счёта / IBAN</span><input maxLength={60} placeholder="—" autoComplete="off" className={cn(inpCls, 'font-mono')} value={form.number} onChange={e => setForm(f => ({ ...f, number: e.target.value }))} /></label>
-                  <label><span className={labelCls}>Остаток</span><input inputMode="decimal" placeholder="0" className={cn(inpCls, 'tabular-nums')} value={form.balance} onChange={e => setForm(f => ({ ...f, balance: e.target.value }))} /></label>
-                  <label><span className={labelCls}>Заметка</span><input maxLength={1000} placeholder="—" className={inpCls} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></label>
+                {newType && (
+                  <div className="mt-2 space-y-2 rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="flex gap-2">
+                      <input autoFocus maxLength={40} value={newType.name} placeholder="Название типа" aria-label="Название нового типа"
+                        onChange={e => setNewType({ ...newType, name: e.target.value })}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addType() } if (e.key === 'Escape') { e.stopPropagation(); setNewType(null) } }}
+                        className={inpCls} />
+                      <button type="button" onClick={() => setNewType(null)} className="h-9 shrink-0 rounded-lg px-3 text-[12px] font-medium text-slate-500 hover:bg-slate-100">Отмена</button>
+                      <button type="button" onClick={addType} disabled={!newType.name.trim()} className="h-9 shrink-0 rounded-lg bg-slate-900 px-3 text-[12px] font-medium text-white disabled:opacity-40">Добавить</button>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1" role="radiogroup" aria-label="Иконка типа">
+                      {(Object.keys(ACCOUNT_ICONS) as AccountIcon[]).map(key => {
+                        const Icon = ACCOUNT_ICONS[key], active = newType.icon === key
+                        return (
+                          <button key={key} type="button" role="radio" aria-checked={active} aria-label={key} onClick={() => setNewType({ ...newType, icon: key })}
+                            className={cn('flex h-9 items-center justify-center rounded-lg border transition-all', active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700')}>
+                            <Icon className="h-4 w-4" />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <label className="block"><span className={labelCls}>Название *</span>
+                <input autoFocus maxLength={120} placeholder="Например, Kaspi Business" className={inpCls} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              </label>
+
+              {/* Balance with its currency as one field: the number never shows without its unit. */}
+              <div><span className={labelCls}>Остаток</span>
+                <div className="flex h-9 overflow-hidden rounded-lg border border-slate-200 bg-white focus-within:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-500/30">
+                  <input inputMode="decimal" placeholder="0" aria-label="Остаток" className="min-w-0 flex-1 bg-transparent px-2.5 text-[13px] tabular-nums text-slate-700 outline-none placeholder:text-slate-400"
+                    value={form.balance} onChange={e => setForm(f => ({ ...f, balance: e.target.value }))} />
+                  <select aria-label="Валюта" value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value as Account['currency'] }))}
+                    className="border-l border-slate-200 bg-slate-50 px-2.5 text-[13px] font-medium text-slate-700 outline-none">
+                    {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label><span className={labelCls}>Банк</span><input maxLength={120} placeholder="Необязательно" className={inpCls} value={form.bank} onChange={e => setForm(f => ({ ...f, bank: e.target.value }))} /></label>
+                <label><span className={labelCls}>Номер счёта / IBAN</span><input maxLength={60} placeholder="Необязательно" autoComplete="off" className={cn(inpCls, 'font-mono')} value={form.number} onChange={e => setForm(f => ({ ...f, number: e.target.value }))} /></label>
+              </div>
+
+              <label className="block"><span className={labelCls}>Заметка</span>
+                <textarea maxLength={1000} rows={2} placeholder="Необязательно" className={cn(inpCls, 'h-auto resize-none py-2')} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+              </label>
               {formError && <p role="alert" className="px-1 text-[13px] text-red-600">{formError}</p>}
             </div>
             <div className="flex items-center gap-2 border-t border-white/60 bg-white/20 px-5 pb-3 pt-3">
