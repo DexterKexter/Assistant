@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { FinanceTabs } from '@/components/finance-tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
@@ -72,6 +73,7 @@ export default function FinancePage() {
 
   return (
     <div className="space-y-6">
+      <FinanceTabs />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Финансы</h1>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
