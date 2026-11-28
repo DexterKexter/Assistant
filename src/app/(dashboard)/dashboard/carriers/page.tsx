@@ -115,7 +115,7 @@ export default function CarriersPage() {
       </FilterBar>
 
       {adding && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => !saving && setAdding(false)}>
+        <div data-overlay className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => !saving && setAdding(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div onClick={e => e.stopPropagation()} className="relative w-full max-w-md rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">

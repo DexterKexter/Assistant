@@ -28,7 +28,7 @@ export function AgentFab() {
     <>
       {!open && (
         <button onClick={() => setOpen(true)} aria-label="AI ассистент" title="AI ассистент"
-          className="fixed right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-6 md:right-6">
+          data-agent-fab className="fixed right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-6 md:right-6">
           <Sparkles className="h-5 w-5" />
         </button>
       )}

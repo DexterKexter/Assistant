@@ -101,7 +101,7 @@ export function ReferencesModal({ onClose }: { onClose: () => void }) {
   const catCounts = CATEGORIES.map(c => ({ ...c, count: items.filter(i => i.category === c.key).length }))
 
   return (
-    <div className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+    <div data-overlay className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-[#f8fafc] rounded-2xl w-[95vw] max-w-4xl h-[80vh] shadow-2xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-white shrink-0">

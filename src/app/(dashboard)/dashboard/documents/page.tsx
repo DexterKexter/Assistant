@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Search, FileText, Image as ImageIcon, ExternalLink, X, Clock, CheckCircle2, Receipt, Camera } from 'lucide-react'
+import { FileText, Image as ImageIcon, ExternalLink, X, Clock, CheckCircle2, Receipt, Camera } from 'lucide-react'
 import type { Shipment } from '@/types/database'
 import { getShipmentStatus } from '@/types/database'
 
@@ -25,6 +25,7 @@ function timeAgo(dateStr: string | null | undefined): string {
 }
 import { useShipmentModal } from '@/lib/shipment-modal'
 import { PageHeader } from '@/components/page-header'
+import { FilterBar, SearchInput } from '@/components/filter-bar'
 
 const STATUS_PAGE_SIZE = 50
 // pagination enabled
@@ -88,13 +89,10 @@ export default function DocumentsPage() {
   return (
     <div className="space-y-8 md:space-y-5">
       {/* Header */}
-      <PageHeader title="Документы">
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <input type="text" placeholder="Поиск..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-9 rounded-lg bg-white border border-slate-200/80 pl-9 pr-3 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all" />
-        </div>
-      </PageHeader>
+      <PageHeader title="Документы" />
+      <FilterBar>
+        <SearchInput value={search} onChange={setSearch} className="sm:ml-auto" />
+      </FilterBar>
 
       {loading ? (
         <div className="grid grid-cols-2 gap-4">

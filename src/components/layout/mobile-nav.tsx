@@ -165,7 +165,7 @@ export function MobileNav({ unreadCount, taskCount }: { unreadCount: number; tas
 
       {/* Bottom sheet menu */}
       {menuOpen && (
-        <div className="md:hidden fixed inset-0 z-[60]" onClick={() => setMenuOpen(false)}>
+        <div data-overlay className="md:hidden fixed inset-0 z-[60]" onClick={() => setMenuOpen(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
           <div
             className="absolute bottom-3 left-3 right-3 rounded-[28px] bg-gradient-to-br from-indigo-50/70 via-white/60 to-violet-50/70 backdrop-blur-[24px] backdrop-saturate-200 border border-white/60 shadow-[0_12px_40px_-4px_rgba(79,70,229,0.25),0_4px_12px_-2px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.8),inset_0_-1px_0_0_rgba(255,255,255,0.2)] animate-in slide-in-from-bottom duration-200 pb-[max(0.75rem,env(safe-area-inset-bottom))] overflow-hidden"
@@ -268,7 +268,7 @@ export function MobileNav({ unreadCount, taskCount }: { unreadCount: number; tas
 
       {/* Profile sheet */}
       {profileOpen && (
-        <div className="md:hidden fixed inset-0 z-[70] flex items-end justify-center" onClick={() => !profileSaving && setProfileOpen(false)}>
+        <div data-overlay className="md:hidden fixed inset-0 z-[70] flex items-end justify-center" onClick={() => !profileSaving && setProfileOpen(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
           <div
             onClick={e => e.stopPropagation()}

@@ -262,6 +262,18 @@ html[data-fullscreen="true"] nav[data-mobile-nav] {
   display: none;
 }
 
+/* Any open window or sheet (our [data-overlay] roots, shadcn/base-ui dialogs) hides the floating chrome:
+   the mobile bottom nav and the AI button would otherwise sit on top of the window's buttons.
+   New full-screen overlays must carry `data-overlay` on their root. */
+html:has([data-overlay]) nav[data-mobile-nav],
+html:has([data-overlay]) [data-agent-fab],
+html:has([data-slot="dialog-content"]) nav[data-mobile-nav],
+html:has([data-slot="dialog-content"]) [data-agent-fab],
+html:has([data-slot="sheet-content"]) nav[data-mobile-nav],
+html:has([data-slot="sheet-content"]) [data-agent-fab] {
+  display: none;
+}
+
 /* iOS Safari auto-zooms on input focus when font-size < 16px.
    Keep small visual fonts on desktop, force 16px on mobile for all form controls. */
 @media (max-width: 767px) {

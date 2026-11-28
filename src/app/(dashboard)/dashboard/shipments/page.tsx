@@ -539,7 +539,7 @@ export default function ShipmentsPage() {
         const type = newRow.container_type || 'Выкупной'
         const containerColor = containerTypeColor(type)
         return (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center md:p-4" onClick={cancelNew}>
+        <div data-overlay className="fixed inset-0 z-[100] flex items-end md:items-center justify-center md:p-4" onClick={cancelNew}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
           <div
             onClick={e => e.stopPropagation()}

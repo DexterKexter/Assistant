@@ -461,7 +461,7 @@ function AttachmentItem({ att, isMine }: { att: MessageAttachment; isMine: boole
           <img src={att.url} alt={att.name} loading="lazy" decoding="async" className="rounded-lg max-w-[200px] max-h-[150px] object-cover" />
         </button>
         {showModal && (
-          <div className="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+          <div data-overlay className="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
             <img src={att.url} alt={att.name} className="max-w-[90vw] max-h-[85vh] object-contain rounded-xl shadow-2xl" onClick={e => e.stopPropagation()} />
           </div>
         )}
@@ -757,7 +757,7 @@ function NewConversationDialog({ profile, onClose, onCreated }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+    <div data-overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <h3 className="text-[16px] font-bold text-slate-900 font-heading">Новый чат</h3>

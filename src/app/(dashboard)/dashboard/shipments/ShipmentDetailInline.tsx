@@ -932,7 +932,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
       {/* PDF preview */}
       {previewPdf && (
-        <div className="fixed inset-0 z-[1200] bg-black/80 backdrop-blur-sm flex flex-col" onClick={() => setPreviewPdf(null)}>
+        <div data-overlay className="fixed inset-0 z-[1200] bg-black/80 backdrop-blur-sm flex flex-col" onClick={() => setPreviewPdf(null)}>
           <div className="flex items-center justify-between px-4 h-12 bg-slate-900/60 text-white shrink-0">
             <p className="text-[13px] font-medium truncate">{previewPdf.name}</p>
             <div className="flex items-center gap-2">
@@ -949,7 +949,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
       {/* Lightbox */}
       {lightbox && shipment.photos?.length && (
-        <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center" onClick={() => setLightbox(false)}>
+        <div data-overlay className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center" onClick={() => setLightbox(false)}>
           <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
             <X className="w-5 h-5 text-white" />
           </button>
@@ -971,7 +971,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
       {/* Delete confirmation modal */}
       {showDelete && shipment && (
-        <div className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowDelete(false)}>
+        <div data-overlay className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowDelete(false)}>
           <div className="bg-white rounded-xl shadow-2xl p-6 w-[400px]" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">

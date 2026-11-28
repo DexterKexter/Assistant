@@ -369,7 +369,7 @@ export default function ShipmentDetailPage() {
 
       {/* Lightbox */}
       {lightbox && shipment.photos?.length && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setLightbox(false)}>
+        <div data-overlay className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setLightbox(false)}>
           <button onClick={() => setLightbox(false)} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
             <Circle className="w-5 h-5" />
           </button>

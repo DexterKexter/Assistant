@@ -240,7 +240,7 @@ export default function ClientDetailPage() {
 
       {/* ── Edit modal ── */}
       {editOpen && (
-        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center md:p-4" onClick={() => !saving && setEditOpen(false)}>
+        <div data-overlay className="fixed inset-0 z-[70] flex items-end md:items-center justify-center md:p-4" onClick={() => !saving && setEditOpen(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
           <div
             onClick={e => e.stopPropagation()}

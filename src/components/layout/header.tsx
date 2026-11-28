@@ -195,7 +195,7 @@ export function Header() {
 
       {/* Notification modal */}
       {showNotifs && (
-        <div className="fixed inset-0 z-[900] bg-black/20 backdrop-blur-[2px]" onClick={() => setShowNotifs(false)}>
+        <div data-overlay className="fixed inset-0 z-[900] bg-black/20 backdrop-blur-[2px]" onClick={() => setShowNotifs(false)}>
           <div
             className="absolute top-[56px] right-3 md:right-6 w-[380px] max-w-[calc(100vw-24px)] bg-white rounded-2xl border border-slate-100 shadow-2xl overflow-hidden"
             onClick={e => e.stopPropagation()}

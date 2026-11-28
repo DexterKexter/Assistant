@@ -55,7 +55,7 @@ export function ShipmentModalGlobal() {
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-end md:items-center justify-center md:p-4"
+      data-overlay className="fixed inset-0 z-[1000] flex items-end md:items-center justify-center md:p-4"
       onClick={closeShipment}
     >
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />

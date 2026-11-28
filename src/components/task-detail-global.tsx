@@ -15,7 +15,7 @@ export function TaskDetailGlobal() {
 
   return (
     <div
-      className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm flex items-end md:items-center justify-center md:p-4"
+      data-overlay className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm flex items-end md:items-center justify-center md:p-4"
       onClick={closeTask}
     >
       <div

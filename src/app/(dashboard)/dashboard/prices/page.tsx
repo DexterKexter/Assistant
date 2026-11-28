@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, Clock, MapPin, Pencil, Plane, Plus, Search, Ship, TrainFront, Trash2, Truck } from 'lucide-react'
+import { ArrowRight, Clock, MapPin, Pencil, Plane, Plus, Ship, TrainFront, Trash2, Truck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Place } from '@/components/place'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { PageHeader, PageAction } from '@/components/page-header'
+import { FilterBar, SearchInput } from '@/components/filter-bar'
 
 type Price = {
   id: string; title: string; origin: string; destination: string; border: string; transport: string; container: string
@@ -86,13 +87,11 @@ export default function PricesPage() {
   return (
     <div className="space-y-4 pb-6">
       <PageHeader title="Цены" subtitle={prices?.length ? `Направлений: ${prices.length}` : undefined}>
-        <label className="relative w-full sm:w-64">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск по маршруту" aria-label="Поиск по ценам"
-            className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-[13px] outline-none placeholder:text-slate-400 focus:border-slate-400" />
-        </label>
         <PageAction icon={Plus} onClick={() => openForm(empty)}>Добавить цену</PageAction>
       </PageHeader>
+      <FilterBar>
+        <SearchInput value={search} onChange={setSearch} placeholder="Поиск по маршруту" className="sm:ml-auto" />
+      </FilterBar>
 
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-600">{error}</p>}
 

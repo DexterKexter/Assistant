@@ -154,7 +154,7 @@ export default function AccountsPage() {
 
       {/* Add / edit window: same shell as the new shipment window. */}
       {editing && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center md:items-center md:p-4" onClick={close}>
+        <div data-overlay className="fixed inset-0 z-[100] flex items-end justify-center md:items-center md:p-4" onClick={close}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-150" />
           <form onSubmit={save} onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Escape') close() }}
             className="relative mx-3 mb-3 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-[28px] border border-white/60 bg-gradient-to-br from-indigo-50/70 via-white/60 to-violet-50/70 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_12px_40px_-4px_rgba(79,70,229,0.25),0_4px_12px_-2px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.8)] backdrop-blur-[24px] backdrop-saturate-200 animate-in slide-in-from-bottom duration-200 md:mx-0 md:mb-0 md:max-w-[560px] md:zoom-in-95">
