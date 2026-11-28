@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Search, Truck, Clock, DollarSign, Plus, X, Save } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 import type { Carrier } from '@/types/database'
-import { PageHeader } from '@/components/page-header'
+import { PageHeader, PageAction } from '@/components/page-header'
 
 type ActivityTab = 'all' | 'active' | 'moderate' | 'inactive'
 
@@ -104,7 +104,9 @@ export default function CarriersPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Перевозчики" subtitle={`${carriers.length} перевозчиков`} />
+      <PageHeader title="Перевозчики" subtitle={`${carriers.length} перевозчиков`}>
+        {canEdit && <PageAction icon={Plus} onClick={() => setAdding(true)}>Новый перевозчик</PageAction>}
+      </PageHeader>
 
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex gap-1 border-b border-slate-200 flex-1 min-w-0 overflow-x-auto md:overflow-visible">
@@ -121,12 +123,6 @@ export default function CarriersPage() {
           <input type="text" placeholder="Поиск..." value={search} onChange={e => setSearch(e.target.value)}
             className="w-full h-9 rounded-lg bg-white border border-slate-200 pl-9 pr-3 text-[12px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/20 transition-all" />
         </div>
-        {canEdit && (
-          <button onClick={() => setAdding(true)} className="h-10 flex items-center gap-2 px-4 bg-slate-900 text-white rounded-lg text-[13px] font-semibold hover:bg-slate-800 transition-colors shrink-0">
-            <Plus className="w-4 h-4" />
-            <span className="hidden md:inline">Новый</span>
-          </button>
-        )}
       </div>
 
       {adding && (

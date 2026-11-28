@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Search, Users, Clock, Diamond, Award, Medal, Star, Circle, Plus, X, Save } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 import type { Client } from '@/types/database'
-import { PageHeader } from '@/components/page-header'
+import { PageHeader, PageAction } from '@/components/page-header'
 
 type ActivityTab = 'all' | 'active' | 'moderate' | 'inactive'
 
@@ -173,7 +173,9 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Клиенты" subtitle={`${clients.length} контактов`} />
+      <PageHeader title="Клиенты" subtitle={`${clients.length} контактов`}>
+        {canEdit && <PageAction icon={Plus} onClick={() => setAdding(true)}>Новый клиент</PageAction>}
+      </PageHeader>
 
       {/* Rank bar */}
       {!loading && clients.length > 0 && (
@@ -219,12 +221,6 @@ export default function ClientsPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        {canEdit && (
-          <button onClick={() => setAdding(true)} className="h-10 flex items-center gap-2 px-4 bg-slate-900 text-white rounded-lg text-[13px] font-semibold hover:bg-slate-800 transition-colors shrink-0">
-            <Plus className="w-4 h-4" />
-            <span className="hidden md:inline">Новый</span>
-          </button>
-        )}
       </div>
 
       {adding && (

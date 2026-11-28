@@ -6,6 +6,7 @@ import { useProfile } from '@/lib/useProfile'
 import { useRouter } from 'next/navigation'
 import { Search, Plus, Pencil, Trash2, Check, X, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { PageHeader } from '@/components/page-header'
 
 interface RefItem {
   id: string
@@ -111,10 +112,7 @@ export default function ReferencesPage() {
         <Link href="/dashboard/admin" className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
           <ArrowLeft className="w-4 h-4 text-slate-500" />
         </Link>
-        <div>
-          <h1 className="text-[20px] font-bold text-slate-900 font-heading">Справочники</h1>
-          <p className="text-[13px] text-slate-400 mt-0.5">{items.length} записей в {CATEGORIES.length} категориях</p>
-        </div>
+        <div className="min-w-0 flex-1"><PageHeader title="Справочники" subtitle={`${items.length} записей в ${CATEGORIES.length} категориях`} /></div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
