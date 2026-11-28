@@ -11,7 +11,7 @@ import { fmtDate } from '@/lib/utils'
 import {
   ArrowLeft, Phone, MapPin, Globe, Ship, Package, TrendingUp, Calendar,
   DollarSign, Clock, ChevronRight, Container, Truck, CheckCircle2, Search,
-  Pencil, X as XIcon, Save, MessageSquare
+  Pencil, X as XIcon, Save, MessageSquare, User
 } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 import { StatCard } from '@/components/stat-card'
@@ -36,6 +36,21 @@ export default function ClientDetailPage() {
     name: '', phone: '', address: '', is_russia: false,
   })
   const [saving, setSaving] = useState(false)
+
+  // Responsible person: new shipments of this client get it automatically
+  const [staff, setStaff] = useState<{ id: string; full_name: string | null }[]>([])
+  useEffect(() => {
+    if (!canEdit) return
+    createClient().from('profiles').select('id, full_name').in('role', ['admin', 'manager']).order('full_name')
+      .then(({ data }) => setStaff(data || []))
+  }, [canEdit])
+  const setManager = async (managerId: string) => {
+    if (!client) return
+    const manager_id = managerId || null
+    const { error } = await createClient().from('clients').update({ manager_id }).eq('id', client.id)
+    if (error) { alert(`Не удалось сохранить: ${error.message}`); return }
+    setClient({ ...client, manager_id })
+  }
 
   const openEdit = () => {
     if (!client) return
@@ -226,6 +241,17 @@ export default function ClientDetailPage() {
               <MessageSquare className="w-4 h-4" strokeWidth={1.8} />
               Чат
             </button>
+          )}
+          {canEdit && (
+            <label title="Ответственный за новые перевозки клиента" className="relative shrink-0 h-9 px-3 rounded-xl border bg-white border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2 text-[13px] font-medium cursor-pointer transition-all">
+              <User className="w-4 h-4" strokeWidth={1.8} />
+              <span className="hidden sm:inline">{staff.find(p => p.id === client.manager_id)?.full_name || 'Ответственный'}</span>
+              <select aria-label="Ответственный" value={client.manager_id || ''} onChange={e => setManager(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer">
+                <option value="">— Не назначен —</option>
+                {staff.map(p => <option key={p.id} value={p.id}>{p.full_name || '—'}</option>)}
+              </select>
+            </label>
           )}
           {canEdit && (
             <button

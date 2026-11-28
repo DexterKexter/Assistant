@@ -41,6 +41,7 @@ export interface Client {
   is_russia: boolean
   address: string | null
   phone: string | null
+  manager_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -81,9 +82,11 @@ export interface Shipment {
   email: string | null
   sender_name: string | null
   notes: string | null
+  manager_id: string | null
   created_at: string
   updated_at: string
   // Joined
+  manager?: { full_name: string | null } | null
   recipient?: Recipient
   client?: Client
   sender?: Sender
@@ -255,7 +258,7 @@ export const TASK_PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: 
 }
 
 /* ── Notifications ── */
-export type NotificationType = 'task_assigned' | 'task_comment' | 'document_added' | 'photo_added' | 'shipment_comment'
+export type NotificationType = 'task_assigned' | 'task_comment' | 'document_added' | 'photo_added' | 'shipment_comment' | 'shipment_status' | 'shipment_assigned'
 
 export interface Notification {
   id: string

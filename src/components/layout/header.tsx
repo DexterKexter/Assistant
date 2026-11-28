@@ -228,12 +228,12 @@ export function Header() {
                   const actorInitials = notif.actor?.full_name
                     ? notif.actor.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
                     : '??'
-                  const Icon = notif.type === 'task_assigned' ? UserPlus
+                  const Icon = notif.type === 'task_assigned' || notif.type === 'shipment_assigned' ? UserPlus
                     : notif.type === 'document_added' ? FileText
                     : notif.type === 'photo_added' ? Camera
                     : notif.type === 'shipment_comment' ? MessageSquare
                     : MessageSquare
-                  const iconColor = notif.type === 'task_assigned' ? 'text-indigo-500'
+                  const iconColor = notif.type === 'task_assigned' || notif.type === 'shipment_assigned' ? 'text-indigo-500'
                     : notif.type === 'document_added' ? 'text-amber-500'
                     : notif.type === 'photo_added' ? 'text-violet-500'
                     : notif.type === 'shipment_comment' ? 'text-blue-500'

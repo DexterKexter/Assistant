@@ -109,11 +109,12 @@ export default function ShipmentsPage() {
   const router = useRouter()
   const { openShipment } = useShipmentModal()
   const supabase = createClient()
-  const { hasRole } = useProfile()
+  const { hasRole, profile } = useProfile()
   const canEdit = hasRole('admin', 'manager')
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [mineOnly, setMineOnly] = useState<'all' | 'mine'>('all')
   const [carrierFilter, setCarrierFilter] = useState('')
   const [clientFilter, setClientFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -163,6 +164,7 @@ export default function ShipmentsPage() {
           .or(`container_number.ilike.${JSON.stringify(pattern)},sender_name.ilike.${JSON.stringify(pattern)},search_client.not.is.null,search_carrier.not.is.null,search_recipient.not.is.null`)
       }
 
+      if (mineOnly === 'mine' && profile) query = query.eq('manager_id', profile.id)
       if (carrierFilter) query = query.eq('carrier_id', carrierFilter)
       if (clientFilter) query = query.eq('client_id', clientFilter)
       if (dateFrom) query = query.gte('departure_date', dateFrom)
@@ -192,7 +194,7 @@ export default function ShipmentsPage() {
         setLoadingMore(false)
       }
     }
-  }, [supabase, search, statusFilter, carrierFilter, clientFilter, dateFrom, dateTo])
+  }, [supabase, search, statusFilter, mineOnly, profile, carrierFilter, clientFilter, dateFrom, dateTo])
 
   useEffect(() => {
     const init = async () => {
@@ -551,7 +553,10 @@ export default function ShipmentsPage() {
       </PageHeader>
 
       <FilterBar>
-        <FilterTabs label="Статус перевозки" options={statusFilters} value={statusFilter} onChange={setStatusFilter} />
+        <div className="flex max-w-full flex-wrap items-center gap-2">
+          <FilterTabs label="Статус перевозки" options={statusFilters} value={statusFilter} onChange={setStatusFilter} />
+          {canEdit && <FilterTabs label="Ответственный" options={[{ key: 'all', label: 'Все' }, { key: 'mine', label: 'Мои' }]} value={mineOnly} onChange={setMineOnly} />}
+        </div>
         <SearchInput value={search} onChange={setSearch} placeholder="Контейнер, клиент" />
       </FilterBar>
 

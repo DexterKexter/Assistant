@@ -133,7 +133,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
     const { data } = await supabase
       .from('shipments')
-      .select('*, recipient:recipients(name), client:clients(name, is_russia), sender:senders(name), carrier:carriers(name)')
+      .select('*, recipient:recipients(name), client:clients(name, is_russia), sender:senders(name), carrier:carriers(name), manager:profiles!manager_id(full_name)')
       .eq('id', shipment.id)
       .single()
     if (data) setShipment(data as unknown as Shipment)
@@ -165,12 +165,28 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
 
   const supabase = createClient()
 
+  // Admins and managers who can be responsible for a shipment
+  const [staff, setStaff] = useState<{ id: string; full_name: string | null }[]>([])
+  useEffect(() => {
+    if (!canEdit || isCreateMode) return
+    supabase.from('profiles').select('id, full_name').in('role', ['admin', 'manager']).order('full_name')
+      .then(({ data }) => setStaff(data || []))
+  }, [canEdit, isCreateMode])
+
+  const setManager = async (managerId: string) => {
+    if (!shipment) return
+    const manager_id = managerId || null
+    const { error } = await supabase.from('shipments').update({ manager_id }).eq('id', shipment.id)
+    if (error) { alert(`Не удалось сохранить: ${error.message}`); return }
+    setShipment({ ...shipment, manager_id, manager: { full_name: staff.find(p => p.id === managerId)?.full_name ?? null } })
+  }
+
   // Fetch existing shipment (edit mode)
   useEffect(() => {
     if (isCreateMode) return
     supabase
       .from('shipments')
-      .select('*, recipient:recipients(name), client:clients(name, is_russia), sender:senders(name), carrier:carriers(name)')
+      .select('*, recipient:recipients(name), client:clients(name, is_russia), sender:senders(name), carrier:carriers(name), manager:profiles!manager_id(full_name)')
       .eq('id', id)
       .single()
       .then(({ data }) => setShipment(data as unknown as Shipment))
@@ -323,7 +339,7 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
     // Re-fetch with joins
     const { data } = await supabase
       .from('shipments')
-      .select('*, recipient:recipients(name), client:clients(name, is_russia), sender:senders(name), carrier:carriers(name)')
+      .select('*, recipient:recipients(name), client:clients(name, is_russia), sender:senders(name), carrier:carriers(name), manager:profiles!manager_id(full_name)')
       .eq('id', id)
       .single()
     if (data) setShipment(data as unknown as Shipment)
@@ -462,6 +478,17 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
         </div>
         {canEdit && !editing && !isCreateMode && shipment.client_id && (
           <NotifyButton shipmentId={id} shipment={shipment} className="px-3 py-1.5 bg-white/50 active:bg-white/80 text-slate-700 rounded-xl text-[12px] font-medium transition-colors flex items-center gap-1.5 shrink-0 disabled:opacity-60" />
+        )}
+        {canEdit && !editing && !isCreateMode && (
+          <label title="Ответственный" className="relative px-3 py-1.5 bg-white/50 active:bg-white/80 text-slate-700 rounded-xl text-[12px] font-medium transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer">
+            <User className="w-3 h-3" />
+            <span className="hidden sm:inline">{shipment.manager?.full_name || 'Ответственный'}</span>
+            <select aria-label="Ответственный" value={shipment.manager_id || ''} onChange={e => setManager(e.target.value)}
+              className="absolute inset-0 opacity-0 cursor-pointer">
+              <option value="">— Не назначен —</option>
+              {staff.map(p => <option key={p.id} value={p.id}>{p.full_name || '—'}</option>)}
+            </select>
+          </label>
         )}
         {canEdit && !editing && (
           <button onClick={enterEditMode} className="px-3 py-1.5 bg-white/50 active:bg-white/80 text-slate-700 rounded-xl text-[12px] font-medium transition-colors flex items-center gap-1.5 shrink-0">
