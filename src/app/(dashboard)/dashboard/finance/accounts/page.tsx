@@ -108,12 +108,12 @@ export default function AccountsPage() {
       {/* Dashboard: one card per currency (never converted), plus counts. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {totalsByCurrency(accounts).map(([currency, total]) => (
-          <div key={currency} className="rounded-2xl border border-slate-200/70 bg-white p-4">
+          <div key={currency} className="rounded-2xl bg-slate-50 p-4">
             <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Остаток · {currency}</p>
             <p className="mt-1 truncate text-[20px] font-bold tabular-nums text-slate-900">{money(total, currency)}</p>
           </div>
         ))}
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-4">
+        <div className="rounded-2xl bg-slate-50 p-4">
           <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Счетов</p>
           <p className="mt-1 text-[20px] font-bold tabular-nums text-slate-900">{active.length}{archivedCount > 0 && <span className="ml-2 text-[12px] font-medium text-slate-400">+ {archivedCount} в архиве</span>}</p>
         </div>
