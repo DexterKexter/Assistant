@@ -35,6 +35,13 @@ export default function CrmPage() {
     return () => { supabase.removeChannel(ch) }
   }, [])
 
+  // An open conversation hides the mobile bottom nav and the AI button, which would cover the message box.
+  useEffect(() => {
+    if (selectedId) document.documentElement.setAttribute('data-chat-open', 'true')
+    else document.documentElement.removeAttribute('data-chat-open')
+    return () => document.documentElement.removeAttribute('data-chat-open')
+  }, [selectedId])
+
   const selected = chats.find(c => c.id === selectedId)
   const clientName = (id: string | null) => clients.find(c => c.id === id)?.name
 

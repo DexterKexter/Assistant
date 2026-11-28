@@ -256,8 +256,9 @@ html[data-fullscreen="true"] header[data-app-header] {
   border-top-color: white !important;
 }
 
-/* Hide mobile bottom nav while a chat is open so the message input stays visible */
+/* Hide mobile bottom nav (and the AI button) while a chat is open so the message input stays visible */
 html[data-chat-open="true"] nav[data-mobile-nav],
+html[data-chat-open="true"] [data-agent-fab],
 html[data-fullscreen="true"] nav[data-mobile-nav] {
   display: none;
 }

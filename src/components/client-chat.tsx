@@ -20,7 +20,7 @@ export function ClientChat({ client, onClose }: { client: CrmClient; onClose: ()
 
   return (
     <>
-    <div className="fixed inset-0 z-40 bg-slate-900/10 animate-in fade-in duration-200" onClick={onClose} />
+    <div data-overlay className="fixed inset-0 z-40 bg-slate-900/10 animate-in fade-in duration-200" onClick={onClose} />
     <div className="fixed top-0 right-0 z-50 h-dvh w-full sm:w-[420px] flex flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200">
       <button onClick={onClose} aria-label="Закрыть чат"
         className="absolute top-3 right-3 z-10 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700">
