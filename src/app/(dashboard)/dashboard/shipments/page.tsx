@@ -495,17 +495,18 @@ export default function ShipmentsPage() {
                 {/* Phone card. 1) container number, then client, 2) where it is (route with progress), 3) details with icons. */}
                 <button type="button" onClick={() => openShipment(s.id)}
                   className="block w-full rounded-2xl bg-slate-100 p-3 text-left transition-colors active:bg-slate-200/70">
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-3">
                     {/* Container number is the headline (what a manager searches by); the client goes under it. */}
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm">
                       <Container className="h-[18px] w-[18px]" aria-hidden="true" />
                     </div>
+                    {/* Number on the left, client on the right of the same row. */}
                     <div className="min-w-0 flex-1">
                       {s.container_number
                         ? <p className="truncate font-mono text-[16px] font-bold leading-5 tracking-wide text-slate-900"><Hl text={s.container_number} q={search} /></p>
-                        : <p className="text-[15px] font-semibold leading-5 text-slate-400">Без номера</p>}
-                      <span className={`${CHIP} mt-1.5`}><User className={CHIP_ICON} aria-label="Клиент" /><span className="truncate">{(s.client as unknown as { name: string })?.name || 'Без клиента'}</span></span>
+                        : <p className="truncate text-[15px] font-semibold leading-5 text-slate-400">Без номера</p>}
                     </div>
+                    <span className={`${CHIP} max-w-[50%] shrink-0`}><User className={CHIP_ICON} aria-label="Клиент" /><span className="truncate">{(s.client as unknown as { name: string })?.name || 'Без клиента'}</span></span>
                   </div>
 
                   {/* Route: origin and destination with the way between them filled up to the current step. */}
