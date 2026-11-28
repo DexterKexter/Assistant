@@ -131,12 +131,12 @@ export default function PipelinePage() {
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-600">{error}</p>}
       {!columns && !error && <div role="status" aria-label="Загружаем воронку" className="skeleton h-64 rounded-xl" />}
       {columns && (
-        <div className="overflow-x-auto pb-2">
-          <div className="grid min-w-[1620px] grid-cols-6 items-start gap-2.5">
+        <div className="-mx-3 snap-x snap-mandatory overflow-x-auto scroll-px-3 px-3 pb-2 md:mx-0 md:snap-none md:px-0">
+          <div className="flex items-start gap-2.5 md:grid md:min-w-[1620px] md:grid-cols-6">
             {columns.map(col => (
               // ponytail: mouse drag only; keyboard users change the dates on the shipment page
               <div key={col.key} onDragOver={e => { if (drag && col.key !== 'request') { e.preventDefault(); setOver(col.key) } }} onDrop={() => drop(col.key)}
-                className={cn('min-w-0 rounded-xl bg-slate-100/70 p-2', over === col.key && drag?.stage !== col.key && 'ring-2 ring-indigo-400')}>
+                className={cn('w-[calc(100vw-1.5rem)] shrink-0 snap-start rounded-xl bg-slate-100/70 p-2 md:w-auto md:min-w-0', over === col.key && drag?.stage !== col.key && 'ring-2 ring-indigo-400')}>
                 <div className="flex items-center gap-1.5 px-1 pb-1.5 text-[13px] font-semibold text-slate-800">
                   <col.icon className="h-4 w-4 text-slate-400" />{col.title}
                   <span className="ml-auto text-[12px] font-medium tabular-nums text-slate-400">{col.total}</span>
