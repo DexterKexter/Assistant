@@ -18,18 +18,27 @@ type TgMessage = {
   video?: TgFile
   voice?: TgFile
   audio?: TgFile
-  reply_to_message?: { message_id: number }
+  reply_to_message?: { message_id: number; from?: { id: number } }
 }
 
 // The assistant remembers the last 10 turns of the last 2 hours; "/new" starts over.
 const TALK_MS = 2 * 60 * 60 * 1000
 const NEW_TALK = /^(\/new|новый разговор|забудь)/i
 
+// Staff groups where the assistant answers when called. Never add a carrier group: answers carry internal numbers.
+// ponytail: hardcoded; move to a table if staff groups multiply. Telegram changes the id when a group becomes a supergroup.
+const STAFF_GROUPS = [-1005608470219] // STI | FinOp
+// \b is ASCII-only in JS, hence the Unicode lookahead for «бот».
+// In a staff group: "/ai …", "бот, …", "@sti_log_bot …" or a reply to the bot's own message.
+const CALL = /^\/(ai|ии)(@\w+)?(?![\p{L}\p{N}_])|(^|\s)(бот|@sti_log_bot)(?![\p{L}\p{N}_])[,:]?/iu
+
 // Runs after the 200: the model can think for a minute, and Telegram would resend the update meanwhile.
-async function answer(m: TgMessage, profile: { full_name: string | null; role: string }) {
+async function answer(m: TgMessage, question: string, profile: { full_name: string | null; role: string }) {
   const db = createServiceClient()
   const chat = m.chat.id
-  const wait: number | undefined = (await (await tg('sendMessage', { chat_id: chat, text: '🤔 Думаю…' })).json()).result?.message_id
+  // In a group the answer hangs off the question, so it's clear whose it is.
+  const replyTo = m.chat.type === 'private' ? {} : { reply_parameters: { message_id: m.message_id } }
+  const wait: number | undefined = (await (await tg('sendMessage', { chat_id: chat, text: '🤔 Думаю…', ...replyTo })).json()).result?.message_id
   const say = async (text: string) => {
     const [first, ...rest] = telegramHtml(text)
     await tgHtml(chat, first, wait)
@@ -42,10 +51,10 @@ async function answer(m: TgMessage, profile: { full_name: string | null; role: s
     const history = [...((past ?? []) as Turn[])].reverse()
     // A conversation has to start with the user's turn.
     while (history[0]?.role === 'assistant') history.shift()
-    const res = await ask(db, profile, [...history, { role: 'user', content: m.text! }])
+    const res = await ask(db, profile, [...history, { role: 'user', content: question }])
     await say(res.answer)
     await db.from('telegram_assistant_turns').insert([
-      { chat_id: chat, role: 'user', content: m.text! },
+      { chat_id: chat, role: 'user', content: question },
       { chat_id: chat, role: 'assistant', content: res.answer },
     ])
     for (const f of res.files) await tgSendFile(chat, f.name, f.bytes)
@@ -53,6 +62,21 @@ async function answer(m: TgMessage, profile: { full_name: string | null; role: s
     console.error('telegram assistant', e)
     await say('⚠️ Ассистент сейчас не ответил. Попробуйте ещё раз.')
   }
+}
+
+// The bot is public and the SQL runs past RLS, so only linked admins/managers get answers.
+async function assistant(m: TgMessage, question: string) {
+  const db = createServiceClient()
+  const { data: profile } = await db.from('profiles').select('full_name, role').eq('telegram_id', m.from!.id).maybeSingle()
+  if (!profile || !['admin', 'manager'].includes(profile.role)) {
+    return tgSend(m.chat.id, 'Ассистент доступен сотрудникам STI Logistics. Войдите в дашборд и нажмите «Привязать Telegram» в шапке сайта.')
+  }
+  if (!question) return tgSend(m.chat.id, 'Задайте вопрос по базе — например, «бот, сколько контейнеров в пути?»')
+  if (NEW_TALK.test(question)) {
+    await db.from('telegram_assistant_turns').delete().eq('chat_id', m.chat.id)
+    return tgSend(m.chat.id, '🆕 Начали разговор заново — прошлые вопросы забыл.')
+  }
+  after(() => answer(m, question, profile))
 }
 
 // `/start <token>` from the dashboard's "link Telegram" button.
@@ -125,18 +149,11 @@ export async function POST(req: Request) {
     const start = m.text.match(/^\/start (\S+)$/)
     if (start) {
       await linkAccount(m, start[1])
-    } else {
-      // The bot is public and the tools bypass RLS, so only linked admins/managers get answers.
-      const { data: profile } = await db.from('profiles').select('full_name, role').eq('telegram_id', m.from.id).maybeSingle()
-      if (profile && ['admin', 'manager'].includes(profile.role)) {
-        if (NEW_TALK.test(m.text)) {
-          await db.from('telegram_assistant_turns').delete().eq('chat_id', m.chat.id)
-          await tgSend(m.chat.id, '🆕 Начали разговор заново — прошлые вопросы забыл.')
-        } else after(() => answer(m, profile))
-      } else {
-        await tgSend(m.chat.id, 'Бот доступен сотрудникам STI Logistics. Войдите в дашборд и нажмите «Привязать Telegram» в шапке сайта.')
-      }
-    }
+    } else await assistant(m, m.text.trim())
+  } else if (STAFF_GROUPS.includes(m.chat.id)) {
+    // Shared memory per group: a follow-up from a colleague continues the same conversation.
+    const botId = Number(process.env.TELEGRAM_BOT_TOKEN?.split(':')[0])
+    if (CALL.test(m.text) || m.reply_to_message?.from?.id === botId) await assistant(m, m.text.replace(CALL, ' ').replace(/\s+/g, ' ').trim())
   } else if (m.reply_to_message) {
     // Carrier group: keep replies to a request the bot posted there. Everything else in groups is ignored.
     // ponytail: text replies only; photos/files in the thread are not stored.
