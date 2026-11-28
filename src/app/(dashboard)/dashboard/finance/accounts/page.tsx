@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, type FormEvent } from 'react'
-import { Archive, ArchiveRestore, Pencil, Plus, Save, Search, Wallet, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Coins, Pencil, Plus, Save, Search, Wallet, X } from 'lucide-react'
+import { StatCard } from '@/components/stat-card'
 import { ACCOUNT_ICONS, accountIcon, type AccountIcon } from '@/lib/account-icons'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -108,15 +109,9 @@ export default function AccountsPage() {
       {/* Dashboard: one card per currency (never converted), plus counts. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {totalsByCurrency(accounts).map(([currency, total]) => (
-          <div key={currency} className="rounded-2xl bg-slate-100 p-4">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Остаток · {currency}</p>
-            <p className="mt-1 truncate text-[20px] font-bold tabular-nums text-slate-900">{money(total, currency)}</p>
-          </div>
+          <StatCard key={currency} icon={Coins} label={`Остаток · ${currency}`} value={money(total, currency)} />
         ))}
-        <div className="rounded-2xl bg-slate-100 p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Счетов</p>
-          <p className="mt-1 text-[20px] font-bold tabular-nums text-slate-900">{active.length}{archivedCount > 0 && <span className="ml-2 text-[12px] font-medium text-slate-400">+ {archivedCount} в архиве</span>}</p>
-        </div>
+        <StatCard icon={Wallet} label="Счетов" value={active.length} hint={archivedCount > 0 ? `${archivedCount} в архиве` : undefined} />
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white">
