@@ -485,7 +485,7 @@ export default function ShipmentsPage() {
                 )}
                 {/* Same card as the pipeline: who → where → which container → who carries; status and its date in the bottom strip. */}
                 <button type="button" onClick={() => openShipment(s.id)}
-                  className="block w-full overflow-hidden rounded-xl border border-slate-200/80 bg-white p-3 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] active:bg-slate-50">
+                  className="block w-full overflow-hidden rounded-2xl bg-slate-100 p-3 text-left active:bg-slate-200/70">
                   <div className="flex items-start gap-2">
                     <p className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-5 text-slate-900">{(s.client as unknown as { name: string })?.name || 'Без клиента'}</p>
                     {s.container_size && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${s.container_size === 20 ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>{s.container_size} ft</span>}
@@ -499,7 +499,7 @@ export default function ShipmentsPage() {
                     {s.container_number ? <span className="font-mono text-[13px] font-medium text-slate-800"><Hl text={s.container_number} q={search} /></span> : <span className="text-slate-400">Без номера</span>}{s.container_type && ` · ${s.container_type}`}
                   </p>
                   {(s.carrier as unknown as { name: string })?.name && (
-                    <p className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                    <p className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
                       <Truck className="size-3 shrink-0 text-slate-400" aria-label="Перевозчик" /><span className="truncate">{(s.carrier as unknown as { name: string }).name}</span>
                     </p>
                   )}
