@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useState, type FormEvent } from 'react'
-import { Archive, ArchiveRestore, Banknote, CreditCard, Landmark, Pencil, Plus, Save, Search, Wallet, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Pencil, Plus, Save, Search, Wallet, X } from 'lucide-react'
+import { ACCOUNT_ICONS, accountIcon, type AccountIcon } from '@/lib/account-icons'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { FinanceTabs } from '@/components/finance-tabs'
-import { ACCOUNT_KINDS, CURRENCIES, maskNumber, money, totalsByCurrency, type Account } from '@/lib/accounts'
+import { CURRENCIES, maskNumber, money, totalsByCurrency, type Account } from '@/lib/accounts'
 
-const KIND_ICONS = { bank: Landmark, cash: Banknote, card: CreditCard, other: Wallet }
-const emptyForm = { name: '', kind: 'bank' as Account['kind'], currency: 'KZT' as Account['currency'], bank: '', number: '', balance: '', notes: '' }
+const emptyForm = { name: '', kind: 'Банк', currency: 'KZT' as Account['currency'], bank: '', number: '', balance: '', notes: '' }
 
 // Same controls as the new shipment / new request windows.
 const inpCls = 'h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-300'
@@ -30,6 +30,28 @@ export default function AccountsPage() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
+  // Types are a user-editable list (table account_types), each with an icon from ACCOUNT_ICONS.
+  const [types, setTypes] = useState<{ name: string; icon: string }[]>([])
+  // null = not adding; otherwise the new type being composed.
+  const [newType, setNewType] = useState<{ name: string; icon: AccountIcon } | null>(null)
+  const iconOf = (kind: string) => accountIcon(types.find(t => t.name === kind)?.icon)
+  useEffect(() => {
+    createClient().from('account_types').select('name, icon').order('created_at').then(({ data }) => setTypes((data ?? []) as { name: string; icon: string }[]))
+  }, [])
+  const addType = async () => {
+    const name = (newType?.name ?? '').trim()
+    if (!newType || !name) { setNewType(null); return }
+    const existing = types.find(t => t.name.toLowerCase() === name.toLowerCase())
+    if (!existing) {
+      const { error } = await createClient().from('account_types').insert({ name, icon: newType.icon })
+      if (error) { setFormError('Не удалось добавить тип.'); return }
+      setTypes(t => [...t, { name, icon: newType.icon }])
+    }
+    setForm(f => ({ ...f, kind: existing?.name ?? name }))
+    setNewType(null)
+  }
+
+
   const load = () => createClient().from('accounts').select('*').order('name').then(({ data, error }) => {
     if (error) setError('Не удалось загрузить счета.')
     else setAccounts((data ?? []) as Account[])
@@ -40,6 +62,7 @@ export default function AccountsPage() {
   const open = (a?: Account) => {
     setForm(a ? { name: a.name, kind: a.kind, currency: a.currency, bank: a.bank ?? '', number: a.number ?? '', balance: String(Number(a.balance)), notes: a.notes } : emptyForm)
     setFormError('')
+    setNewType(null)
     setEditing({ id: a?.id ?? null })
   }
   const close = () => { if (!saving) setEditing(null) }
@@ -125,13 +148,13 @@ export default function AccountsPage() {
         ) : (
           <ul className="divide-y divide-slate-100">
             {visible.map(a => {
-              const Icon = KIND_ICONS[a.kind]
+              const Icon = iconOf(a.kind)
               return (
                 <li key={a.id} className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50/70">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100"><Icon className="h-4 w-4 text-slate-600" /></div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-semibold text-slate-900">{a.name}</p>
-                    <p className="truncate text-[12px] text-slate-400">{[ACCOUNT_KINDS[a.kind], a.bank, maskNumber(a.number)].filter(Boolean).join(' · ')}</p>
+                    <p className="truncate text-[12px] text-slate-400">{[a.kind, a.bank, maskNumber(a.number)].filter(Boolean).join(' · ')}</p>
                   </div>
                   <p className={cn('shrink-0 text-right text-[14px] font-semibold tabular-nums', Number(a.balance) < 0 ? 'text-red-600' : 'text-slate-900')}>{money(a.balance, a.currency)}</p>
                   <div className="flex shrink-0 gap-0.5">
@@ -161,7 +184,48 @@ export default function AccountsPage() {
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
               <div className="space-y-4 rounded-2xl bg-white/60 p-4 ring-1 ring-white/80">
                 <label className="block"><span className={labelCls}>Название *</span><input autoFocus maxLength={120} placeholder="Например, Kaspi Business" className={inpCls} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></label>
-                <div><p className={labelCls}>Тип</p><div className="flex flex-wrap gap-1">{(Object.keys(ACCOUNT_KINDS) as Account['kind'][]).map(k => pill(ACCOUNT_KINDS[k], form.kind === k, () => setForm(f => ({ ...f, kind: k }))))}</div></div>
+                <div><p className={labelCls}>Тип</p>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {/* An account may keep a type that is no longer in the list. */}
+                    {[...types.map(t => t.name), ...(types.some(t => t.name === form.kind) ? [] : [form.kind])].map(k => {
+                      const Icon = iconOf(k), active = form.kind === k
+                      return (
+                        <button key={k} type="button" onClick={() => setForm(f => ({ ...f, kind: k }))} aria-pressed={active}
+                          className={cn('flex h-7 items-center gap-1.5 rounded-full border pl-2.5 pr-3 text-[11px] font-medium transition-all', active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300')}>
+                          <Icon className="h-3.5 w-3.5" /> {k}
+                        </button>
+                      )
+                    })}
+                    {newType === null && (
+                      <button type="button" onClick={() => setNewType({ name: '', icon: 'wallet' })} className="flex h-7 items-center gap-1 rounded-full border border-dashed border-slate-300 px-3 text-[11px] font-medium text-slate-500 hover:border-slate-400 hover:text-slate-700">
+                        <Plus className="h-3 w-3" /> Новый тип
+                      </button>
+                    )}
+                  </div>
+                  {newType && (
+                    <div className="mt-2 space-y-2 rounded-xl border border-slate-200 bg-white p-3">
+                      <div className="flex gap-2">
+                        <input autoFocus maxLength={40} value={newType.name} placeholder="Название типа" aria-label="Название нового типа"
+                          onChange={e => setNewType({ ...newType, name: e.target.value })}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addType() } if (e.key === 'Escape') { e.stopPropagation(); setNewType(null) } }}
+                          className={inpCls} />
+                        <button type="button" onClick={() => setNewType(null)} className="h-9 shrink-0 rounded-lg px-3 text-[12px] font-medium text-slate-500 hover:bg-slate-100">Отмена</button>
+                        <button type="button" onClick={addType} disabled={!newType.name.trim()} className="h-9 shrink-0 rounded-lg bg-slate-900 px-3 text-[12px] font-medium text-white disabled:opacity-40">Добавить</button>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1" role="radiogroup" aria-label="Иконка типа">
+                        {(Object.keys(ACCOUNT_ICONS) as AccountIcon[]).map(key => {
+                          const Icon = ACCOUNT_ICONS[key], active = newType.icon === key
+                          return (
+                            <button key={key} type="button" role="radio" aria-checked={active} aria-label={key} onClick={() => setNewType({ ...newType, icon: key })}
+                              className={cn('flex h-9 items-center justify-center rounded-lg border transition-all', active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700')}>
+                              <Icon className="h-4 w-4" />
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div><p className={labelCls}>Валюта</p><div className="flex flex-wrap gap-1">{CURRENCIES.map(c => pill(c, form.currency === c, () => setForm(f => ({ ...f, currency: c }))))}</div></div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label><span className={labelCls}>Банк</span><input maxLength={120} placeholder="—" className={inpCls} value={form.bank} onChange={e => setForm(f => ({ ...f, bank: e.target.value }))} /></label>

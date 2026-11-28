@@ -1,9 +1,8 @@
-export const ACCOUNT_KINDS = { bank: 'Банк', cash: 'Касса', card: 'Карта', other: 'Другое' } as const
 export const CURRENCIES = ['KZT', 'USD', 'RUB', 'AED', 'CNY', 'EUR'] as const
 const SYMBOLS: Record<string, string> = { KZT: '₸', USD: '$', RUB: '₽', AED: 'AED', CNY: '¥', EUR: '€' }
 
 export type Account = {
-  id: string; name: string; kind: keyof typeof ACCOUNT_KINDS; currency: (typeof CURRENCIES)[number]
+  id: string; name: string; kind: string; currency: (typeof CURRENCIES)[number]
   bank: string | null; number: string | null; balance: number | string; notes: string; archived_at: string | null; updated_at: string
 }
 
