@@ -499,9 +499,11 @@ export default function ShipmentsPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-semibold leading-5 text-slate-900">{(s.client as unknown as { name: string })?.name || 'Без клиента'}</p>
-                      <p className="mt-0.5 flex items-center gap-1 text-[12px] text-slate-500">
-                        <Container className="size-3.5 shrink-0 text-slate-400" aria-label="Контейнер" />
-                        {s.container_number ? <span className="truncate font-mono font-semibold text-slate-700"><Hl text={s.container_number} q={search} /></span> : <span>Без номера</span>}
+                      <p className="mt-1 flex items-center gap-1.5">
+                        <Container className="size-4 shrink-0 text-slate-500" aria-label="Контейнер" />
+                        {s.container_number
+                          ? <span className="truncate font-mono text-[15px] font-bold tracking-wide text-slate-900"><Hl text={s.container_number} q={search} /></span>
+                          : <span className="text-[13px] text-slate-400">Без номера</span>}
                       </p>
                     </div>
                   </div>
