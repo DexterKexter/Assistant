@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'rea
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle, ClipboardList } from 'lucide-react'
+import { Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle, ClipboardList, Tag, Box } from 'lucide-react'
 import { Place } from '@/components/place'
 import { RoutePoint } from '@/components/shipment-route-point'
 import { shipmentDateBounds, shipmentDateError, type ShipmentDateField } from '@/lib/shipment-dates'
@@ -22,6 +22,9 @@ import { FilterBar, FilterTabs, SearchInput } from '@/components/filter-bar'
 
 
 // Mobile card: colour and step of each status, and the date that matters for it.
+// Info chip on the gray mobile card: white, icon + text.
+const CHIP = 'inline-flex h-6 max-w-full items-center gap-1 rounded-md bg-white px-2 text-[11px] font-semibold text-slate-700'
+const CHIP_ICON = 'size-3 shrink-0 text-slate-400'
 const STAGE: Record<string, { step: number; dot: string; text: string; since: string }> = {
   loading: { step: 0, dot: 'bg-slate-400', text: 'text-slate-700', since: 'с' },
   in_transit: { step: 1, dot: 'bg-indigo-500', text: 'text-indigo-700', since: 'с' },
@@ -501,10 +504,7 @@ export default function ShipmentsPage() {
                       {s.container_number
                         ? <p className="truncate font-mono text-[16px] font-bold leading-5 tracking-wide text-slate-900"><Hl text={s.container_number} q={search} /></p>
                         : <p className="text-[15px] font-semibold leading-5 text-slate-400">Без номера</p>}
-                      <p className="mt-1 flex items-center gap-1.5 text-[13px] text-slate-600">
-                        <User className="size-3.5 shrink-0 text-slate-400" aria-label="Клиент" />
-                        <span className="truncate">{(s.client as unknown as { name: string })?.name || 'Без клиента'}</span>
-                      </p>
+                      <span className={`${CHIP} mt-1.5`}><User className={CHIP_ICON} aria-label="Клиент" /><span className="truncate">{(s.client as unknown as { name: string })?.name || 'Без клиента'}</span></span>
                     </div>
                   </div>
 
@@ -524,11 +524,11 @@ export default function ShipmentsPage() {
                     </p>
                   </div>
 
-                  <div className="mt-2.5 flex items-center gap-2 text-[12px] text-slate-600">
-                    <Truck className="size-3.5 shrink-0 text-slate-400" aria-label="Перевозчик" />
-                    <span className="min-w-0 flex-1 truncate">{(s.carrier as unknown as { name: string })?.name || 'Перевозчик не указан'}</span>
-                    {s.container_type && <span className="shrink-0 text-[11px] text-slate-500">{s.container_type}</span>}
-                    {s.container_size && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${s.container_size === 20 ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>{s.container_size} ft</span>}
+                  {/* Details as chips, each with its icon. */}
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {(s.carrier as unknown as { name: string })?.name && <span className={CHIP}><Truck className={CHIP_ICON} aria-label="Перевозчик" /><span className="truncate">{(s.carrier as unknown as { name: string }).name}</span></span>}
+                    {s.container_type && <span className={CHIP}><Tag className={CHIP_ICON} aria-label="Тип контейнера" />{s.container_type}</span>}
+                    {s.container_size && <span className={`${CHIP} ${s.container_size === 20 ? 'text-blue-600' : 'text-violet-600'}`}><Box className={CHIP_ICON} aria-label="Размер" />{s.container_size} ft</span>}
                   </div>
                 </button>
               </div>
