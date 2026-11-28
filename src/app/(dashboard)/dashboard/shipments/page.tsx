@@ -483,7 +483,7 @@ export default function ShipmentsPage() {
                 {showMonthHeader && (
                   <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide px-1 pt-3 pb-1.5">{curMonth}</p>
                 )}
-                {/* Same card as the pipeline: who → where → which container → who carries; status and its date in the bottom strip. */}
+                {/* Same order as the pipeline card: who → where → which container → who carries → status and its date. */}
                 <button type="button" onClick={() => openShipment(s.id)}
                   className="block w-full overflow-hidden rounded-2xl bg-slate-100 p-3 text-left active:bg-slate-200/70">
                   <div className="flex items-start gap-2">
@@ -503,7 +503,7 @@ export default function ShipmentsPage() {
                       <Truck className="size-3 shrink-0 text-slate-400" aria-label="Перевозчик" /><span className="truncate">{(s.carrier as unknown as { name: string }).name}</span>
                     </p>
                   )}
-                  <div className={`-mx-3 -mb-3 mt-3 flex items-center gap-1.5 px-3 py-1.5 text-white ${status.key === 'delivered' ? 'bg-emerald-600' : 'bg-slate-900'}`}>
+                  <div className={`mt-2.5 flex items-center gap-1.5 ${status.key === 'delivered' ? 'text-emerald-700' : 'text-slate-600'}`}>
                     {(() => { const Icon = STATUS_ICON[status.key] ?? Ship; return <Icon className="size-3.5 shrink-0" aria-hidden="true" /> })()}
                     <span className="text-[12px] font-bold">{status.label}</span>
                     <span className="ml-auto inline-flex items-center gap-1 text-[12px] font-bold tabular-nums">
