@@ -73,12 +73,12 @@ export default function FinancePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-6">
       <FinanceTabs />
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Финансы</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-[22px] font-bold tracking-tight text-slate-900 font-heading">Финансы</h1>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger render={<Button><Plus className="h-4 w-4 mr-2" />Добавить транзакцию</Button>} />
+          <DialogTrigger render={<button className="flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-[13px] font-medium text-white transition-colors hover:bg-slate-800"><Plus className="h-4 w-4" /> Новая операция</button>} />
           <DialogContent>
             <DialogHeader><DialogTitle>Новая транзакция</DialogTitle></DialogHeader>
             <form onSubmit={handleAdd} className="space-y-3">
