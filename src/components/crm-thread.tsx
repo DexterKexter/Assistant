@@ -126,6 +126,8 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
     const tempId = `tmp-${crypto.randomUUID()}`
     setMessages(m => [...m, { id: tempId, chat_id: chat.id, direction: 'out', text: shown, created_at: new Date().toISOString(), pending: true }])
     if (typed) setText('')
+    // A sent template clears the picker, like a sent message clears the input; it comes back if sending fails.
+    if (template) { setTplName(''); setTplShipment('') }
     setSending(true); setError('')
 
     const res = await fetch('/api/crm/send', { method: 'POST', body: JSON.stringify({ chatId: chat.id, text: body, shipmentId, template }) })
@@ -135,6 +137,7 @@ export function CrmThread({ chat, clients, onBack, side = true, onClientCreated 
       setError(await res.text())
       setMessages(m => m.filter(x => x.id !== tempId))
       if (typed) setText(t => t || body)   // give the text back unless the user already typed something new
+      if (template) { setTplName(n => n || template); setTplShipment(id => id || shipmentId || '') }
       return
     }
     const msg: Msg = await res.json()
