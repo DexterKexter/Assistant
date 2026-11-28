@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Search, Ship, LayoutGrid, Users, Wallet, FileText, MessageSquare, CheckSquare, BarChart3, Bell, Shield, ChevronDown, ChevronRight, HelpCircle, MapPin, Calendar, Filter, Kanban, List, Truck } from 'lucide-react'
+import { PageHeader } from '@/components/page-header'
 
 interface Section {
   id: string
@@ -153,10 +154,7 @@ export default function HelpPage() {
 
   return (
     <div className="space-y-5 max-w-3xl">
-      <div>
-        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Справочник</h1>
-        <p className="text-[13px] text-slate-400 mt-1">Полное руководство по приложению Logistics</p>
-      </div>
+      <PageHeader title="Справочник" subtitle="Полное руководство по приложению" />
 
       {/* Search */}
       <div className="relative">

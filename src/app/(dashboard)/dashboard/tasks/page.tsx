@@ -7,6 +7,7 @@ import { type TaskStatus, type TaskPriority, TASK_STATUS_CONFIG, TASK_PRIORITY_C
 import { KanbanView } from './kanban-view'
 import { ListView } from './list-view'
 import { Search, Plus, LayoutGrid, List, Filter } from 'lucide-react'
+import { PageHeader, PageAction } from '@/components/page-header'
 
 export default function TasksPage() {
   const { tasks, loading } = useTasks()
@@ -46,18 +47,9 @@ export default function TasksPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Задачи</h1>
-          <p className="text-[12px] text-slate-400 mt-0.5">
-            {stats.total} задач · {stats.in_progress} в работе · {stats.done} выполнено
-          </p>
-        </div>
-        <button onClick={createTask} className="h-9 px-4 rounded-xl bg-slate-900 text-white text-[12px] font-semibold hover:bg-slate-800 transition-colors flex items-center gap-1.5">
-          <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-          <span className="hidden sm:inline">Новая задача</span>
-        </button>
-      </div>
+      <PageHeader title="Задачи" subtitle={`${stats.total} задач · ${stats.in_progress} в работе · ${stats.done} выполнено`}>
+        <PageAction icon={Plus} onClick={createTask}>Новая задача</PageAction>
+      </PageHeader>
 
       {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap">

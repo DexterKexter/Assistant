@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { FinanceTabs } from '@/components/finance-tabs'
 import { CURRENCIES, maskNumber, money, totalsByCurrency, type Account } from '@/lib/accounts'
+import { PageHeader, PageAction } from '@/components/page-header'
 
 const emptyForm = { name: '', kind: 'Банк', currency: 'KZT' as Account['currency'], bank: '', number: '', balance: '', notes: '' }
 
@@ -95,12 +96,9 @@ export default function AccountsPage() {
   return (
     <div className="space-y-5 pb-6">
       <FinanceTabs />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[22px] font-bold tracking-tight text-slate-900 font-heading">Счета</h1>
-        <button onClick={() => open()} className="flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-[13px] font-medium text-white transition-colors hover:bg-slate-800">
-          <Plus className="h-4 w-4" /> Новый счёт
-        </button>
-      </div>
+      <PageHeader title="Счета">
+        <PageAction icon={Plus} onClick={() => open()}>Новый счёт</PageAction>
+      </PageHeader>
 
       {/* Dashboard: one card per currency (never converted), plus counts. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

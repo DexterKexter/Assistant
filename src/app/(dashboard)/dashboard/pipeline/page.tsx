@@ -10,6 +10,7 @@ import { CargoRequestDialog } from '@/components/cargo-request-dialog'
 import { useShipmentModal } from '@/lib/shipment-modal'
 import type { CargoRequest } from '@/lib/cargo-requests'
 import { loadingDue, loadingProgress, movePatch, STAGES, type Stage } from '@/lib/pipeline-stage'
+import { PageHeader } from '@/components/page-header'
 
 // The board has no data of its own: every card is a cargo request or a shipment,
 // and its column is derived from that record. Dragging a shipment card just edits its dates.
@@ -126,10 +127,7 @@ export default function PipelinePage() {
 
   return (
     <div className="space-y-4 pb-6">
-      <div className="flex items-baseline gap-3">
-        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Воронка</h1>
-        <p className="text-[12px] text-slate-400">Перетащите карточку в колонку — этап сменится, дата проставится сегодняшняя</p>
-      </div>
+      <PageHeader title="Воронка" subtitle="Перетащите карточку в колонку — этап сменится, дата проставится сегодняшняя" />
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-600">{error}</p>}
       {!columns && !error && <div role="status" aria-label="Загружаем воронку" className="skeleton h-64 rounded-xl" />}
       {columns && (

@@ -16,6 +16,7 @@ import { getShipmentStatus, type Shipment } from '@/types/database'
 import { fmtDate } from '@/lib/utils'
 import { useShipmentModal } from '@/lib/shipment-modal'
 import { useProfile } from '@/lib/useProfile'
+import { PageHeader, PageAction } from '@/components/page-header'
 
 
 const CONTAINER_TYPE_COLORS: Record<string, { backgroundColor: string; color: string }> = {
@@ -510,9 +511,13 @@ export default function ShipmentsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Перевозки</h1>
-      </div>
+      <PageHeader title="Перевозки">
+        <PageAction variant="secondary" icon={BookOpen} onClick={() => setShowRefs(true)}>Справочники</PageAction>
+        {canEdit && <>
+          <PageAction variant="secondary" icon={ClipboardList} onClick={() => setShowRequest(true)}>Новая заявка</PageAction>
+          <PageAction icon={Plus} onClick={startAddNew}>Новая перевозка</PageAction>
+        </>}
+      </PageHeader>
 
       {/* Search + Actions */}
       <div className="flex flex-wrap gap-2 items-center">
@@ -523,22 +528,6 @@ export default function ShipmentsPage() {
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <p role="status" className="text-[13px] text-slate-400 shrink-0">{loading ? (search.trim() ? 'Поиск...' : 'Загрузка...') : `${shipments.length} из ${totalCount}`}</p>
-        <button onClick={() => setShowRefs(true)} className="h-9 flex items-center gap-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-lg text-[13px] font-medium hover:bg-slate-50 transition-colors shrink-0">
-          <BookOpen className="w-4 h-4" />
-          <span className="hidden md:inline">Справочники</span>
-        </button>
-        {canEdit && (
-          <>
-            <button onClick={() => setShowRequest(true)} className="h-9 flex items-center gap-1.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-lg text-[13px] font-medium hover:bg-slate-50 transition-colors shrink-0">
-              <ClipboardList className="w-4 h-4" />
-              <span className="hidden md:inline">Новая заявка</span>
-            </button>
-            <button onClick={startAddNew} className="h-9 flex items-center gap-1.5 px-3 bg-slate-900 text-white rounded-lg text-[13px] font-medium hover:bg-slate-800 transition-colors shrink-0">
-              <Plus className="w-4 h-4" />
-              <span className="hidden md:inline">Новая перевозка</span>
-            </button>
-          </>
-        )}
       </div>
 
       {/* Status tabs */}

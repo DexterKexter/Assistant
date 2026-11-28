@@ -10,6 +10,7 @@ type AdminUser = Profile & { last_sign_in_at: string | null }
 import { Shield, Users, ChevronDown, Check, Search, UserPlus, Calculator, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import { StatCard } from '@/components/stat-card'
+import { PageHeader } from '@/components/page-header'
 
 const ALL_ROLES: UserRole[] = ['admin', 'manager', 'accountant', 'client']
 
@@ -99,12 +100,7 @@ export default function AdminPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[20px] font-bold text-slate-900 font-heading">Управление пользователями</h1>
-          <p className="text-[13px] text-slate-400 mt-0.5">{users.length} пользователей в системе</p>
-        </div>
-      </div>
+      <PageHeader title="Пользователи" subtitle={`${users.length} в системе`} />
 
       {/* Role cards */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">

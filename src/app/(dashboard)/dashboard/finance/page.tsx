@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, TrendingUp, TrendingDown, DollarSign } from 'lucide-react'
 import { TRANSACTION_CATEGORIES, type Transaction, type Client, type Shipment } from '@/types/database'
 import { StatCard } from '@/components/stat-card'
+import { PageHeader, PageAction } from '@/components/page-header'
 
 export default function FinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -75,10 +76,9 @@ export default function FinancePage() {
   return (
     <div className="space-y-5 pb-6">
       <FinanceTabs />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[22px] font-bold tracking-tight text-slate-900 font-heading">Финансы</h1>
+      <PageHeader title="Финансы">
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger render={<button className="flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-[13px] font-medium text-white transition-colors hover:bg-slate-800"><Plus className="h-4 w-4" /> Новая операция</button>} />
+          <DialogTrigger render={<PageAction icon={Plus}>Новая операция</PageAction>} />
           <DialogContent>
             <DialogHeader><DialogTitle>Новая транзакция</DialogTitle></DialogHeader>
             <form onSubmit={handleAdd} className="space-y-3">
@@ -121,7 +121,7 @@ export default function FinancePage() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+      </PageHeader>
 
       <div className="grid gap-3 md:grid-cols-3">
         <StatCard icon={TrendingUp} label="Доходы" value={`$${totalIncome.toLocaleString()}`} />

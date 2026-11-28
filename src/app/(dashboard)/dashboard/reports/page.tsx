@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Cartes
 import { Ship, TrendingUp, TrendingDown, Clock, CheckCircle2, Truck, MapPin, Container, BarChart3, GitCompare, Globe, CalendarDays } from 'lucide-react'
 import { fmtDate } from '@/lib/utils'
 import { StatCard } from '@/components/stat-card'
+import { PageHeader } from '@/components/page-header'
 
 const MONTHS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
 const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
@@ -272,7 +273,7 @@ export default function ReportsPage() {
   if (loading) {
     return (
       <div className="space-y-5">
-        <h1 className="text-[22px] font-bold text-slate-900 font-heading">Отчёты</h1>
+        <PageHeader title="Отчёты" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <div key={i} className="skeleton h-24 rounded-xl" />)}</div>
         <div className="skeleton h-64 rounded-xl" />
       </div>
@@ -287,9 +288,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Отчёты</h1>
-      </div>
+      <PageHeader title="Отчёты" />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-200">

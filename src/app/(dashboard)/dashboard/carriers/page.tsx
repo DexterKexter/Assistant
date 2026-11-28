@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Search, Truck, Clock, DollarSign, Plus, X, Save } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 import type { Carrier } from '@/types/database'
+import { PageHeader } from '@/components/page-header'
 
 type ActivityTab = 'all' | 'active' | 'moderate' | 'inactive'
 
@@ -103,10 +104,7 @@ export default function CarriersPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Перевозчики</h1>
-        <p className="text-[12px] text-slate-400 mt-0.5">{carriers.length} перевозчиков</p>
-      </div>
+      <PageHeader title="Перевозчики" subtitle={`${carriers.length} перевозчиков`} />
 
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex gap-1 border-b border-slate-200 flex-1 min-w-0 overflow-x-auto md:overflow-visible">

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { ClipboardList, ExternalLink, Plus, Search } from 'lucide-react'
 import { NewCargoRequest } from '@/components/new-cargo-request'
 import { createClient } from '@/lib/supabase/client'
@@ -10,6 +9,7 @@ import { CARGO_STATUSES, type CargoRequest } from '@/lib/cargo-requests'
 import { Input } from '@/components/ui/input'
 import { CargoRequestDialog } from '@/components/cargo-request-dialog'
 import { Button } from '@/components/ui/button'
+import { PageHeader, PageAction, PageActionLink } from '@/components/page-header'
 
 const date = (value: string) => new Date(value).toLocaleDateString('ru-RU')
 
@@ -54,13 +54,10 @@ export default function CargoRequestsPage() {
 
   return (
     <div className="space-y-4 pb-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Заявки на груз</h1>
-        <div className="flex gap-2">
-          <Link href="/cargo-request/demo" target="_blank" className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-[13px] font-medium text-slate-600 hover:bg-slate-50">Пример формы <ExternalLink className="size-3.5" /></Link>
-          <Button className="h-9 rounded-xl bg-slate-900 px-3.5 text-[13px] text-white" onClick={() => setCreateOpen(true)}><Plus className="size-4" />Новая</Button>
-        </div>
-      </div>
+      <PageHeader title="Заявки на груз">
+        <PageActionLink href="/cargo-request/demo" target="_blank" icon={ExternalLink}>Пример формы</PageActionLink>
+        <PageAction icon={Plus} onClick={() => setCreateOpen(true)}>Новая заявка</PageAction>
+      </PageHeader>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-72"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input aria-label="Поиск заявок" placeholder="Клиент, контейнер, номер…" value={search} onChange={e => setSearch(e.target.value)} className="h-9 rounded-xl pl-9 text-[13px]" /></div>

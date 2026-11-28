@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Search, Users, Clock, Diamond, Award, Medal, Star, Circle, Plus, X, Save } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 import type { Client } from '@/types/database'
+import { PageHeader } from '@/components/page-header'
 
 type ActivityTab = 'all' | 'active' | 'moderate' | 'inactive'
 
@@ -172,10 +173,7 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Клиенты</h1>
-        <p className="text-[12px] text-slate-400 mt-0.5">{clients.length} контактов</p>
-      </div>
+      <PageHeader title="Клиенты" subtitle={`${clients.length} контактов`} />
 
       {/* Rank bar */}
       {!loading && clients.length > 0 && (

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Place } from '@/components/place'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { PageHeader, PageAction } from '@/components/page-header'
 
 type Price = {
   id: string; title: string; origin: string; destination: string; border: string; transport: string; container: string
@@ -84,16 +85,14 @@ export default function PricesPage() {
 
   return (
     <div className="space-y-4 pb-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-[22px] font-bold text-slate-900 tracking-tight font-heading">Цены</h1>
-        {!!prices?.length && <span className="text-[13px] tabular-nums text-slate-400">{prices.length}</span>}
-        <label className="relative ml-auto w-full sm:w-64">
+      <PageHeader title="Цены" subtitle={prices?.length ? `Направлений: ${prices.length}` : undefined}>
+        <label className="relative w-full sm:w-64">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск по маршруту" aria-label="Поиск по ценам"
             className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-[13px] outline-none placeholder:text-slate-400 focus:border-slate-400" />
         </label>
-        <button onClick={() => openForm(empty)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 text-[13px] font-semibold text-white hover:bg-slate-800"><Plus className="size-4" />Добавить цену</button>
-      </div>
+        <PageAction icon={Plus} onClick={() => openForm(empty)}>Добавить цену</PageAction>
+      </PageHeader>
 
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-600">{error}</p>}
 
