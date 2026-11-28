@@ -528,7 +528,7 @@ export default function ShipmentsPage() {
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {(s.carrier as unknown as { name: string })?.name && <span className={CHIP}><Truck className={CHIP_ICON} aria-label="Перевозчик" /><span className="truncate">{(s.carrier as unknown as { name: string }).name}</span></span>}
                     {s.container_type && <span className={CHIP}><Tag className={CHIP_ICON} aria-label="Тип контейнера" />{s.container_type}</span>}
-                    {s.container_size && <span className={`${CHIP} ${s.container_size === 20 ? 'text-blue-600' : 'text-violet-600'}`}><Box className={CHIP_ICON} aria-label="Размер" />{s.container_size} ft</span>}
+                    {s.container_size && <span className={CHIP}><Box className={CHIP_ICON} aria-label="Размер" />{s.container_size} ft</span>}
                   </div>
                 </button>
               </div>
