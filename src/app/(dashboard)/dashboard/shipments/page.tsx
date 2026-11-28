@@ -542,7 +542,7 @@ export default function ShipmentsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Перевозки">
+      <PageHeader title="Перевозки" subtitle={<span role="status">{loading ? (search.trim() ? 'Поиск…' : 'Загрузка…') : `${search.trim() ? 'Найдено' : 'Перевозок'}: ${totalCount}`}</span>}>
         <PageAction variant="secondary" icon={BookOpen} onClick={() => setShowRefs(true)}>Справочники</PageAction>
         {canEdit && <>
           <PageAction variant="secondary" icon={ClipboardList} onClick={() => setShowRequest(true)}>Новая заявка</PageAction>
@@ -552,10 +552,7 @@ export default function ShipmentsPage() {
 
       <FilterBar>
         <FilterTabs label="Статус перевозки" options={statusFilters} value={statusFilter} onChange={setStatusFilter} />
-        <div className="flex w-full items-center gap-3 sm:w-auto">
-          <p role="status" className="shrink-0 text-[12px] text-slate-500">{loading ? (search.trim() ? 'Поиск…' : 'Загрузка…') : `${shipments.length} из ${totalCount}`}</p>
-          <SearchInput value={search} onChange={setSearch} placeholder="Контейнер, клиент" />
-        </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Контейнер, клиент" />
       </FilterBar>
 
       {showRequest && <NewCargoRequest onClose={() => setShowRequest(false)} onCreated={failed => {
