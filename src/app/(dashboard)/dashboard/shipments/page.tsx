@@ -494,8 +494,8 @@ export default function ShipmentsPage() {
                   className="block w-full rounded-2xl bg-slate-100 p-3 text-left transition-colors active:bg-slate-200/70">
                   <div className="flex items-start gap-3">
                     {/* Container number is the headline (what a manager searches by); the client goes under it. */}
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white">
-                      <Container className="size-5" aria-hidden="true" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm">
+                      <Container className="h-[18px] w-[18px]" aria-hidden="true" />
                     </div>
                     <div className="min-w-0 flex-1">
                       {s.container_number
