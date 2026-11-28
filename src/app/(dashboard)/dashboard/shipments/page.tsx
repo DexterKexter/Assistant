@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'rea
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle, ClipboardList } from 'lucide-react'
+import { Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle, ClipboardList, ArrowRight, CalendarDays, CheckCircle2, Package } from 'lucide-react'
+import { Place } from '@/components/place'
 import { RoutePoint } from '@/components/shipment-route-point'
 import { shipmentDateBounds, shipmentDateError, type ShipmentDateField } from '@/lib/shipment-dates'
 import { CONTAINER_NUMBER_PATTERN, editContainerNumber } from '@/lib/container-number'
@@ -19,6 +20,11 @@ import { useProfile } from '@/lib/useProfile'
 import { PageHeader, PageAction } from '@/components/page-header'
 import { FilterBar, FilterTabs, SearchInput } from '@/components/filter-bar'
 
+
+// Mobile card strip: icon and the date that matters for the current status.
+const STATUS_ICON: Record<string, typeof Ship> = { loading: Package, in_transit: Ship, border: MapPin, transit_kz: MapPin, delivered: CheckCircle2 }
+const statusDate = (s: Shipment, key: string) =>
+  key === 'delivered' ? s.delivery_date : key === 'border' || key === 'transit_kz' ? s.arrival_date : s.departure_date
 
 const CONTAINER_TYPE_COLORS: Record<string, { backgroundColor: string; color: string }> = {
   'Выкупной': { backgroundColor: '#fef3c7', color: '#92400e' },
@@ -471,37 +477,40 @@ export default function ShipmentsPage() {
             const curMonth = s.departure_date ? new Date(s.departure_date).toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) : ''
             const showMonthHeader = curMonth && curMonth !== lastMonth
             if (showMonthHeader) lastMonth = curMonth
-            const statusBg = status.key === 'delivered' ? '#f0fdf4' : status.key === 'in_transit' ? '#eef2ff' : '#fffbeb'
 
             return (
               <div key={s.id}>
                 {showMonthHeader && (
                   <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide px-1 pt-3 pb-1.5">{curMonth}</p>
                 )}
-                <div
-                  className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-3.5 active:bg-slate-50 transition-colors cursor-pointer"
-                  onClick={() => openShipment(s.id)}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="min-w-0">
-                      <p className="text-[14px] font-bold text-slate-900 font-mono"><Hl text={s.container_number || '—'} q={search} /></p>
-                      <p className="text-[12px] text-slate-500 truncate mt-0.5">{(s.client as unknown as { name: string })?.name || '—'}</p>
-                    </div>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap shrink-0" style={{ background: statusBg, color: status.color }}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${status.key === 'in_transit' ? 'dot-pulse' : ''}`} style={{ background: status.color }} />
-                      {status.label}
+                {/* Same card as the pipeline: who → where → which container → who carries; status and its date in the bottom strip. */}
+                <button type="button" onClick={() => openShipment(s.id)}
+                  className="block w-full overflow-hidden rounded-xl border border-slate-200/80 bg-white p-3 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] active:bg-slate-50">
+                  <div className="flex items-start gap-2">
+                    <p className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-5 text-slate-900">{(s.client as unknown as { name: string })?.name || 'Без клиента'}</p>
+                    {s.container_size && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${s.container_size === 20 ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>{s.container_size} ft</span>}
+                  </div>
+                  <p className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-slate-800">
+                    <span className="truncate"><Place name={s.origin || '—'} /></span>
+                    <ArrowRight className="size-3.5 shrink-0 text-slate-300" />
+                    <span className="truncate"><Place name={s.destination_city || s.destination_station || '—'} /></span>
+                  </p>
+                  <p className="mt-2 truncate text-[12px] leading-[18px] text-slate-500">
+                    {s.container_number ? <span className="font-mono text-[13px] font-medium text-slate-800"><Hl text={s.container_number} q={search} /></span> : <span className="text-slate-400">Без номера</span>}{s.container_type && ` · ${s.container_type}`}
+                  </p>
+                  {(s.carrier as unknown as { name: string })?.name && (
+                    <p className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                      <Truck className="size-3 shrink-0 text-slate-400" aria-label="Перевозчик" /><span className="truncate">{(s.carrier as unknown as { name: string }).name}</span>
+                    </p>
+                  )}
+                  <div className={`-mx-3 -mb-3 mt-3 flex items-center gap-1.5 px-3 py-1.5 text-white ${status.key === 'delivered' ? 'bg-emerald-600' : 'bg-slate-900'}`}>
+                    {(() => { const Icon = STATUS_ICON[status.key] ?? Ship; return <Icon className="size-3.5 shrink-0" aria-hidden="true" /> })()}
+                    <span className="text-[12px] font-bold">{status.label}</span>
+                    <span className="ml-auto inline-flex items-center gap-1 text-[12px] font-bold tabular-nums">
+                      <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />{fmtDate(statusDate(s, status.key))}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                    <span>{getFlag(s.origin)} {s.origin || '—'} → {getFlag(s.destination_city || s.destination_station)} {s.destination_city || s.destination_station || '—'}</span>
-                    <span className="ml-auto">{fmtDate(s.departure_date)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    {s.container_size && <span className={`rounded px-1.5 py-px text-[10px] font-medium ${s.container_size === 20 ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>{s.container_size}ft</span>}
-                    {s.container_type && <span className="rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600" style={CONTAINER_TYPE_COLORS[s.container_type]}>{s.container_type}</span>}
-                    {(s.carrier as unknown as { name: string })?.name && <span className="text-[11px] text-slate-400 ml-auto truncate max-w-[120px]">{(s.carrier as unknown as { name: string })?.name}</span>}
-                  </div>
-                </div>
+                </button>
               </div>
             )
           })
