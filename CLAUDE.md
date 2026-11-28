@@ -118,6 +118,7 @@ else → Загрузка (серый)
 - Табы: underline стиль (как у Acme)
 - Даты: формат дд.мм.гггг (функция `fmtDate` в `lib/utils.ts`)
 - Карта: Leaflet + CartoDB light tiles, статичная (без перетаскивания)
+- Карточки-показатели (KPI: число + подпись) — только компонент `StatCard` (`src/components/stat-card.tsx`): серый фон без рамки, иконка слева. Новые карточки не верстать вручную. Цвет иконки (`tone`) — только когда он что-то значит
 
 ## Supabase Keys
 - URL: https://xkrxmtjxicdiyawldeyp.supabase.co

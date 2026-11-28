@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 const TONES = {
   slate: 'bg-white text-slate-600',
   indigo: 'bg-indigo-500 text-white',
+  blue: 'bg-blue-500 text-white',
   emerald: 'bg-emerald-500 text-white',
   amber: 'bg-amber-500 text-white',
   red: 'bg-red-500 text-white',

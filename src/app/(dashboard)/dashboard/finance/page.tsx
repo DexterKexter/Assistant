@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, TrendingUp, TrendingDown, DollarSign } from 'lucide-react'
 import { TRANSACTION_CATEGORIES, type Transaction, type Client, type Shipment } from '@/types/database'
+import { StatCard } from '@/components/stat-card'
 
 export default function FinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -122,28 +123,10 @@ export default function FinancePage() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Доходы</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold text-green-600">${totalIncome.toLocaleString()}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Расходы</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold text-red-500">${totalExpense.toLocaleString()}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Баланс</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent><div className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-500'}`}>${balance.toLocaleString()}</div></CardContent>
-        </Card>
+      <div className="grid gap-3 md:grid-cols-3">
+        <StatCard icon={TrendingUp} tone="emerald" label="Доходы" value={`$${totalIncome.toLocaleString()}`} />
+        <StatCard icon={TrendingDown} tone="red" label="Расходы" value={`$${totalExpense.toLocaleString()}`} />
+        <StatCard icon={DollarSign} tone={balance >= 0 ? 'slate' : 'red'} label="Баланс" value={`$${balance.toLocaleString()}`} />
       </div>
 
       <Card>

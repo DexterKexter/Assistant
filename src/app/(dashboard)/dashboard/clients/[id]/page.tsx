@@ -14,6 +14,7 @@ import {
   Pencil, X as XIcon, Save, MessageSquare
 } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
+import { StatCard } from '@/components/stat-card'
 
 export default function ClientDetailPage() {
   const { id } = useParams()
@@ -328,23 +329,10 @@ export default function ClientDetailPage() {
       {/* ── Stats Cards ── */}
       {analytics && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-          {[
-            { label: 'Всего', fullLabel: 'Всего перевозок', value: analytics.total, icon: Ship, color: '#6366f1', bg: '#eef2ff' },
-            { label: 'Доставлено', fullLabel: 'Доставлено', value: analytics.delivered, icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4' },
-            { label: 'В пути', fullLabel: 'В пути', value: analytics.inTransit, icon: Truck, color: '#f59e0b', bg: '#fffbeb' },
-            { label: 'Ср. время', fullLabel: 'Среднее время', value: `${analytics.avgDays} д`, icon: Clock, color: '#8b5cf6', bg: '#f5f3ff' },
-          ].map(stat => (
-            <div key={stat.fullLabel} className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-3 md:p-4 flex items-center gap-2.5 md:flex-col md:items-start md:gap-0">
-              <div className="w-9 h-9 md:w-8 md:h-8 rounded-xl flex items-center justify-center shrink-0 md:mb-2" style={{ backgroundColor: stat.bg }}>
-                <stat.icon className="w-[18px] h-[18px] md:w-4 md:h-4" style={{ color: stat.color }} strokeWidth={2} />
-              </div>
-              <div className="min-w-0 flex-1 md:flex-none md:w-full">
-                <p className="text-[9.5px] md:text-[10px] text-slate-400 uppercase tracking-wide font-medium leading-tight mb-0.5 md:mb-2 truncate md:hidden">{stat.label}</p>
-                <p className="hidden md:block text-[10px] text-slate-400 uppercase tracking-wide font-medium mb-2">{stat.fullLabel}</p>
-                <p className="text-[18px] md:text-[22px] font-bold text-slate-900 leading-none">{stat.value}</p>
-              </div>
-            </div>
-          ))}
+          <StatCard icon={Ship} tone="indigo" label="Всего перевозок" value={analytics.total} />
+          <StatCard icon={CheckCircle2} tone="emerald" label="Доставлено" value={analytics.delivered} />
+          <StatCard icon={Truck} tone="amber" label="В пути" value={analytics.inTransit} />
+          <StatCard icon={Clock} tone="violet" label="Среднее время" value={`${analytics.avgDays} д`} />
         </div>
       )}
 

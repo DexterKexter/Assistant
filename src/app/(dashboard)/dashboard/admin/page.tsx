@@ -9,6 +9,7 @@ import type { Profile, UserRole } from '@/types/database'
 type AdminUser = Profile & { last_sign_in_at: string | null }
 import { Shield, Users, ChevronDown, Check, Search, UserPlus, Calculator, BookOpen } from 'lucide-react'
 import Link from 'next/link'
+import { StatCard } from '@/components/stat-card'
 
 const ALL_ROLES: UserRole[] = ['admin', 'manager', 'accountant', 'client']
 
@@ -108,25 +109,9 @@ export default function AdminPage() {
       {/* Role cards */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {ALL_ROLES.map((role) => (
-          <div key={role} className="bg-white rounded-xl border border-slate-100 px-4 py-3.5">
-            <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                role === 'admin' ? 'bg-gradient-to-br from-red-500 to-rose-600' :
-                role === 'manager' ? 'bg-gradient-to-br from-indigo-500 to-indigo-600' :
-                role === 'accountant' ? 'bg-gradient-to-br from-amber-500 to-orange-500' :
-                'bg-gradient-to-br from-slate-400 to-slate-500'
-              }`}>
-                {role === 'admin' ? <Shield className="w-4 h-4 text-white" strokeWidth={2} /> :
-                 role === 'manager' ? <Users className="w-4 h-4 text-white" strokeWidth={2} /> :
-                 role === 'accountant' ? <Calculator className="w-4 h-4 text-white" strokeWidth={2} /> :
-                 <UserPlus className="w-4 h-4 text-white" strokeWidth={2} />}
-              </div>
-              <div>
-                <p className="text-[17px] font-bold text-slate-900 font-heading">{roleCounts[role] || 0}</p>
-                <p className="text-[12px] text-slate-400">{ROLE_LABELS[role]}</p>
-              </div>
-            </div>
-          </div>
+          <StatCard key={role} label={ROLE_LABELS[role]} value={roleCounts[role] || 0}
+            icon={role === 'admin' ? Shield : role === 'manager' ? Users : role === 'accountant' ? Calculator : UserPlus}
+            tone={role === 'admin' ? 'red' : role === 'manager' ? 'indigo' : role === 'accountant' ? 'amber' : 'slate'} />
         ))}
       </div>
 

@@ -14,6 +14,7 @@ function safeName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_')
 }
 import { SearchableSelect } from '@/components/searchable-select'
+import { StatCard } from '@/components/stat-card'
 
 const ShipmentMap = dynamic(() => import('@/components/shipment-map').then(m => ({ default: m.ShipmentMap })), { ssr: false })
 
@@ -597,11 +598,11 @@ export default function ShipmentDetailInline({ id, mode = 'view', onClose }: { i
       {tab === 'finance' && !editing && (
         <div className="bg-white rounded-2xl ring-1 ring-slate-900/[0.04] shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_4px_16px_-4px_rgba(15,23,42,0.06)] p-5">
           <div className="grid grid-cols-3 gap-3">
-            {shipment.delivery_cost && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Доставка</p><p className="text-[18px] font-bold text-slate-900">${shipment.delivery_cost.toLocaleString()}</p></div>}
-            {shipment.price && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Цена</p><p className="text-[18px] font-bold text-slate-900">${shipment.price.toLocaleString()}</p></div>}
-            {shipment.invoice_amount && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Счёт</p><p className="text-[18px] font-bold text-slate-900">${shipment.invoice_amount.toLocaleString()}</p></div>}
-            {shipment.customs_cost && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Таможня</p><p className="text-[18px] font-bold text-slate-900">${shipment.customs_cost.toLocaleString()}</p></div>}
-            {shipment.additional_cost && <div className="bg-slate-50 rounded-lg p-3"><p className="text-[12px] text-slate-500">Доп. расходы</p><p className="text-[18px] font-bold text-slate-900">${shipment.additional_cost.toLocaleString()}</p></div>}
+            {shipment.delivery_cost && <StatCard icon={Truck} label="Доставка" value={`$${shipment.delivery_cost.toLocaleString()}`} />}
+            {shipment.price && <StatCard icon={Wallet} label="Цена" value={`$${shipment.price.toLocaleString()}`} />}
+            {shipment.invoice_amount && <StatCard icon={FileText} label="Счёт" value={`$${shipment.invoice_amount.toLocaleString()}`} />}
+            {shipment.customs_cost && <StatCard icon={Building2} label="Таможня" value={`$${shipment.customs_cost.toLocaleString()}`} />}
+            {shipment.additional_cost && <StatCard icon={Plus} label="Доп. расходы" value={`$${shipment.additional_cost.toLocaleString()}`} />}
           </div>
           {!shipment.delivery_cost && !shipment.price && !shipment.invoice_amount && <p className="text-[13px] text-slate-400 py-8 text-center">Нет данных</p>}
         </div>

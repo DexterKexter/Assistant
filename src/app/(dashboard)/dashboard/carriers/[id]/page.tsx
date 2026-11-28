@@ -10,6 +10,7 @@ import {
   ArrowLeft, Truck, Ship, DollarSign, Clock, ChevronRight, CheckCircle2,
   Search, MapPin, Users, Package, TrendingUp, Calendar
 } from 'lucide-react'
+import { StatCard } from '@/components/stat-card'
 
 const MONTH_LABELS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
 
@@ -145,22 +146,10 @@ export default function CarrierDetailPage() {
       {/* Stats */}
       {analytics && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: 'Перевозок', value: analytics.total, icon: Ship, color: '#6366f1', bg: '#eef2ff' },
-            { label: 'Доставлено', value: analytics.delivered, icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4' },
-            { label: 'Средн. стоимость', value: analytics.avgCost > 0 ? `$${analytics.avgCost.toLocaleString()}` : '—', icon: DollarSign, color: '#f59e0b', bg: '#fffbeb' },
-            { label: 'Среднее время', value: `${analytics.avgDays} д`, icon: Clock, color: '#8b5cf6', bg: '#f5f3ff' },
-          ].map(stat => (
-            <div key={stat.label} className="bg-slate-50 rounded-xl border border-slate-200/60 p-4">
-              <div className="flex items-center gap-2.5 mb-2">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: stat.bg }}>
-                  <stat.icon className="w-4 h-4" style={{ color: stat.color }} strokeWidth={1.8} />
-                </div>
-                <span className="text-[10px] text-slate-400 uppercase tracking-wide font-medium">{stat.label}</span>
-              </div>
-              <p className="text-[22px] font-bold text-slate-900 leading-none">{stat.value}</p>
-            </div>
-          ))}
+          <StatCard icon={Ship} tone="indigo" label="Перевозок" value={analytics.total} />
+          <StatCard icon={CheckCircle2} tone="emerald" label="Доставлено" value={analytics.delivered} />
+          <StatCard icon={DollarSign} tone="amber" label="Средняя стоимость" value={analytics.avgCost > 0 ? `$${analytics.avgCost.toLocaleString()}` : '—'} />
+          <StatCard icon={Clock} tone="violet" label="Среднее время" value={`${analytics.avgDays} д`} />
         </div>
       )}
 

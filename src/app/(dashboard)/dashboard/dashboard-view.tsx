@@ -8,6 +8,7 @@ import { useProfile } from '@/lib/useProfile'
 import { Ship, ArrowRight, MapPin, Truck, Clock, CheckCircle2, Sparkles } from 'lucide-react'
 import { type Shipment } from '@/types/database'
 import type { OriginAgg } from '@/components/dashboard-map'
+import { StatCard } from '@/components/stat-card'
 
 const DashboardMap = dynamic(() => import('@/components/dashboard-map').then(m => ({ default: m.DashboardMap })), {
   ssr: false,
@@ -36,10 +37,10 @@ export function DashboardView({ data }: { data: DashboardData }) {
   }
 
   const cards = [
-    { label: 'Загружено', value: cur.loaded, prev: prev.loaded, icon: Ship, gradient: 'from-indigo-500 to-indigo-600', compare: true },
-    { label: 'В пути', value: cur.inTransit, prev: 0, icon: Truck, gradient: 'from-blue-500 to-blue-600', compare: false },
-    { label: 'На границе', value: cur.onBorder, prev: 0, icon: Clock, gradient: 'from-amber-500 to-orange-500', compare: false },
-    { label: 'Доставлено', value: cur.delivered, prev: prev.delivered, icon: CheckCircle2, gradient: 'from-emerald-500 to-green-600', compare: true },
+    { label: 'Загружено', value: cur.loaded, prev: prev.loaded, icon: Ship, tone: 'indigo' as const, compare: true },
+    { label: 'В пути', value: cur.inTransit, prev: 0, icon: Truck, tone: 'blue' as const, compare: false },
+    { label: 'На границе', value: cur.onBorder, prev: 0, icon: Clock, tone: 'amber' as const, compare: false },
+    { label: 'Доставлено', value: cur.delivered, prev: prev.delivered, icon: CheckCircle2, tone: 'emerald' as const, compare: true },
   ]
 
   return (
@@ -60,27 +61,11 @@ export function DashboardView({ data }: { data: DashboardData }) {
       )}
 
       <div className="grid gap-2 grid-cols-2 md:gap-3 lg:grid-cols-4">
-        {cards.map((card, i) => {
+        {cards.map(card => {
           const d = diff(card.value, card.prev)
           return (
-            <div key={card.label} className="animate-fade-up bg-white rounded-xl px-3 py-3 md:px-4 md:py-3.5 border border-slate-100 shadow-sm card-interactive" style={{ animationDelay: `${i * 60}ms` }}>
-              <div className="flex items-center gap-2.5 md:gap-3">
-                <div className={`w-8 h-8 md:w-9 md:h-9 rounded-lg bg-gradient-to-br ${card.gradient} flex items-center justify-center shrink-0`}>
-                  <card.icon className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" strokeWidth={2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 md:gap-2">
-                    <p className="text-[15px] md:text-[17px] font-bold text-slate-900 tracking-tight leading-none font-heading">
-                      {card.value.toLocaleString()}
-                    </p>
-                    {card.compare && card.prev > 0 && (
-                      <span className={`text-[10px] ${d.up ? 'text-emerald-500' : 'text-red-400'}`}>{d.text}</span>
-                    )}
-                  </div>
-                  <p className="text-[11px] md:text-[12px] text-slate-400 mt-0.5">{card.label}</p>
-                </div>
-              </div>
-            </div>
+            <StatCard key={card.label} icon={card.icon} tone={card.tone} label={card.label} value={card.value.toLocaleString()}
+              hint={card.compare && card.prev > 0 ? <span className={d.up ? 'text-emerald-600' : 'text-red-500'}>{d.text}</span> : undefined} />
           )
         })}
       </div>
