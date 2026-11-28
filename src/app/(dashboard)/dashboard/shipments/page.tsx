@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'rea
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle, ClipboardList } from 'lucide-react'
+import { Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle, ClipboardList } from 'lucide-react'
 import { RoutePoint } from '@/components/shipment-route-point'
 import { shipmentDateBounds, shipmentDateError, type ShipmentDateField } from '@/lib/shipment-dates'
 import { CONTAINER_NUMBER_PATTERN, editContainerNumber } from '@/lib/container-number'
@@ -17,6 +17,7 @@ import { fmtDate } from '@/lib/utils'
 import { useShipmentModal } from '@/lib/shipment-modal'
 import { useProfile } from '@/lib/useProfile'
 import { PageHeader, PageAction } from '@/components/page-header'
+import { FilterBar, FilterTabs, SearchInput } from '@/components/filter-bar'
 
 
 const CONTAINER_TYPE_COLORS: Record<string, { backgroundColor: string; color: string }> = {
@@ -519,26 +520,13 @@ export default function ShipmentsPage() {
         </>}
       </PageHeader>
 
-      {/* Search + Actions */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <input type="text" placeholder="Контейнер, клиент..."
-            className="w-full h-9 rounded-lg bg-white border border-slate-200/80 pl-9 pr-3 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all"
-            value={search} onChange={(e) => setSearch(e.target.value)} />
+      <FilterBar>
+        <FilterTabs label="Статус перевозки" options={statusFilters} value={statusFilter} onChange={setStatusFilter} />
+        <div className="flex w-full items-center gap-3 sm:w-auto">
+          <p role="status" className="shrink-0 text-[12px] text-slate-500">{loading ? (search.trim() ? 'Поиск…' : 'Загрузка…') : `${shipments.length} из ${totalCount}`}</p>
+          <SearchInput value={search} onChange={setSearch} placeholder="Контейнер, клиент" />
         </div>
-        <p role="status" className="text-[13px] text-slate-400 shrink-0">{loading ? (search.trim() ? 'Поиск...' : 'Загрузка...') : `${shipments.length} из ${totalCount}`}</p>
-      </div>
-
-      {/* Status tabs */}
-      <div className="flex gap-1 p-1 rounded-lg w-fit overflow-x-auto max-w-full">
-        {statusFilters.map((f) => (
-          <button key={f.key} onClick={() => setStatusFilter(f.key)}
-            className={`px-3 py-[6px] rounded-md text-[12px] font-medium transition-all duration-150 ${statusFilter === f.key ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
-            {f.label}
-          </button>
-        ))}
-      </div>
+      </FilterBar>
 
       {showRequest && <NewCargoRequest onClose={() => setShowRequest(false)} onCreated={failed => {
         setShowRequest(false)

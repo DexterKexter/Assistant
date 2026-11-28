@@ -1,15 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ClipboardList, ExternalLink, Plus, Search } from 'lucide-react'
+import { ClipboardList, ExternalLink, Plus } from 'lucide-react'
 import { NewCargoRequest } from '@/components/new-cargo-request'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/useProfile'
 import { CARGO_STATUSES, type CargoRequest } from '@/lib/cargo-requests'
-import { Input } from '@/components/ui/input'
 import { CargoRequestDialog } from '@/components/cargo-request-dialog'
 import { Button } from '@/components/ui/button'
 import { PageHeader, PageAction, PageActionLink } from '@/components/page-header'
+import { FilterBar, FilterTabs, SearchInput } from '@/components/filter-bar'
 
 const date = (value: string) => new Date(value).toLocaleDateString('ru-RU')
 
@@ -59,15 +59,11 @@ export default function CargoRequestsPage() {
         <PageAction icon={Plus} onClick={() => setCreateOpen(true)}>Новая заявка</PageAction>
       </PageHeader>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full sm:w-72"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input aria-label="Поиск заявок" placeholder="Клиент, контейнер, номер…" value={search} onChange={e => setSearch(e.target.value)} className="h-9 rounded-xl pl-9 text-[13px]" /></div>
-        <div className="flex flex-wrap gap-1" aria-label="Статус заявки">
-          {[['all','Все'], ...Object.entries(CARGO_STATUSES).map(([key,value]) => [key,value.label])].map(([key,label]) => {
-            const count = key === 'all' ? requests.length : requests.filter(r => r.status === key).length
-            return <button key={key} type="button" aria-pressed={status===key} onClick={() => setStatus(key)} className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium ${status===key ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>{label}{count > 0 && <span className={`tabular-nums ${status===key ? 'text-slate-300' : 'text-slate-400'}`}>{count}</span>}</button>
-          })}
-        </div>
-      </div>
+      <FilterBar>
+        <FilterTabs label="Статус заявки" value={status} onChange={setStatus}
+          options={[{ key: 'all', label: 'Все', count: requests.length }, ...Object.entries(CARGO_STATUSES).map(([key, v]) => ({ key, label: v.label, count: requests.filter(r => r.status === key).length }))]} />
+        <SearchInput value={search} onChange={setSearch} placeholder="Клиент, контейнер, номер" />
+      </FilterBar>
 
       {requests.some(r => r.is_demo) && <p className="text-[12px] text-slate-400"><span className="mr-1.5 rounded bg-indigo-50 px-1.5 py-px text-[10px] font-semibold text-indigo-600">Демо</span>— вымышленные примеры. Клиентская форма пока работает в режиме просмотра.</p>}
 

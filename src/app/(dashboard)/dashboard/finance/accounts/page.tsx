@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type FormEvent } from 'react'
-import { Archive, ArchiveRestore, Coins, Pencil, Plus, Save, Search, Wallet, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Coins, Pencil, Plus, Save, Wallet, X } from 'lucide-react'
 import { StatCard } from '@/components/stat-card'
 import { ACCOUNT_ICONS, accountIcon, type AccountIcon } from '@/lib/account-icons'
 import { createClient } from '@/lib/supabase/client'
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { FinanceTabs } from '@/components/finance-tabs'
 import { CURRENCIES, maskNumber, money, totalsByCurrency, type Account } from '@/lib/accounts'
 import { PageHeader, PageAction } from '@/components/page-header'
+import { FilterBar, FilterTabs, SearchInput } from '@/components/filter-bar'
 
 const emptyForm = { name: '', kind: 'Банк', currency: 'KZT' as Account['currency'], bank: '', number: '', balance: '', notes: '' }
 
@@ -109,20 +110,11 @@ export default function AccountsPage() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white">
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
-          <div className="flex gap-0.5 rounded-lg bg-slate-100 p-0.5">
-            {([[false, 'Активные'], [true, 'Архив']] as const).map(([v, label]) => (
-              <button key={label} onClick={() => setShowArchived(v)} aria-pressed={showArchived === v}
-                className={cn('h-7 rounded-md px-3 text-[12px] font-medium', showArchived === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
-                {label}{v && archivedCount > 0 ? ` · ${archivedCount}` : ''}
-              </button>
-            ))}
-          </div>
-          <div className="relative ml-auto w-full sm:w-64">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Название, банк, номер" aria-label="Поиск счетов" className={cn(inpCls, 'pl-8')} />
-          </div>
-        </div>
+        <FilterBar className="border-b border-slate-100 px-4 py-3">
+          <FilterTabs label="Счета" value={showArchived ? 'archive' : 'active'} onChange={k => setShowArchived(k === 'archive')}
+            options={[{ key: 'active', label: 'Активные', count: active.length }, { key: 'archive', label: 'Архив', count: archivedCount }]} />
+          <SearchInput value={search} onChange={setSearch} placeholder="Название, банк, номер" />
+        </FilterBar>
 
         {loading ? (
           <div className="space-y-2 p-4">{[...Array(3)].map((_, i) => <div key={i} className="skeleton h-12 w-full rounded-lg" />)}</div>

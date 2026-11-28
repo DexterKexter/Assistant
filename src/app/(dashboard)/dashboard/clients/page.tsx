@@ -3,10 +3,11 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Users, Clock, Diamond, Award, Medal, Star, Circle, Plus, X, Save } from 'lucide-react'
+import { Users, Clock, Diamond, Award, Medal, Star, Circle, Plus, X, Save } from 'lucide-react'
 import { useProfile } from '@/lib/useProfile'
 import type { Client } from '@/types/database'
 import { PageHeader, PageAction } from '@/components/page-header'
+import { FilterBar, FilterTabs, SearchInput } from '@/components/filter-bar'
 
 type ActivityTab = 'all' | 'active' | 'moderate' | 'inactive'
 
@@ -193,35 +194,10 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex gap-1 border-b border-slate-200 flex-1 min-w-0 overflow-x-auto md:overflow-visible">
-          {tabs.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 px-3 pb-2.5 text-[12px] font-medium border-b-2 -mb-px transition-all shrink-0 ${
-                tab === t.key ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              {t.label}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === t.key ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                {t.count}
-              </span>
-            </button>
-          ))}
-        </div>
-        <div className="relative w-full md:max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" strokeWidth={2} />
-          <input
-            type="text"
-            placeholder="Поиск по имени..."
-            className="w-full h-9 rounded-lg bg-white border border-slate-200 pl-9 pr-3 text-[12px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/20 transition-all"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-      </div>
+      <FilterBar>
+        <FilterTabs label="Активность клиентов" options={tabs} value={tab} onChange={setTab} />
+        <SearchInput value={search} onChange={setSearch} placeholder="Поиск по имени" />
+      </FilterBar>
 
       {adding && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => !saving && setAdding(false)}>
