@@ -489,21 +489,21 @@ export default function ShipmentsPage() {
                 {showMonthHeader && (
                   <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide px-1 pt-3 pb-1.5">{curMonth}</p>
                 )}
-                {/* Phone card. 1) who + which container (what a manager searches by), 2) where it is (route with progress), 3) details with icons. */}
+                {/* Phone card. 1) container number, then client, 2) where it is (route with progress), 3) details with icons. */}
                 <button type="button" onClick={() => openShipment(s.id)}
                   className="block w-full rounded-2xl bg-slate-100 p-3 text-left transition-colors active:bg-slate-200/70">
                   <div className="flex items-start gap-3">
-                    {/* Same avatar as the clients list. */}
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-[13px] font-bold text-white">
-                      {((s.client as unknown as { name: string })?.name || '?').charAt(0).toUpperCase()}
+                    {/* Container number is the headline (what a manager searches by); the client goes under it. */}
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white">
+                      <Container className="size-5" aria-hidden="true" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-semibold leading-5 text-slate-900">{(s.client as unknown as { name: string })?.name || 'Без клиента'}</p>
-                      <p className="mt-1 flex items-center gap-1.5">
-                        <Container className="size-4 shrink-0 text-slate-500" aria-label="Контейнер" />
-                        {s.container_number
-                          ? <span className="truncate font-mono text-[15px] font-bold tracking-wide text-slate-900"><Hl text={s.container_number} q={search} /></span>
-                          : <span className="text-[13px] text-slate-400">Без номера</span>}
+                      {s.container_number
+                        ? <p className="truncate font-mono text-[16px] font-bold leading-5 tracking-wide text-slate-900"><Hl text={s.container_number} q={search} /></p>
+                        : <p className="text-[15px] font-semibold leading-5 text-slate-400">Без номера</p>}
+                      <p className="mt-1 flex items-center gap-1.5 text-[13px] text-slate-600">
+                        <User className="size-3.5 shrink-0 text-slate-400" aria-label="Клиент" />
+                        <span className="truncate">{(s.client as unknown as { name: string })?.name || 'Без клиента'}</span>
                       </p>
                     </div>
                   </div>
