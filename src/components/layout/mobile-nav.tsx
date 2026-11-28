@@ -83,8 +83,11 @@ export function MobileNav({ unreadCount, taskCount }: { unreadCount: number; tas
     setProfileOpen(false)
   }
 
+  // Same as the sidebar: staff open the WhatsApp CRM; other roles keep the team chat.
+  const linkFor = (href: string) => href === '/dashboard/messages' && hasRole('admin', 'manager') ? '/dashboard/crm' : href
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
+    if (href === '/dashboard/messages' && pathname.startsWith('/dashboard/crm')) return true
     return pathname.startsWith(href)
   }
 
@@ -114,7 +117,7 @@ export function MobileNav({ unreadCount, taskCount }: { unreadCount: number; tas
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={linkFor(item.href)}
                 aria-label={item.label}
                 className="group flex items-center justify-center px-1.5 py-0.5 transition-all min-w-[44px]"
               >
@@ -191,7 +194,7 @@ export function MobileNav({ unreadCount, taskCount }: { unreadCount: number; tas
                       return (
                         <Link
                           key={item.href}
-                          href={item.href}
+                          href={linkFor(item.href)}
                           onClick={() => setMenuOpen(false)}
                           className={cn(
                             'flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[14px] transition-colors',
