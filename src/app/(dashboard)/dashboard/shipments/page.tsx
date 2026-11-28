@@ -510,11 +510,11 @@ export default function ShipmentsPage() {
                   </div>
 
                   {/* Route: origin and destination with the way between them filled up to the current step. */}
-                  <div className="mt-3 rounded-xl bg-white px-3 py-2.5">
+                  <div className="mt-3">
                     <div className="flex items-center gap-2 text-[13px] font-semibold text-slate-900">
                       <span className="min-w-0 max-w-[40%] truncate"><Place name={s.origin || '—'} /></span>
                       <div className="flex flex-1 items-center gap-0.5" aria-hidden="true">
-                        {[1, 2, 3].map(i => <span key={i} className={`h-1 flex-1 rounded-full ${i <= (STAGE[status.key]?.step ?? 0) ? STAGE[status.key]?.dot ?? 'bg-slate-400' : 'bg-slate-200'}`} />)}
+                        {[1, 2, 3].map(i => <span key={i} className={`h-1 flex-1 rounded-full ${i <= (STAGE[status.key]?.step ?? 0) ? STAGE[status.key]?.dot ?? 'bg-slate-400' : 'bg-white'}`} />)}
                       </div>
                       <span className="min-w-0 max-w-[40%] truncate text-right"><Place name={s.destination_city || s.destination_station || '—'} /></span>
                     </div>
