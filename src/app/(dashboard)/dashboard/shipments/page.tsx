@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'rea
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
-import { Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle, ClipboardList, ArrowRight, CalendarDays, CheckCircle2, Package } from 'lucide-react'
+import { Ship, X, Filter, Plus, BookOpen, Check, Save, DollarSign, User, Building2, Truck, Send, Container, MapPin, LoaderCircle, ClipboardList, ArrowRight } from 'lucide-react'
 import { Place } from '@/components/place'
 import { RoutePoint } from '@/components/shipment-route-point'
 import { shipmentDateBounds, shipmentDateError, type ShipmentDateField } from '@/lib/shipment-dates'
@@ -21,8 +21,14 @@ import { PageHeader, PageAction } from '@/components/page-header'
 import { FilterBar, FilterTabs, SearchInput } from '@/components/filter-bar'
 
 
-// Mobile card strip: icon and the date that matters for the current status.
-const STATUS_ICON: Record<string, typeof Ship> = { loading: Package, in_transit: Ship, border: MapPin, transit_kz: MapPin, delivered: CheckCircle2 }
+// Mobile card: colour and step of each status, and the date that matters for it.
+const STAGE: Record<string, { step: number; dot: string; text: string }> = {
+  loading: { step: 0, dot: 'bg-slate-400', text: 'text-slate-600' },
+  in_transit: { step: 1, dot: 'bg-indigo-500', text: 'text-indigo-700' },
+  border: { step: 2, dot: 'bg-amber-500', text: 'text-amber-700' },
+  transit_kz: { step: 2, dot: 'bg-amber-500', text: 'text-amber-700' },
+  delivered: { step: 3, dot: 'bg-emerald-500', text: 'text-emerald-700' },
+}
 const statusDate = (s: Shipment, key: string) =>
   key === 'delivered' ? s.delivery_date : key === 'border' || key === 'transit_kz' ? s.arrival_date : s.departure_date
 
@@ -483,33 +489,31 @@ export default function ShipmentsPage() {
                 {showMonthHeader && (
                   <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide px-1 pt-3 pb-1.5">{curMonth}</p>
                 )}
-                {/* Same order as the pipeline card: who → where → which container → who carries → status and its date. */}
+                {/* Phone card. Reading order: where it stands (status + date) → route → whose / which container → progress → details. */}
                 <button type="button" onClick={() => openShipment(s.id)}
-                  className="block w-full overflow-hidden rounded-2xl bg-slate-100 p-3 text-left active:bg-slate-200/70">
-                  <div className="flex items-start gap-2">
-                    <p className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-5 text-slate-900">{(s.client as unknown as { name: string })?.name || 'Без клиента'}</p>
-                    {s.container_size && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${s.container_size === 20 ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>{s.container_size} ft</span>}
-                  </div>
-                  <p className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-slate-800">
-                    <span className="truncate"><Place name={s.origin || '—'} /></span>
-                    <ArrowRight className="size-3.5 shrink-0 text-slate-300" />
-                    <span className="truncate"><Place name={s.destination_city || s.destination_station || '—'} /></span>
-                  </p>
-                  <p className="mt-2 truncate text-[12px] leading-[18px] text-slate-500">
-                    {s.container_number ? <span className="font-mono text-[13px] font-medium text-slate-800"><Hl text={s.container_number} q={search} /></span> : <span className="text-slate-400">Без номера</span>}{s.container_type && ` · ${s.container_type}`}
-                  </p>
-                  {(s.carrier as unknown as { name: string })?.name && (
-                    <p className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
-                      <Truck className="size-3 shrink-0 text-slate-400" aria-label="Перевозчик" /><span className="truncate">{(s.carrier as unknown as { name: string }).name}</span>
-                    </p>
-                  )}
-                  <div className={`mt-2.5 flex items-center gap-1.5 ${status.key === 'delivered' ? 'text-emerald-700' : 'text-slate-600'}`}>
-                    {(() => { const Icon = STATUS_ICON[status.key] ?? Ship; return <Icon className="size-3.5 shrink-0" aria-hidden="true" /> })()}
-                    <span className="text-[12px] font-bold">{status.label}</span>
-                    <span className="ml-auto inline-flex items-center gap-1 text-[12px] font-bold tabular-nums">
-                      <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />{fmtDate(statusDate(s, status.key))}
+                  className="block w-full rounded-2xl bg-slate-100 p-3.5 text-left transition-colors active:bg-slate-200/70">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`inline-flex items-center gap-1.5 rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold ${STAGE[status.key]?.text ?? 'text-slate-600'}`}>
+                      <span className={`size-1.5 rounded-full ${STAGE[status.key]?.dot ?? 'bg-slate-400'}`} />{status.label}
                     </span>
+                    <span className="text-[12px] tabular-nums text-slate-500">{fmtDate(statusDate(s, status.key))}</span>
                   </div>
+                  <p className="mt-2.5 flex items-center gap-2 text-[15px] font-semibold leading-tight text-slate-900">
+                    <span className="min-w-0 truncate"><Place name={s.origin || '—'} /></span>
+                    <ArrowRight className="size-4 shrink-0 text-slate-400" />
+                    <span className="min-w-0 truncate"><Place name={s.destination_city || s.destination_station || '—'} /></span>
+                  </p>
+                  <p className="mt-1 truncate text-[12px] text-slate-500">
+                    {(s.client as unknown as { name: string })?.name || 'Без клиента'}
+                    {s.container_number && <> · <span className="font-mono font-medium text-slate-700"><Hl text={s.container_number} q={search} /></span></>}
+                  </p>
+                  {/* Four steps: loading → on the way → border → delivered. */}
+                  <div className="mt-3 grid grid-cols-4 gap-1" aria-hidden="true">
+                    {[0, 1, 2, 3].map(i => <span key={i} className={`h-1 rounded-full ${i <= (STAGE[status.key]?.step ?? 0) ? STAGE[status.key]?.dot ?? 'bg-slate-400' : 'bg-white'}`} />)}
+                  </div>
+                  <p className="mt-2.5 truncate text-[11px] text-slate-500">
+                    {[s.container_size && `${s.container_size} ft`, s.container_type, (s.carrier as unknown as { name: string })?.name].filter(Boolean).join(' · ')}
+                  </p>
                 </button>
               </div>
             )
